@@ -520,6 +520,7 @@ public class ModSetup
 
     public static void UiLogoText(string value)
     {
+        if (string.IsNullOrWhiteSpace(value)) return; // 空值保留默认文字，避免左上角空白
         ModMain.frmMain.LabTitleLogo.Text = value;
     }
 

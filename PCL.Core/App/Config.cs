@@ -212,7 +212,7 @@ public static partial class Config
         /// <summary>
         /// 窗口标题文本。
         /// </summary>
-        [ConfigItem<string>("UiLogoText", "", ConfigSource.Local)] public partial string WindowTitleCustomText { get; set; }
+        [ConfigItem<string>("UiLogoText", "Ayaka", ConfigSource.Local)] public partial string WindowTitleCustomText { get; set; }
 
         /// <summary>
         /// 导航栏居左。
