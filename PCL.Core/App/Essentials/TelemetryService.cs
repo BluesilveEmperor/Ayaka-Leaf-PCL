@@ -6,11 +6,12 @@ using PCL.Core.Logging;
 namespace PCL.Core.App.Essentials;
 
 /// <summary>
-/// 遥测服务。AyakaLauncher 本地版已完全停用：不上报任何数据，仅保留空的 lifecycle 占位。
+/// 遥测服务。AyakaLauncher 本地版已完全停用：不上报任何数据。
+/// 注意：必须保持可实例化（sealed 非 static），Lifecycle IoC 会通过反射创建此服务。
 /// </summary>
 [LifecycleScope("telemetry", "遥测")]
 [LifecycleService(LifecycleState.Running)]
-public static class TelemetryService
+public sealed partial class TelemetryService
 {
     /// <summary>
     /// 兼容旧调用点：本地版不上报，直接忽略。
