@@ -441,7 +441,7 @@ public class ModSetup
                 ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
-                ModMain.frmMain.LabTitleLogo.Text = "AyakaLauncher";
+                ModMain.frmMain.LabTitleLogo.Text = "Ayaka";
                 ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Visible;
                 if (ModMain.frmSetupUI is not null)
                 {
