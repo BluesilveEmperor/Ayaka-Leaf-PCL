@@ -726,21 +726,14 @@ public partial class PageSetupUI
             // 设置子页面 (FrmSetupLeft)
             if (ModMain.frmSetupLeft is not null)
             {
-                ModMain.frmSetupLeft.ItemLaunch.Visibility =
-                    !HiddenForceShow && conf.SetupLaunch ? Visibility.Collapsed : Visibility.Visible;
                 ModMain.frmSetupLeft.ItemUI.Visibility =
                     !HiddenForceShow && conf.SetupUi ? Visibility.Collapsed : Visibility.Visible;
                 ModMain.frmSetupLeft.ItemLauncherLanguage.Visibility = !HiddenForceShow && conf.SetupLauncherLanguage
                     ? Visibility.Collapsed
                     : Visibility.Visible;
-                ModMain.frmSetupLeft.ItemGameManage.Visibility = !HiddenForceShow && conf.SetupGameManage
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
                 ModMain.frmSetupLeft.ItemLauncherMisc.Visibility = !HiddenForceShow && conf.SetupLauncherMisc
                     ? Visibility.Collapsed
                     : Visibility.Visible;
-                ModMain.frmSetupLeft.ItemJava.Visibility =
-                    !HiddenForceShow && conf.SetupJava ? Visibility.Collapsed : Visibility.Visible;
                 ModMain.frmSetupLeft.ItemUpdate.Visibility =
                     !HiddenForceShow && conf.SetupUpdate ? Visibility.Collapsed : Visibility.Visible;
                 ModMain.frmSetupLeft.ItemAbout.Visibility =
@@ -753,8 +746,6 @@ public partial class PageSetupUI
 
                 var categories = new[]
                 {
-                    (ModMain.frmSetupLeft.TextGameCategory,
-                        !(conf.SetupLaunch && conf.SetupJava && conf.SetupGameManage)),
                     (ModMain.frmSetupLeft.TextLauncherCategory, !(conf.SetupUi && conf.SetupLauncherLanguage && conf.SetupLauncherMisc)),
                     (ModMain.frmSetupLeft.TextAboutCategory,
                         !(conf.SetupAbout && conf.SetupUpdate && conf.SetupFeedback && conf.SetupLog))

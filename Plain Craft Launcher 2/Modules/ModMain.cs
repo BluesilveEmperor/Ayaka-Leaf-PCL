@@ -26,6 +26,10 @@ public static class ModMain
 {
     public static FormMain? frmMain;
     public static SplashScreen? frmStart;
+    public static PageServiceLeft? frmServiceLeft;
+    public static PageServiceRight? frmServiceRight;
+    public static PageMirror? frmMirror;
+    public static PageBackup? frmBackup;
     public static PageLaunchLeft? frmLaunchLeft;
     public static PageLaunchRight? frmLaunchRight;
     public static PageLogLeft? frmLogLeft;

@@ -1,0 +1,40 @@
+<local:MyPageRight
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" x:Class="PCL.PageBackup"
+    PanScroll="{Binding ElementName=PanBack}">
+    <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
+        <StackPanel x:Name="PanMain" Margin="25,25,25,10">
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="数据卷" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
+                        <local:MyButton Grid.Column="1" x:Name="BtnRefreshVolumes" Height="30" Width="80"
+                                        Text="刷新" Click="BtnRefreshVolumes_Click" />
+                    </Grid>
+                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                               Text="数据卷存放 Ayakaleaf 的全部数据（项目、用户、编译产物等）。点击右侧按钮导出备份文件；恢复前请先停止服务。" />
+                    <StackPanel x:Name="PanVolumes" Margin="0,10,0,0" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="从备份恢复" FontWeight="Bold" FontSize="15" />
+                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Opacity="0.8"
+                               Text="选择本程序导出的备份文件（文件名格式：卷名.时间.tar.gz），恢复会覆盖该数据卷的全部现有数据。" />
+                    <local:MyButton x:Name="BtnRestore" Height="35" Width="160" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" Text="选择备份文件恢复" ColorType="Highlight"
+                                    Click="BtnRestore_Click" />
+                    <TextBlock x:Name="LabRestoreProgress" Margin="0,8,0,0" FontSize="12" Opacity="0.7"
+                               TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</local:MyPageRight>

@@ -651,4 +651,35 @@ public static partial class Config
         [ConfigItem<string>("VersionServerAuthServer", "")] public partial ArgConfig<string> AuthServerAddress { get; }
         [ConfigItem<bool>("VersionServerLoginLock", false)] public partial ArgConfig<bool> AuthLocked { get; }
     }
+
+    /// <summary>
+    /// Ayakaleaf 服务栈配置。
+    /// </summary>
+    [ConfigGroup("Ayakaleaf")] partial class AyakaleafConfigGroup
+    {
+        /// <summary>
+        /// 承载 Ayakaleaf 运行时的专用 WSL 发行版名称。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafWslDistro", "AyakaleafRuntime", ConfigSource.Local)] public partial string WslDistro { get; set; }
+
+        /// <summary>
+        /// docker-compose 文件的 Windows 路径，留空则使用程序目录下 runtime\docker-compose.yml。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafComposePath", "", ConfigSource.Local)] public partial string ComposePath { get; set; }
+
+        /// <summary>
+        /// 对外服务端口（nginx 映射到宿主的端口）。
+        /// </summary>
+        [ConfigItem<int>("AyakaleafPort", 8080, ConfigSource.Local)] public partial int Port { get; set; }
+
+        /// <summary>
+        /// 探活路径。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafProbePath", "/login", ConfigSource.Local)] public partial string ProbePath { get; set; }
+
+        /// <summary>
+        /// 内嵌运行时是否已完成部署。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafDeployed", false, ConfigSource.Local)] public partial bool Deployed { get; set; }
+    }
 }

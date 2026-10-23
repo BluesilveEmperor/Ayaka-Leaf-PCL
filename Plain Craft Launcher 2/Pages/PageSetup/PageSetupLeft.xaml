@@ -7,51 +7,6 @@
     <local:MyScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
                           Style="{StaticResource ScrollViewerFullMargin}">
         <StackPanel Margin="0,12,0,0" x:Name="PanItem">
-            <TextBlock Text="{DynamicResource Setup.Left.Category.Game}" Margin="13,5,5,3" Opacity="0.6" FontSize="12" x:Name="TextGameCategory" />
-
-            <local:MyListItem x:Name="ItemLaunch" IsScaleAnimationEnabled="False" Tag="0" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="{DynamicResource Setup.Left.Item.Launch}" Type="RadioBox" Check="PageCheck"
-                          LogoScale="1" SvgIcon="lucide/rocket">
-                <local:MyListItem.Buttons>
-                    <x:Array Type="{x:Type local:MyIconButton}">
-                        <local:MyIconButton Tag="0" ToolTip="{DynamicResource Common.Action.Initialize}" ToolTipService.Placement="Right"
-                                            ToolTipService.InitialShowDelay="200" ToolTipService.VerticalOffset="-1"
-                                            Click="Reset"
-                                            SvgIcon="lucide/rotate-ccw"
-                                            LogoScale="0.9" />
-                    </x:Array>
-                </local:MyListItem.Buttons>
-            </local:MyListItem>
-
-            <local:MyListItem x:Name="ItemJava" IsScaleAnimationEnabled="False" Tag="9" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="{DynamicResource Setup.Left.Item.Java}" Type="RadioBox" Check="PageCheck"
-              LogoScale="1" SvgIcon="lucide/coffee">
-                <local:MyListItem.Buttons>
-                    <x:Array Type="{x:Type local:MyIconButton}">
-                        <local:MyIconButton Tag="9" ToolTip="{DynamicResource Common.Action.Refresh}" ToolTipService.Placement="Right"
-                                            ToolTipService.InitialShowDelay="200" ToolTipService.VerticalOffset="-1"
-                                            Click="Refresh" LogoScale="0.85"
-                                            SvgIcon="lucide/refresh-cw" />
-                    </x:Array>
-                </local:MyListItem.Buttons>
-            </local:MyListItem>
-
-            <local:MyListItem x:Name="ItemGameManage" IsScaleAnimationEnabled="False" Tag="2" MinPaddingRight="35"
-                               Check="PageCheck"
-                               Height="36" VerticalAlignment="Top" Title="{DynamicResource Setup.Left.Item.GameManage}" Type="RadioBox"
-                              LogoScale="0.95"
-                              SvgIcon="lucide/book-marked">
-                <local:MyListItem.Buttons>
-                    <x:Array Type="{x:Type local:MyIconButton}">
-                        <local:MyIconButton Tag="2" ToolTip="{DynamicResource Common.Action.Initialize}" ToolTipService.Placement="Right"
-                                            ToolTipService.InitialShowDelay="200" ToolTipService.VerticalOffset="-1"
-                                            Click="Reset"
-                                            SvgIcon="lucide/rotate-ccw"
-                                            LogoScale="0.9" />
-                    </x:Array>
-                </local:MyListItem.Buttons>
-            </local:MyListItem>
-
-            <TextBlock Text="{DynamicResource Setup.Left.Category.Tools}" Margin="13,5,5,3" Opacity="0.6" FontSize="12" x:Name="TextToolsCategory" />
-
             <TextBlock Text="{DynamicResource Setup.Left.Category.Launcher}" Margin="13,5,5,3" Opacity="0.6" FontSize="12" x:Name="TextLauncherCategory" />
 
             <local:MyListItem x:Name="ItemUI" IsScaleAnimationEnabled="False" Tag="1" MinPaddingRight="35" Height="36"

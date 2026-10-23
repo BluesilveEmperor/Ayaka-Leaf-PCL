@@ -65,8 +65,8 @@ public partial class FormMain
         ThemeService.ColorThemeChanged += theme => ThemeManager.ThemeRefresh((int)theme);
         // 窗体参数初始化
         ModMain.frmMain = this;
-        ModMain.frmLaunchLeft = new PageLaunchLeft();
-        ModMain.frmLaunchRight = new PageLaunchRight();
+        ModMain.frmServiceLeft = new PageServiceLeft();
+        ModMain.frmServiceRight = new PageServiceRight();
         // 版本号改变
         var lastVersion = States.System.LastVersion;
         if (lastVersion < ModBase.versionCode)
@@ -128,15 +128,15 @@ public partial class FormMain
             _helper.DragDrop += (_, _) => FileDrag(_helper.DropFilePaths);
         }
 
-        if (ModMain.frmLaunchLeft.Parent is not null)
-            ModMain.frmLaunchLeft.SetValue(ContentPresenter.ContentProperty, null);
-        if (ModMain.frmLaunchRight.Parent is not null)
-            ModMain.frmLaunchRight.SetValue(ContentPresenter.ContentProperty, null);
-        PanMainLeft.Child = ModMain.frmLaunchLeft;
-        pageLeft = ModMain.frmLaunchLeft;
-        PanMainRight.Child = ModMain.frmLaunchRight;
-        pageRight = ModMain.frmLaunchRight;
-        ModMain.frmLaunchRight.PageState = MyPageRight.PageStates.ContentStay;
+        if (ModMain.frmServiceLeft.Parent is not null)
+            ModMain.frmServiceLeft.SetValue(ContentPresenter.ContentProperty, null);
+        if (ModMain.frmServiceRight.Parent is not null)
+            ModMain.frmServiceRight.SetValue(ContentPresenter.ContentProperty, null);
+        PanMainLeft.Child = ModMain.frmServiceLeft;
+        pageLeft = ModMain.frmServiceLeft;
+        PanMainRight.Child = ModMain.frmServiceRight;
+        pageRight = ModMain.frmServiceRight;
+        ModMain.frmServiceRight.PageState = MyPageRight.PageStates.ContentStay;
         // 调试模式提醒
         if (ModBase.modeDebug)
             HintService.Hint(Lang.Text("Main.DebugMode.Hint"));
@@ -252,8 +252,12 @@ public partial class FormMain
                 States.System.LauncherEula = true;
                 // 遥测默认关闭
                 Config.System.TelemetryConfig.SetValue(false, forceNewValue: true);
-                // 本地用户：恢复会话并校正游戏目录
-                ModBase.RunInNewThread(() => LocalUserUi.InitializeOnStartup(), "LocalUser Init");
+                // 本地用户：恢复会话并执行登录门禁
+                ModBase.RunInNewThread(() =>
+                {
+                    LocalUserUi.InitializeOnStartup();
+                    LocalUserUi.EnsureLoggedInInteractive();
+                }, "LocalUser Init");
                 // 启动加载器池
                 try
                 {
@@ -1639,20 +1643,6 @@ public partial class FormMain
             isChangingPage = false;
             switch (stack.page)
             {
-                case PageType.Download:
-                {
-                    if (ModMain.frmDownloadLeft is null)
-                        ModMain.frmDownloadLeft = new PageDownloadLeft();
-                    foreach (var item in ModMain.frmDownloadLeft.PanItem.Children)
-                        if (item is MyListItem listItem &&
-                            ModBase.Val(listItem.Tag) == (double)subType)
-                        {
-                            listItem.SetChecked(true, true, stack == pageCurrent);
-                            break;
-                        }
-
-                    break;
-                }
                 case PageType.Setup:
                 {
                     if (ModMain.frmSetupLeft is null)
@@ -1804,27 +1794,21 @@ public partial class FormMain
             pageCurrent = stack;
             switch (stack.page)
             {
-                case PageType.Launch: // 启动
+                case PageType.Launch: // 服务台
                     {
-                        PageChangeAnim(ModMain.frmLaunchLeft, ModMain.frmLaunchRight);
+                        PageChangeAnim(ModMain.frmServiceLeft, ModMain.frmServiceRight);
                         break;
                     }
-                case PageType.Download: // 下载
+                case PageType.Download: // 镜像管理
                     {
-                        ModMain.frmDownloadLeft ??= new PageDownloadLeft();
-                        if (subType != PageSubType.Default)
-                            ModMain.frmDownloadLeft.pageID = subType;
-                        else
-                            subType = ModMain.frmDownloadLeft.pageID;
-                        // PageGet 方法会在未设置 SubType 时指定默认值，并建立相关页面的实例
-                        PageChangeAnim(ModMain.frmDownloadLeft, (FrameworkElement)ModMain.frmDownloadLeft.PageGet(subType));
+                        ModMain.frmMirror ??= new PageMirror();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmMirror);
                         break;
                     }
-                case PageType.Tools: // 联机
+                case PageType.Tools: // 数据备份
                     {
-                        ModMain.frmToolsLeft ??= new PageToolsLeft();
-                        subType = ModMain.frmToolsLeft.pageID;
-                        PageChangeAnim(ModMain.frmToolsLeft, (FrameworkElement)ModMain.frmToolsLeft.PageGet(subType));
+                        ModMain.frmBackup ??= new PageBackup();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmBackup);
                         break;
                     }
                 case PageType.Setup: // 设置

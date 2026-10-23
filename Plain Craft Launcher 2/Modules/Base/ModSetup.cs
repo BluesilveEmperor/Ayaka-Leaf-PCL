@@ -438,9 +438,10 @@ public class ModSetup
             case 1: // 默认
             {
                 ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Visible;                ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
-                ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;
-                ModMain.frmMain.CELogo.Visibility = Visibility.Visible;
+                ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
+                ModMain.frmMain.LabTitleLogo.Text = "AyakaLauncher";
+                ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Visible;
                 if (ModMain.frmSetupUI is not null)
                 {
                     ModMain.frmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed;
@@ -455,7 +456,7 @@ public class ModSetup
                 ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Collapsed;                ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Visible;
                 ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;
-                ModMain.frmMain.CELogo.Visibility = Visibility.Visible;
+                ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
                 if (ModMain.frmSetupUI is not null)
                 {
                     ModMain.frmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed;
@@ -471,7 +472,7 @@ public class ModSetup
                 ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Collapsed;                ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Visible;
-                ModMain.frmMain.CELogo.Visibility = Visibility.Visible;
+                ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
                 if (ModMain.frmSetupUI is not null)
                 {
                     ModMain.frmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed;
@@ -499,7 +500,9 @@ public class ModSetup
                 ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Visible;
                 ModMain.frmMain.LabTitleLogo.Visibility = Visibility.Collapsed;
-                ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;                if (ModMain.frmSetupUI is not null) 
+                ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;
+                ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
+                if (ModMain.frmSetupUI is not null)
                 {
                     ModMain.frmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed;
                     ModMain.frmSetupUI.PanLogoText.Visibility = Visibility.Collapsed;

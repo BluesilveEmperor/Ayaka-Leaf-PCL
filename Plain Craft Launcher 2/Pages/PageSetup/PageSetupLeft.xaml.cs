@@ -16,9 +16,6 @@ public partial class PageSetupLeft
         var isHiddenPage = false;
         var hide = Config.Preference.Hide;
 
-        if (ItemLaunch.Checked && hide.SetupLaunch) isHiddenPage = true;
-        if (ItemJava.Checked && hide.SetupJava) isHiddenPage = true;
-        if (ItemGameManage.Checked && hide.SetupGameManage)  isHiddenPage = true;
         if (ItemUI.Checked && hide.SetupUi) isHiddenPage = true;
         if (ItemLauncherLanguage.Checked && hide.SetupLauncherLanguage) isHiddenPage = true;
         if (ItemLauncherMisc.Checked && hide.SetupLauncherMisc) isHiddenPage = true;
@@ -38,28 +35,22 @@ public partial class PageSetupLeft
         if (isPageSwitched)
             return;
         var hideCfg = Config.Preference.Hide;
-        if (!hideCfg.SetupLaunch) 
-            ItemLaunch.SetChecked(true, false, false);
-        else if (!hideCfg.SetupJava) 
-            ItemJava.SetChecked(true, false, false);    
-        else if (!hideCfg.SetupGameManage)
-            ItemGameManage.SetChecked(true, false, false);
-        else if (!hideCfg.SetupUi)
+        if (!hideCfg.SetupUi)
             ItemUI.SetChecked(true, false, false);
         else if (!hideCfg.SetupLauncherLanguage)
             ItemLauncherLanguage.SetChecked(true, false, false);
-        else if (!hideCfg.SetupLauncherMisc) 
+        else if (!hideCfg.SetupLauncherMisc)
             ItemLauncherMisc.SetChecked(true, false, false);
-        else if (!hideCfg.SetupAbout) 
-            ItemAbout.SetChecked(true, false, false);   
-        else if (!hideCfg.SetupUpdate) 
+        else if (!hideCfg.SetupAbout)
+            ItemAbout.SetChecked(true, false, false);
+        else if (!hideCfg.SetupUpdate)
             ItemUpdate.SetChecked(true, false, false);
-        else if (!hideCfg.SetupFeedback) 
+        else if (!hideCfg.SetupFeedback)
             ItemFeedback.SetChecked(true, false, false);
-        else if (!hideCfg.SetupLog) 
+        else if (!hideCfg.SetupLog)
             ItemLog.SetChecked(true, false, false);
-        else 
-            ItemLaunch.SetChecked(true, false, false);
+        else
+            ItemUI.SetChecked(true, false, false);
     }
 
     private void PageOtherLeft_Unloaded(object sender, RoutedEventArgs e)
@@ -71,18 +62,6 @@ public partial class PageSetupLeft
     {
         switch (ModBase.Val(((MyIconButton)sender).Tag))
         {
-            case (double)FormMain.PageSubType.SetupLaunch:
-            {
-                if (ModMain.MyMsgBox(Lang.Text("Setup.Left.Reset.Launch.Message"), Lang.Text("Setup.Left.Reset.Title"), button2: Lang.Text("Common.Action.Cancel"), isWarn: true) == 1)
-                {
-                    if (ModMain.frmSetupLaunch is null)
-                        ModMain.frmSetupLaunch = new PageSetupLaunch();
-                    ModMain.frmSetupLaunch.Reset();
-                    ItemLaunch.Checked = true;
-                }
-
-                break;
-            }
             case (double)FormMain.PageSubType.SetupUI:
             {
                 if (ModMain.MyMsgBox(Lang.Text("Setup.Left.Reset.Ui.Message"),
@@ -92,18 +71,6 @@ public partial class PageSetupLeft
                         ModMain.frmSetupUI = new PageSetupUI();
                     ModMain.frmSetupUI.Reset();
                     ItemUI.Checked = true;
-                }
-
-                break;
-            }
-            case (double)FormMain.PageSubType.SetupGameManage:
-            {
-                if (ModMain.MyMsgBox(Lang.Text("Setup.Left.Reset.GameManage.Message"), Lang.Text("Setup.Left.Reset.Title"), button2: Lang.Text("Common.Action.Cancel"), isWarn: true) == 1)
-                {
-                    if (ModMain.frmSetupGameManage is null)
-                        ModMain.frmSetupGameManage = new PageSetupGameManage();
-                    ModMain.frmSetupGameManage.Reset();
-                    ItemGameManage.Checked = true;
                 }
 
                 break;
@@ -168,12 +135,6 @@ public partial class PageSetupLeft
                 ItemFeedback.Checked = true;
                 break;
             }
-            case (double)FormMain.PageSubType.SetupJava:
-            {
-                if (ModMain.frmSetupJava is not null) ModMain.frmSetupJava.loader.Start(isForceRestart: true);
-                ItemJava.Checked = true;
-                break;
-            }
         }
 
         HintService.Hint(Lang.Text("Setup.Left.Refreshing"), log: false);
@@ -191,20 +152,14 @@ public partial class PageSetupLeft
         InitializeComponent();
         // 选择第一个未被禁用的子页面
         var hideCfg = Config.Preference.Hide;
-        if (!hideCfg.SetupLaunch)
-            pageID = FormMain.PageSubType.SetupLaunch;
-        else if (!hideCfg.SetupJava)
-            pageID = FormMain.PageSubType.SetupJava;
-        else if (!hideCfg.SetupGameManage)
-            pageID = FormMain.PageSubType.SetupGameManage;
-        else if (!hideCfg.SetupUi)
+        if (!hideCfg.SetupUi)
             pageID = FormMain.PageSubType.SetupUI;
         else if (!hideCfg.SetupLauncherLanguage)
             pageID = FormMain.PageSubType.SetupLauncherLanguage;
         else if (!hideCfg.SetupLauncherMisc)
             pageID = FormMain.PageSubType.SetupLauncherMisc;
         else if (!hideCfg.SetupAbout)
-            pageID = FormMain.PageSubType.SetupAbout;        
+            pageID = FormMain.PageSubType.SetupAbout;
         else if (!hideCfg.SetupUpdate)
             pageID = FormMain.PageSubType.SetupUpdate;
         else if (!hideCfg.SetupFeedback)
@@ -212,7 +167,7 @@ public partial class PageSetupLeft
         else if (!hideCfg.SetupLog)
             pageID = FormMain.PageSubType.SetupLog;
         else
-            pageID = FormMain.PageSubType.SetupLaunch;
+            pageID = FormMain.PageSubType.SetupUI;
         AnimatedControl = PanItem;
         Loaded += PageSetupLeft_Loaded;
         Unloaded += PageOtherLeft_Unloaded;
@@ -238,23 +193,11 @@ public partial class PageSetupLeft
         var targetID = id ?? pageID;
         switch (id)
         {
-            case FormMain.PageSubType.SetupLaunch:
-            {
-                if (ModMain.frmSetupLaunch is null)
-                    ModMain.frmSetupLaunch = new PageSetupLaunch();
-                return ModMain.frmSetupLaunch;
-            }
             case FormMain.PageSubType.SetupUI:
             {
                 if (ModMain.frmSetupUI is null)
                     ModMain.frmSetupUI = new PageSetupUI();
                 return ModMain.frmSetupUI;
-            }
-            case FormMain.PageSubType.SetupGameManage:
-            {
-                if (ModMain.frmSetupGameManage is null)
-                    ModMain.frmSetupGameManage = new PageSetupGameManage();
-                return ModMain.frmSetupGameManage;
             }
             case FormMain.PageSubType.SetupUpdate:
             {
@@ -291,12 +234,6 @@ public partial class PageSetupLeft
                 if (ModMain.frmSetupLauncherMisc is null)
                     ModMain.frmSetupLauncherMisc = new PageSetupLauncherMisc();
                 return ModMain.frmSetupLauncherMisc;
-            }
-            case FormMain.PageSubType.SetupJava:
-            {
-                if (ModMain.frmSetupJava is null)
-                    ModMain.frmSetupJava = new PageSetupJava();
-                return ModMain.frmSetupJava;
             }
 
             default:
