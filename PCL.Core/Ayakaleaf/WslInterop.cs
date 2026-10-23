@@ -78,9 +78,11 @@ public static class WslInterop
         using var timeoutCts = new CancellationTokenSource(timeoutMs);
         var exitTask = process.WaitForExitAsync(timeoutCts.Token);
         var finished = await Task.WhenAny(exitTask, Task.Delay(Timeout.Infinite));
-        if (finished != exitTask)
+        if (finished != exitTask || exitTask.IsCanceled)
         {
+            // 超时：WaitForExitAsync 会被取消令牌转为 Canceled 态，须显式终止进程
             try { process.Kill(entireProcessTree: true); } catch { /* 进程可能已退出 */ }
+            try { await exitTask; } catch { /* 吞掉取消异常 */ }
             return new WslResult(-1, await stdoutTask, await stderrTask);
         }
 

@@ -104,17 +104,52 @@ public static class AyakaleafService
     }
 
     /// <summary>
-    /// 检查发行版内 Docker 是否就绪；未就绪时尝试拉起 docker 服务。
+    /// 检查发行版内 Docker 是否就绪；daemon 无响应时清理冲突实例并重启。
     /// </summary>
     public static async Task<bool> EnsureDockerReadyAsync()
     {
-        var check = await WslInterop.RunInDistroAsync(WslDistro, "docker info", 15000);
+        var check = await WslInterop.RunInDistroAsync(WslDistro, "docker info", 30000);
         if (check.IsSuccess) return true;
+        LogWrapper.Info($"[Ayakaleaf] docker info 失败（exit={check.ExitCode}）：{check.ErrorText?.Trim()}");
+        StartKeepAlive();
 
-        // wsl.conf 未启用 systemd 或服务未启动时兜底拉起
-        await WslInterop.RunInDistroAsync(WslDistro, "sh -c \"(systemctl start docker 2>/dev/null || service docker start 2>/dev/null)\"", 60000);
-        check = await WslInterop.RunInDistroAsync(WslDistro, "docker info", 20000);
+        // dockerd 若在运行但无响应（多实例抢 socket / pid 残留），清掉后按 boot 脚本同款方式重启；
+        // 若不在运行则直接启动。
+        const string restartSh =
+            "sh -c \"if pgrep -x dockerd >/dev/null; then pkill -x dockerd; sleep 2; fi; " +
+            "rm -f /var/run/docker.pid /var/run/docker.sock; " +
+            "nohup /usr/bin/dockerd >> /var/log/dockerd.log 2>&1 &\"";
+        await WslInterop.RunInDistroAsync(WslDistro, restartSh, 30000);
+        await Task.Delay(5000);
+        check = await WslInterop.RunInDistroAsync(WslDistro, "docker info", 30000);
+        if (!check.IsSuccess)
+            LogWrapper.Info($"[Ayakaleaf] docker info 重试仍失败（exit={check.ExitCode}）：{check.ErrorText?.Trim()}");
         return check.IsSuccess;
+    }
+
+    private static Process _keepAlive;
+
+    /// <summary>
+    /// 维持一个常驻 WSL 会话，防止发行版因空闲被 WSL 挂起（挂起会杀掉 dockerd 与全部容器）。
+    /// </summary>
+    public static void StartKeepAlive()
+    {
+        try
+        {
+            if (_keepAlive is { HasExited: false }) return;
+            _keepAlive = Process.Start(new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistro} --exec sleep infinity",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            LogWrapper.Info("[Ayakaleaf] 已启动 WSL 常驻保活会话");
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Info("[Ayakaleaf] 启动保活会话失败：" + ex.Message);
+        }
     }
 
     /// <summary>
@@ -125,6 +160,8 @@ public static class AyakaleafService
         var runtimeTar = Path.Combine(RuntimeDirectory, "runtime.tar");
         if (!File.Exists(runtimeTar))
             throw new FileNotFoundException("未找到内嵌运行时包 runtime.tar（应位于 runtime 目录）", runtimeTar);
+
+        StartKeepAlive();
 
         if (!await WslInterop.DistroExistsAsync(WslDistro))
         {
@@ -142,7 +179,7 @@ public static class AyakaleafService
 
         progress("等待 Docker 就绪…");
         var dockerReady = false;
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 60; i++)
         {
             ct.ThrowIfCancellationRequested();
             if (await EnsureDockerReadyAsync())
