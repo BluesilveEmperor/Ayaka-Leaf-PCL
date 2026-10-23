@@ -199,11 +199,12 @@ public static class LocalUserUi
         HintService.Hint("启动前请先登录本地用户。", HintType.Info);
         while (true)
         {
-            var choice = ModMain.MyMsgBoxSelect(
+            // MyMsgBoxSelect 的参数含 WPF 控件构造，必须在 UI 线程求值
+            var choice = ModBase.RunInUiWait<int?>(() => ModMain.MyMsgBoxSelect(
             [
                 new MyListItem { Title = "登录已有本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in", Checked = true },
                 new MyListItem { Title = "注册新的本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-plus" }
-            ], "启动前请先登录本地用户", "继续", "取消");
+            ], "启动前请先登录本地用户", "继续", "取消"));
 
             if (choice is null) return false;
 

@@ -806,11 +806,6 @@ public partial class PageSetupUI
             // 其他入口刷新
             if (ModMain.frmMain.pageCurrent == FormMain.PageType.InstanceSelect)
                 ModMain.frmSelectRight.BtnEmptyDownload_Loaded();
-            if (ModMain.frmMain.pageCurrent == FormMain.PageType.Launch)
-                ModMain.frmLaunchLeft.RefreshButtonsUI();
-            if (ModMain.frmMain.pageCurrent == FormMain.PageType.InstanceSetup &&
-                ModMain.frmInstanceModDisabled is not null)
-                ModMain.frmInstanceModDisabled.BtnDownload_Loaded();
         }
 
         catch (Exception ex)

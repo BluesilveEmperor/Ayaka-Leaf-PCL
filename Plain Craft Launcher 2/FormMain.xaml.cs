@@ -751,15 +751,6 @@ public partial class FormMain
             return;
         }
 
-        // 调用启动游戏
-        if (e.Key == Key.Enter && pageCurrent == PageType.Launch)
-        {
-            if (ModMain.isAprilEnabled && !ModMain.isAprilGiveup)
-                HintService.Hint(Lang.Text("Main.April.Nope"));
-            else
-                ModMain.frmLaunchLeft.LaunchButtonClick();
-        }
-
         // 修复按下 Alt 后误认为弹出系统菜单导致的冻结
         if (e.SystemKey == Key.LeftAlt || e.SystemKey == Key.RightAlt)
             e.Handled = true;
@@ -917,7 +908,7 @@ public partial class FormMain
                         ModBase.RunInUi(() =>
                         {
                             PageLoginAuth.draggedAuthServer = authlibServer;
-                            ModMain.frmLaunchLeft.RefreshPage(true, ModLaunch.McLoginType.Auth);
+                            ModMain.frmLaunchLeft?.RefreshPage(true, ModLaunch.McLoginType.Auth);
                         });
                         if (pageCurrent == PageType.InstanceSetup && PageCurrentSub == PageSubType.VersionSetup)
                             // 正在服务器选项页，需要刷新设置项显示
@@ -2119,8 +2110,11 @@ public partial class FormMain
         {
             HintService.Hint("=D", HintType.Success);
             ModMain.isAprilGiveup = true;
-            ModMain.frmLaunchLeft.AprilScaleTrans.ScaleX = 1d;
-            ModMain.frmLaunchLeft.AprilScaleTrans.ScaleY = 1d;
+            if (ModMain.frmLaunchLeft is not null)
+            {
+                ModMain.frmLaunchLeft.AprilScaleTrans.ScaleX = 1d;
+                ModMain.frmLaunchLeft.AprilScaleTrans.ScaleY = 1d;
+            }
             BtnExtraApril.ShowRefresh();
         }
     }
