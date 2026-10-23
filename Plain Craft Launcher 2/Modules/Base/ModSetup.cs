@@ -437,7 +437,8 @@ public class ModSetup
             }
             case 1: // 默认
             {
-                ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Visible;                ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
+                ModMain.frmMain.ShapeTitleLogo.Visibility = Visibility.Collapsed;
+                ModMain.frmMain.ShapeHMCLTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.ImageTitleLogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.CELogo.Visibility = Visibility.Collapsed;
                 ModMain.frmMain.LabTitleLogo.Text = "AyakaLauncher";
