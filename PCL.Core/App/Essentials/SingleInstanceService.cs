@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using PCL.Core.App.IoC;
@@ -14,7 +15,11 @@ namespace PCL.Core.App.Essentials;
 public sealed partial class SingleInstanceService
 {
     private static FileStream? _lockStream;
-    private static readonly string _LockFilePath = Path.Combine(Paths.SharedLocalData, "instance.lock");
+
+    // 锁文件按程序身份（AssemblyName）隔离，避免同目录结构的不同程序互相误判为重复实例
+    private static readonly string _LockFilePath = Path.Combine(
+        Paths.SharedLocalData,
+        $"instance-{Assembly.GetEntryAssembly()?.GetName().Name ?? "unknown"}.lock");
 
     private static void _TryRpc(string processId, string content)
     {
