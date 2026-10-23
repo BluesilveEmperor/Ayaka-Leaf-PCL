@@ -35,7 +35,7 @@
             </Grid.ColumnDefinitions>
             <local:MyButton Grid.Column="0" x:Name="BtnStop" Height="35" Text="停止服务"
                             Click="BtnStop_Click" IsEnabled="False" />
-            <local:MyButton Grid.Column="2" x:Name="BtnOpen" Height="35" Text="打开站点"
+            <local:MyButton Grid.Column="2" x:Name="BtnOpen" Height="35" Text="打开工作台"
                             Click="BtnOpen_Click" IsEnabled="False" />
         </Grid>
         <TextBlock Grid.Row="4" x:Name="LabProgress" Margin="22,8,22,0" FontSize="12" Opacity="0.7"

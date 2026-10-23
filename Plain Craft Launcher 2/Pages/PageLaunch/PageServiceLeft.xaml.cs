@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using PCL.Core.App;
 using PCL.Core.Ayakaleaf;
+using PCL.Core.Minecraft.Profile.LocalUsers;
 
 namespace PCL;
 
@@ -10,6 +11,7 @@ public partial class PageServiceLeft
 {
     private readonly DispatcherTimer _timer;
     private int _busy;
+    private int _openBusy;
     private bool _isLoaded;
 
     public PageServiceLeft()
@@ -131,14 +133,27 @@ public partial class PageServiceLeft
 
     private void BtnOpen_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        try
+        if (Interlocked.Exchange(ref _openBusy, 1) == 1) return;
+        ModBase.RunInNewThread(() =>
         {
-            AyakaleafService.OpenSite();
-        }
-        catch (Exception ex)
-        {
-            HintService.Hint("打开浏览器失败：" + ex.Message, HintType.Error);
-        }
+            try
+            {
+                var user = LocalUserSession.Instance.Current;
+                // 自动开户（已存在则复用）+ 登录取会话，然后 UI 线程打开内嵌工作台
+                var account = AyakaleafAccountService.GetOrCreateAccountAsync(user.UserName)
+                    .GetAwaiter().GetResult();
+                var sid = AyakaleafAccountService.LoginAsync(account).GetAwaiter().GetResult();
+                ModBase.RunInUi(() => new WorkbenchWindow(account, sid).Show());
+            }
+            catch (Exception ex)
+            {
+                HintService.Hint("打开工作台失败：" + ex.Message, HintType.Error);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _openBusy, 0);
+            }
+        }, "Ayakaleaf OpenWorkbench");
     }
 
     private async void BtnAccount_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
