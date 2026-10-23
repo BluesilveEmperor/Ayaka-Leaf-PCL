@@ -1,0 +1,151 @@
+<local:MyPageRight
+    x:Class="PCL.PageSetupAbout"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="clr-namespace:PCL.Core.App;assembly=PCL.Core"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:PCL"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    DataContext="{Binding Source={x:Static app:Basics.Metadata}}"
+    PanScroll="{Binding ElementName=PanBack}"
+    RenderOptions.BitmapScalingMode="LowQuality">
+    <local:MyScrollViewer
+        x:Name="PanBack"
+        HorizontalScrollBarVisibility="Disabled"
+        VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            x:Name="PanMain"
+            Margin="25,10"
+            Grid.IsSharedSizeScope="True">
+            <local:MyCard Margin="0,15" Title="关于 AyakaLauncher">
+                <StackPanel Margin="25,39,23,20">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="20" />
+                    <TextBlock
+                        x:Name="TextAboutVersion"
+                        Margin="0,4,0,0"
+                        FontSize="14"
+                        Opacity="0.7"
+                        Text="当前版本" />
+                    <TextBlock
+                        Margin="0,14,0,0"
+                        LineHeight="19"
+                        TextWrapping="Wrap"
+                        Text="AyakaLauncher 是基于 Plain Craft Launcher 社区版（PCL-CE）深度定制的本地版 Minecraft 启动器。" />
+                    <TextBlock
+                        Margin="0,6,0,0"
+                        LineHeight="19"
+                        TextWrapping="Wrap"
+                        Text="· 内置本地用户系统：注册、登录、切换用户与用户管理，无需任何在线账号。&#x0a;· 每位用户拥有独立隔离的游戏数据目录，存档、模组与配置互不干扰。&#x0a;· 本地版不连接社区服务，也不检查在线更新。" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard
+                Margin="0,0,0,15"
+                CanSwap="True"
+                IsSwapped="True"
+                Title="{DynamicResource Setup.About.UpstreamLegal.Title}">
+                <StackPanel Margin="25,39,23,20">
+                    <TextBlock
+                        Margin="0,6,0,4"
+                        FontWeight="Bold"
+                        Text="{DynamicResource Setup.About.Legal.PrivacyNotice}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Margin="0,0,0,2"
+                        LineHeight="17"
+                        Text="{DynamicResource Setup.About.UpstreamLegal.PrivacyText}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Margin="0,12,0,4"
+                        FontWeight="Bold"
+                        Text="{DynamicResource Setup.About.Legal.OtherInfo}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Margin="0,0,0,2"
+                        LineHeight="17"
+                        Text="{DynamicResource Setup.About.UpstreamLegal.CopyrightText}"
+                        TextWrapping="Wrap" />
+                    <StackPanel
+                        Height="35"
+                        Margin="0,12,0,0"
+                        HorizontalAlignment="Left"
+                        Orientation="Horizontal">
+                        <local:MyButton
+                            Width="160"
+                            Margin="0,0,20,0"
+                            ColorType="Highlight"
+                            local:CustomEventService.EventData="https://shimo.im/docs/rGrd8pY8xWkt6ryW"
+                            local:CustomEventService.EventType="OpenUrl"
+                            Padding="13,0"
+                            Text="{DynamicResource Setup.About.UpstreamLegal.TermsAndDisclaimer}" />
+                        <local:MyButton
+                            Width="120"
+                            Margin="0,0,20,0"
+                            local:CustomEventService.EventData="https://github.com/Meloong-Git/PCL"
+                            local:CustomEventService.EventType="OpenUrl"
+                            Padding="13,0"
+                            Text="{DynamicResource Setup.About.UpstreamLegal.OpenSource}" />
+                    </StackPanel>
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard
+                Margin="0,0,0,15"
+                CanSwap="True"
+                IsSwapped="True"
+                Title="{DynamicResource Setup.About.Licenses.Title}">
+                <ItemsControl Margin="25,42,23,4" ItemsSource="{Binding Licenses}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LicenseName" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="60" />
+                                </Grid.RowDefinitions>
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Grid.Column="0"
+                                    FontWeight="Bold"
+                                    Text="{Binding Name}"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Grid.Column="2"
+                                    Grid.ColumnSpan="2"
+                                    Text="{Binding Information}"
+                                    TextWrapping="Wrap" />
+                                <local:MyButton
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    MinWidth="140"
+                                    Margin="0,7,20,18"
+                                    HorizontalAlignment="Left"
+                                    local:CustomEventService.EventData="{Binding WebsiteUri}"
+                                    local:CustomEventService.EventType="OpenUrl"
+                                    Padding="13,0"
+                                    Text="{DynamicResource Setup.About.Licenses.ViewWebsite}"
+                                    Visibility="{Binding WebsiteUri, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <local:MyButton
+                                    Grid.Row="1"
+                                    Grid.Column="3"
+                                    MinWidth="140"
+                                    Margin="0,7,20,18"
+                                    HorizontalAlignment="Left"
+                                    local:CustomEventService.EventData="{Binding LicenseUri}"
+                                    local:CustomEventService.EventType="OpenUrl"
+                                    Padding="13,0"
+                                    Text="{DynamicResource Setup.About.Licenses.ViewLicense}"
+                                    Visibility="{Binding LicenseUri, Converter={StaticResource NullToVisibilityConverter}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</local:MyPageRight>
