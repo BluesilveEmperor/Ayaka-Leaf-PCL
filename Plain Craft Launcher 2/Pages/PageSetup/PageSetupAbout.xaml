@@ -31,12 +31,12 @@
                         Margin="0,14,0,0"
                         LineHeight="19"
                         TextWrapping="Wrap"
-                        Text="AyakaLauncher 是基于 Plain Craft Launcher 社区版（PCL-CE）深度定制的本地版 Minecraft 启动器。" />
+                        Text="AyakaLauncher 是 Ayakaleaf 的一体化桌面端：内嵌运行时一键部署，服务启停、镜像与数据备份全图形化管理。" />
                     <TextBlock
                         Margin="0,6,0,0"
                         LineHeight="19"
                         TextWrapping="Wrap"
-                        Text="· 内置本地用户系统：注册、登录、切换用户与用户管理，无需任何在线账号。&#x0a;· 每位用户拥有独立隔离的游戏数据目录，存档、模组与配置互不干扰。&#x0a;· 本地版不连接社区服务，也不检查在线更新。" />
+                        Text="· 内置本地用户系统：注册、登录、切换用户与用户管理。&#x0a;· 内嵌 Ayakaleaf 运行时：无需预装 Docker 或 WSL 发行版，一键部署，完全离线可用。&#x0a;· 本地版不连接社区服务，也不检查在线更新。" />
                 </StackPanel>
             </local:MyCard>
             <local:MyCard
