@@ -349,3 +349,5 @@ MaskFiles/
 
 # AyakaLauncher 本地发布输出
 artifact/
+# Ayakaleaf 内嵌运行时产物（2.6GB，由打包脚本生成，不入库）
+/runtime/
