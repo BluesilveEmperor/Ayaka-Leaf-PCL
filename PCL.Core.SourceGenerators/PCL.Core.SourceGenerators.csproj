@@ -15,8 +15,15 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" PrivateAssets="all" />
+        <!--
+            Roslyn 版本策略：面向 4.14（.NET 9 SDK 编译器）编译。
+            分析器/生成器 DLL 需能被"低于其编译版本"的编译器加载——
+            Ubuntu apt 源的 dotnet-sdk-10.0 内置 Roslyn 5.0，若按 5.6 编译会被拒载
+            （CS9057 → 生成器不生效 → 全部 partial property 报 CS9248）。
+            4.14 产物可被 4.x 与 5.x 编译器共同加载，兼容 Windows 官方 SDK 与 Linux 发行版包。
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>
