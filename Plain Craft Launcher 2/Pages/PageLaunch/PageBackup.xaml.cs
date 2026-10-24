@@ -113,7 +113,7 @@ public partial class PageBackup
                 $"恢复将覆盖数据卷 {volume} 的全部现有数据，且要求服务栈处于停止状态。\n\n是否继续？",
                 "恢复数据卷", "选择备份文件", "取消", isWarn: true) != 1)
             return;
-        var tar = SystemDialogs.SelectFile("Ayakaleaf 备份|*.tar.gz|全部文件|*.*", "选择备份文件",
+        var tar = SystemDialogs.SelectFile("Ayakaleaf 备份|*.vhdx|全部文件|*.*", "选择备份文件",
             AyakaleafService.BackupDirectory);
         if (string.IsNullOrEmpty(tar)) return;
         if (!TryLock()) return;
@@ -155,10 +155,10 @@ public partial class PageBackup
             HintService.Hint("请先在「服务」页完成内嵌运行时部署", HintType.Info);
             return;
         }
-        var tar = SystemDialogs.SelectFile("Ayakaleaf 备份|*.tar.gz|全部文件|*.*", "选择备份文件",
+        var tar = SystemDialogs.SelectFile("Ayakaleaf 备份|*.vhdx|全部文件|*.*", "选择备份文件",
             AyakaleafService.BackupDirectory);
         if (string.IsNullOrEmpty(tar)) return;
-        // 文件名格式：卷名.yyyyMMdd-HHmmss.tar.gz
+        // 文件名格式：卷名.yyyyMMdd-HHmmss.vhdx
         var fileName = Path.GetFileNameWithoutExtension(tar); // 卷名.yyyyMMdd-HHmmss
         var dotIndex = fileName.LastIndexOf('.');
         if (dotIndex <= 0)
