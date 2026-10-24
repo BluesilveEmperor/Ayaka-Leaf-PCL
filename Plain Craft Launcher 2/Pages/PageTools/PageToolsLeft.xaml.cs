@@ -64,20 +64,7 @@ public partial class PageToolsLeft
 
     public object PageGet(FormMain.PageSubType? id = null)
     {
-        var targetID = id ?? pageID;
-        switch (id)
-        {
-            case FormMain.PageSubType.ToolsTest:
-            {
-                if (ModMain.frmToolsTest is null)
-                    ModMain.frmToolsTest = new PageToolsTest();
-                return ModMain.frmToolsTest;
-            }
-            default:
-            {
-                throw new Exception("未知的更多子页面种类：" + (int)id);
-            }
-        }
+        throw new Exception("未知的更多子页面种类：" + (int)(id ?? pageID));
     }
 
     /// <summary>

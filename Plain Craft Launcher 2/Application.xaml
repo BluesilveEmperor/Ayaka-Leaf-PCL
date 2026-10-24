@@ -236,7 +236,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <Style TargetType="local:PageComp" BasedOn="{StaticResource {x:Type local:MyScrollViewer}}" />
             <Style TargetType="ScrollViewer" x:Key="ScrollViewerFullMargin">
                 <Setter Property="OverridesDefaultStyle" Value="True" />
                 <Setter Property="CanContentScroll" Value="False" />

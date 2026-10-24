@@ -21,12 +21,7 @@ public class ModSetup
             new ConfigObserver(ConfigEvent.Changed, _ => PageSetupUI.HiddenRefresh()));
 
         // === Launch ===
-        Config.Launch.MemoryAllocationModeConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
-            e => LaunchRamType((int)e.Value!)));
-        States.Game.SelectedFolderConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
-            e => LaunchFolderSelect((string)(e.Value ?? ""))));
-        States.Game.SelectedInstanceConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
-            e => LaunchInstanceSelect((string)(e.Value ?? ""))));
+        // AyakaLauncher 本地版：MC 启动设置项已移除
 
         // === Tool ===
         Config.Download.ThreadLimitConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
@@ -97,10 +92,7 @@ public class ModSetup
             e => SystemHttpProxyCustomPassword((string)(e.Value ?? ""))));
 
         // === Version ===
-        Config.Instance.MemorySolutionConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
-            e => VersionRamType((int)e.Value!)));
-        Config.InstanceAuth.LoginRequirementSolutionConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
-            e => VersionServerLogin((int)e.Value!)));
+        // AyakaLauncher 本地版：MC 实例设置项已移除
     }
 
     /// <summary>
@@ -108,8 +100,7 @@ public class ModSetup
     /// </summary>
     public static void ApplyAll()
     {
-        // Launch
-        LaunchRamType(Config.Launch.MemoryAllocationMode);
+        // Launch：AyakaLauncher 本地版已移除
 
         // Tool
         ToolDownloadThread(Config.Download.ThreadLimit);
@@ -163,31 +154,6 @@ public class ModSetup
         SystemHttpProxyCustomUsername(Config.Network.HttpProxy.CustomUsername);
         SystemHttpProxyCustomPassword(Config.Network.HttpProxy.CustomPassword);
     }
-
-    #region Launch
-
-    // 切换选择
-    public static void LaunchInstanceSelect(string value)
-    {
-        ModBase.Log("[Setup] 当前选择的 Minecraft 版本：" + value);
-        ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "Version", value);
-    }
-
-    public static void LaunchFolderSelect(string value)
-    {
-        ModBase.Log("[Setup] 当前选择的 Minecraft 文件夹：" + value.Replace("$", ModBase.exePath));
-        ModFolder.mcFolderSelected = value.Replace("$", ModBase.exePath);
-    }
-
-    // 游戏内存
-    public static void LaunchRamType(int type)
-    {
-        if (ModMain.frmSetupLaunch is null)
-            return;
-        ModMain.frmSetupLaunch.RamType(type);
-    }
-
-    #endregion
 
     #region Tool
 
@@ -588,32 +554,6 @@ public class ModSetup
         HttpProxyManager.Instance.Credentials = !string.IsNullOrEmpty(username)
             ? new NetworkCredential(username, value)
             : null;
-    }
-
-    #endregion
-
-    #region Version
-
-    // 游戏内存
-    public static void VersionRamType(int type)
-    {
-        if (ModMain.frmInstanceSetup is null)
-            return;
-        ModMain.frmInstanceSetup.RamType(type);
-    }
-
-    // 服务器
-    public static void VersionServerLogin(int type)
-    {
-        if (ModMain.frmInstanceSetup is null)
-            return;
-        // 为第三方登录清空缓存以更新描述
-        ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "InstanceCache", "");
-        if (PageInstanceLeft.McInstance is null)
-            return;
-        PageInstanceLeft.McInstance = new McInstance(PageInstanceLeft.McInstance.Name).Load();
-        ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
-            ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
     }
 
     #endregion

@@ -235,18 +235,6 @@
                                          Click="BtnExtraDownload_Click"
                                          VerticalAlignment="Center" ToolTip="{DynamicResource Main.Extra.TaskManager.ToolTip}" Visibility="Collapsed"
                                          SvgIcon="lucide/download" />
-                    <local:MyExtraButton x:Name="BtnExtraApril" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                         Click="BtnExtraApril_Click"
-                                         ToolTip="{DynamicResource Main.Extra.GiveUp.ToolTip}" Visibility="Collapsed"
-                                         SvgIcon="lucide/flag" />
-                    <local:MyExtraButton x:Name="BtnExtraShutdown" HorizontalAlignment="Right"
-                                         Click="BtnExtraShutdown_Click"
-                                         VerticalAlignment="Center" ToolTip="{DynamicResource Main.Extra.ShutdownMinecraft.ToolTip}" Visibility="Collapsed"
-                                         SvgIcon="lucide/power" />
-                    <local:MyExtraButton x:Name="BtnExtraLog" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                         Click="BtnExtraLog_Click"
-                                         ToolTip="{DynamicResource Main.Extra.GameLog.ToolTip}" Visibility="Collapsed"
-                                         SvgIcon="lucide/scroll-text" />
                     <local:MyExtraButton x:Name="BtnExtraMusic" HorizontalAlignment="Right" VerticalAlignment="Center"
                                          Click="BtnExtraMusic_Click" RightClick="BtnExtraMusic_RightClick"
                                          Visibility="Collapsed" CanRightClick="True" />

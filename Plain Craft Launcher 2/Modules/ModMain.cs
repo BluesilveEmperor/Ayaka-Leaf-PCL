@@ -14,7 +14,6 @@ using Microsoft.Win32;
 using PCL.Core.App;
 using PCL.Core.App.Configuration;
 using PCL.Core.App.Localization;
-using PCL.Core.Minecraft.IdentityModel.OAuth;
 using PCL.Core.UI;
 using PCL.Core.Utils;
 using PCL.Core.Utils.OS;
@@ -30,69 +29,18 @@ public static class ModMain
     public static PageServiceRight? frmServiceRight;
     public static PageMirror? frmMirror;
     public static PageBackup? frmBackup;
-    public static PageLaunchLeft? frmLaunchLeft;
-    public static PageLaunchRight? frmLaunchRight;
-    public static PageLogLeft? frmLogLeft;
-    public static PageLogRight? frmLogRight;
-    public static PageSelectLeft? frmSelectLeft;
-    public static PageSelectRight? frmSelectRight;
     public static PageSpeedLeft? frmSpeedLeft;
     public static PageSpeedRight? frmSpeedRight;
     public static PageToolsLeft? frmToolsLeft;
-    public static PageToolsTest? frmToolsTest;
-    public static PageDownloadLeft? frmDownloadLeft;
-    public static PageDownloadInstall? frmDownloadInstall;
-    public static PageDownloadClient? frmDownloadClient;
-    public static PageDownloadOptiFine? frmDownloadOptiFine;
-    public static PageDownloadLiteLoader? frmDownloadLiteLoader;
-    public static PageDownloadForge? frmDownloadForge;
-    public static PageDownloadNeoForge? frmDownloadNeoForge;
-    public static PageDownloadCleanroom? frmDownloadCleanroom;
-    public static PageDownloadFabric? frmDownloadFabric;
-    public static PageDownloadLabyMod? frmDownloadLabyMod;
-    public static PageDownloadLegacyFabric? frmDownloadLegacyFabric;
-    public static PageDownloadMod? frmDownloadMod;
-    public static PageDownloadPack? frmDownloadPack;
-    public static PageDownloadDataPack? frmDownloadDataPack;
-    public static PageDownloadShader? frmDownloadShader;
-    public static PageDownloadResourcePack? frmDownloadResourcePack;
-    public static PageDownloadWorld? frmDownloadWorld;
-    public static PageDownloadCompFavorites? frmDownloadCompFavorites;
     public static PageSetupLeft? frmSetupLeft;
-    public static PageSetupLaunch? frmSetupLaunch;
     public static PageSetupUI? frmSetupUI;
-    public static PageSetupGameManage? frmSetupGameManage;
     public static PageSetupUpdate? frmSetupUpdate;
-    public static PageSetupJava? frmSetupJava;
     public static PageSetupAbout? frmSetupAbout;
     public static PageSetupLog? frmSetupLog;
     public static PageSetupFeedback? frmSetupFeedback;
     public static PageSetupLauncherLanguage? frmSetupLauncherLanguage;
     public static PageSetupLauncherMisc? frmSetupLauncherMisc;
-    public static PageLoginAuth? frmLoginAuth;
-    public static PageLoginMs? frmLoginMs;
-    public static PageLoginProfile? frmLoginProfile;
-    public static PageLoginProfileSkin? frmLoginProfileSkin;
-    public static PageLoginOffline? frmLoginOffline;
     public static PageLocalUser? frmLocalUser;
-    public static PageInstanceLeft? frmInstanceLeft;
-    public static PageInstanceOverall? frmInstanceOverall;
-    public static PageInstanceCompResource? frmInstanceMod;
-    public static PageInstanceModDisabled? frmInstanceModDisabled;
-    public static PageInstanceCompJarInJar? frmInstanceModJarInJar;
-    public static PageInstanceScreenshot? frmInstanceScreenshot;
-    public static PageInstanceSaves? frmInstanceSaves;
-    public static PageInstanceCompResource? frmInstanceShader;
-    public static PageInstanceCompResource? frmInstanceSchematic;
-    public static PageInstanceCompResource? frmInstanceResourcePack;
-    public static PageInstanceSetup? frmInstanceSetup;
-    public static PageInstanceInstall? frmInstanceInstall;
-    public static PageInstanceExport? frmInstanceExport;
-    public static PageInstanceServer? frmInstanceServer;
-    public static PageInstanceSavesLeft? frmInstanceSavesLeft;
-    public static PageInstanceSavesInfo? frmInstanceSavesInfo;
-    public static PageInstanceSavesDatapack? frmInstanceSavesDatapack;
-    public static PageDownloadCompDetail? frmDownloadCompDetail;
 
     public static MySlider? dragControl = null;
     private static int timer4Count;
@@ -151,8 +99,6 @@ public static class ModMain
             {
                 #region 每 7.5s 执行一次的代码
 
-                if (frmMain!.BtnExtraApril_ShowCheck() && aprilDistance != 0)
-                    frmMain.BtnExtraApril.Ribble();
                 // 以未知原因窗口被丢到一边去的修复（Top、Left = -25600），还有 #745
                 ModBase.RunInUi(() =>
                 {
@@ -198,33 +144,6 @@ public static class ModMain
                     userSummary: Lang.Text("Main.Error.OperationFailed"));
             }
         }, "Timer Main");
-        if (!isAprilEnabled)
-            return;
-        ModBase.RunInNewThread(() =>
-        {
-            try
-            {
-                var lastTime = Environment.TickCount;
-                while (true)
-                {
-                    if (lastTime != Environment.TickCount)
-                    {
-                        lastTime = Environment.TickCount;
-                        ModBase.RunInUiWait(TimerFool);
-                    }
-
-                    Thread.Sleep(1);
-                }
-            }
-            catch (Exception ex)
-            {
-                ModBase.Log(
-                    ex,
-                    "愚人节主时钟出错",
-                    ModBase.LogLevel.Feedback,
-                    userSummary: Lang.Text("Main.Error.OperationFailed"));
-            }
-        }, "Timer Main Fool");
     }
 
     #region 弹窗
@@ -262,15 +181,6 @@ public static class ModMain
         ///     登录模式：登录步骤 1 中返回的 JSON。
         /// </summary>
         public object Content;
-
-        /// <summary>
-        /// Optional provider-specific device-code polling callback used by OAuth providers other than Microsoft.
-        /// </summary>
-        public Func<JsonObject, CancellationToken, Task<AuthorizeResult?>> DeviceCodePoll;
-
-        public Func<AuthorizeResult, CancellationToken, Task>? LoginResultHandler;
-
-        public Action<object>? CompletionHandler;
 
         public bool ForceWait;
 
@@ -565,33 +475,6 @@ public static class ModMain
         return converter.Result?.ToString();
     }
 
-    public static string MyMsgBoxAuthServer(string defaultServer, IReadOnlyDictionary<string, string> presets,
-        string? title = null)
-    {
-        var converter = new MyMsgBoxConverter
-        {
-            Type = MyMsgBoxType.AuthServer,
-            Title = title ?? Lang.Text("Launch.Account.Auth.SelectServer"),
-            Button1 = GetDefaultConfirmText(),
-            Button2 = GetDefaultCancelText(),
-            AuthServerDefault = defaultServer,
-            AuthServerPresets = presets,
-            ForceWait = true
-        };
-        WaitingMyMsgBox.Add(converter);
-        try
-        {
-            frmMain?.DragStop();
-            ComponentDispatcher.PushModal();
-            Dispatcher.PushFrame(converter.WaitFrame);
-        }
-        finally
-        {
-            ComponentDispatcher.PopModal();
-        }
-        return converter.Result?.ToString() ?? string.Empty;
-    }
-
     /// <summary>
     ///     显示选择框并返回选择的第几项（从 0 开始）。若点击第二个按钮，则返回 Nothing。
     /// </summary>
@@ -705,11 +588,6 @@ public static class ModMain
                         frmMain.PanMsg.Children.Add(new MyMsgText(WaitingMyMsgBox[0]));
                         break;
                     }
-                    case MyMsgBoxType.Login:
-                    {
-                        frmMain.PanMsg.Children.Add(new MyMsgLogin(WaitingMyMsgBox[0]));
-                        break;
-                    }
                     case MyMsgBoxType.Markdown:
                     {
                         frmMain.PanMsg.Children.Add(new MyMsgMarkdown(WaitingMyMsgBox[0]));
@@ -753,162 +631,6 @@ public static class ModMain
 
     #endregion
 
-    #region 愚人节
-
-    public static bool isAprilEnabled = DateTime.Now.Month == 4 && DateTime.Now.Day == 1;
-    public static bool isAprilGiveup = false;
-    private static Vector aprilSpeed = new(0d, 0d);
-    private static int aprilIdieCount;
-    private static Point aprilMousePosLast = new(0d, 0d);
-    private static int aprilDistance;
-
-    private static void TimerFool()
-    {
-        try
-        {
-            if (frmLaunchLeft is null || frmLaunchLeft.AprilPosTrans is null || frmMain.lastMouseArg is null)
-                return;
-            if (isAprilGiveup || frmMain.pageCurrent != FormMain.PageType.Launch ||
-                ModAnimation.AniControlEnabled != 0 || !frmLaunchLeft.BtnLaunch.IsLoaded)
-                return;
-
-            // 计算是否空闲
-            var mousePos = frmMain.lastMouseArg.GetPosition(frmMain);
-            if (mousePos == aprilMousePosLast)
-            {
-                aprilIdieCount += 1;
-            }
-            else
-            {
-                aprilMousePosLast = mousePos;
-                aprilIdieCount = 0;
-            }
-
-            // 计算躲避移动
-            Vector direction;
-            double distance;
-            var buttonWidth = frmLaunchLeft.BtnLaunch.ActualWidth / 2d;
-            var buttonHeight = frmLaunchLeft.BtnLaunch.ActualHeight / 2d;
-            var vec = (Vector)(frmMain.lastMouseArg.GetPosition(frmLaunchLeft.BtnLaunch) -
-                               new Vector(buttonWidth, buttonHeight));
-            var dir = new Vector(vec.X, vec.Y);
-            dir.Normalize();
-            direction = -dir;
-            distance = new Vector(Math.Max(0d, Math.Abs(vec.X) - buttonWidth),
-                Math.Max(0d, Math.Abs(vec.Y) - buttonHeight)).Length;
-            var breathScale = Math.Sin(timer150Count / 37.5d * Math.PI);
-            var acc = Math.Max(0d, breathScale * 0.25d - 0.65d - Math.Log((distance + 0.4d) / 200d)) * direction; // 加速度
-            // 计算回归移动
-            if (aprilIdieCount >= 64 * 5)
-            {
-                var safeDist = (Vector)(frmMain.lastMouseArg.GetPosition(frmMain.PanMain) -
-                                        new Vector(buttonWidth, frmMain.PanMain.ActualHeight - buttonHeight * 3d));
-                var back = new Vector(frmLaunchLeft.AprilPosTrans.X, frmLaunchLeft.AprilPosTrans.Y);
-                if (safeDist.Length > 250d && back.Length > 0.4d)
-                {
-                    acc -= back * 0.0005d;
-                    back.Normalize();
-                    acc -= back * 0.15d;
-                }
-            }
-
-            // 回到边界
-            var relative = frmLaunchLeft.BtnLaunch.TranslatePoint(new Point(0d, 0d), frmMain.PanForm);
-            if (relative.X < -buttonWidth * 2d)
-            {
-                frmLaunchLeft.AprilPosTrans.X += frmMain.PanForm.ActualWidth + buttonWidth * 2d; // 离开左边界
-                aprilSpeed.X -= 80d;
-                if (relative.Y < 0d)
-                    frmLaunchLeft.AprilPosTrans.Y += buttonHeight * 2.5d;
-                else if (relative.Y > frmMain.PanForm.ActualHeight - buttonHeight * 2d)
-                    frmLaunchLeft.AprilPosTrans.Y -= buttonHeight * 2.5d;
-            }
-            else if (relative.X > frmMain.PanForm.ActualWidth)
-            {
-                frmLaunchLeft.AprilPosTrans.X -= frmMain.PanForm.ActualWidth + buttonWidth * 2d; // 离开右边界
-                aprilSpeed.X += 80d;
-                if (relative.Y < 0d)
-                    frmLaunchLeft.AprilPosTrans.Y += buttonHeight * 2.5d;
-                else if (relative.Y > frmMain.PanForm.ActualHeight - buttonHeight * 2d)
-                    frmLaunchLeft.AprilPosTrans.Y -= buttonHeight * 2.5d;
-            }
-            else if (relative.Y < -buttonHeight * 2d)
-            {
-                frmLaunchLeft.AprilPosTrans.Y += frmMain.PanForm.ActualHeight + buttonHeight * 2d; // 离开上边界
-                aprilSpeed.Y -= 25d;
-                if (relative.X < 0d)
-                    frmLaunchLeft.AprilPosTrans.X += buttonWidth * 2d;
-                else if (relative.X > frmMain.PanForm.ActualWidth - buttonWidth * 2d)
-                    frmLaunchLeft.AprilPosTrans.X -= buttonWidth * 2d;
-            }
-            else if (relative.Y > frmMain.PanForm.ActualHeight)
-            {
-                frmLaunchLeft.AprilPosTrans.Y -= frmMain.PanForm.ActualHeight + buttonHeight * 2d; // 离开下边界
-                aprilSpeed.Y += 25d;
-                if (relative.X < 0d)
-                    frmLaunchLeft.AprilPosTrans.X += buttonWidth * 2d;
-                else if (relative.X > frmMain.PanForm.ActualWidth - buttonWidth * 2d)
-                    frmLaunchLeft.AprilPosTrans.X -= buttonWidth * 2d;
-            }
-
-            // 移动
-            aprilSpeed = aprilSpeed * 0.8d + acc;
-            var speedValue = Math.Min(60d, aprilSpeed.Length);
-            if (speedValue < 0.01d)
-                return;
-            aprilSpeed.Normalize();
-            aprilSpeed *= speedValue;
-            aprilDistance = (int)Math.Round(aprilDistance + speedValue);
-            frmLaunchLeft.AprilPosTrans.X += aprilSpeed.X;
-            frmLaunchLeft.AprilPosTrans.Y += aprilSpeed.Y;
-            // 大小改变
-            frmLaunchLeft.AprilScaleTrans.ScaleX =
-                ModBase.MathClamp(1d - (Math.Abs(direction.X) - Math.Abs(direction.Y)) * (speedValue / 160d), 0.2d,
-                    1.8d);
-            frmLaunchLeft.AprilScaleTrans.ScaleY =
-                ModBase.MathClamp(1d - (Math.Abs(direction.Y) - Math.Abs(direction.X)) * (speedValue / 100d), 0.2d,
-                    1.8d);
-            // 放弃提示
-            if (aprilDistance > 4000)
-            {
-                aprilDistance = -4000;
-                switch (RandomUtils.NextInt(0, 3))
-                {
-                    case 0:
-                    {
-                        HintService.Hint("放弃吧！只需要点一下右下角的小白旗……");
-                        break;
-                    }
-                    case 1:
-                    {
-                        HintService.Hint("看到右下角的那面小白旗了吗？");
-                        break;
-                    }
-                    case 2:
-                    {
-                        HintService.Hint("这里建议点一下右下角的小白旗投降呢.jpg");
-                        break;
-                    }
-                    case 3:
-                    {
-                        HintService.Hint("右下角的小白旗永远等着你……");
-                        break;
-                    }
-                }
-            }
-        }
-
-        catch (Exception ex)
-        {
-            ModBase.Log(
-                ex,
-                "愚人节移动出错",
-                ModBase.LogLevel.Feedback,
-                userSummary: Lang.Text("Main.Error.OperationFailed"));
-        }
-    }
-
-    #endregion
 
     #region 系统
 
@@ -1014,70 +736,11 @@ public static class ModMain
         text = text.Replace("{time}", replacer(Lang.Date(DateTime.Now, "T")));
     }
     
-    // Minecraft
-    text = text.Replace("{java}", replacer(ModLaunch.mcLaunchJavaSelected?.Installation.JavaFolder));
-    text = text.Replace("{minecraft}", replacer(ModFolder.mcFolderSelected));
-    
-    if (ModInstanceList.McMcInstanceSelected is not null)
-    {
-        text = text.Replace("{version_path}", replacer(ModInstanceList.McMcInstanceSelected.PathInstance));
-        text = text.Replace("{verpath}", replacer(ModInstanceList.McMcInstanceSelected.PathInstance));
-        text = text.Replace("{version_indie}", replacer(ModInstanceList.McMcInstanceSelected.PathIndie));
-        text = text.Replace("{verindie}", replacer(ModInstanceList.McMcInstanceSelected.PathIndie));
-        text = text.Replace("{name}", replacer(ModInstanceList.McMcInstanceSelected.Name));
-        
-        if (new[] { "unknown", "old", "pending" }.Contains(ModInstanceList.McMcInstanceSelected.Info.VanillaName))
-        {
-            text = text.Replace("{version}", replacer(ModInstanceList.McMcInstanceSelected.Name));
-        }
-        else
-        {
-            text = text.Replace("{version}", replacer(ModInstanceList.McMcInstanceSelected.Info.VanillaName));
-        }
-    }
-    else
-    {
-        text = text.Replace("{version_path}", replacer(null));
-        text = text.Replace("{verpath}", replacer(null));
-        text = text.Replace("{version_indie}", replacer(null));
-        text = text.Replace("{verindie}", replacer(null));
-        text = text.Replace("{name}", replacer(null));
-        text = text.Replace("{version}", replacer(null));
-    }
-    
-    // 验证信息
-    if (ModLaunch.mcLoginLoader.State == ModBase.LoadState.Finished)
-    {
-        text = text.Replace("{user}", replacer(ModLaunch.mcLoginLoader.output.Name));
-        text = text.Replace("{uuid}", replacer(ModLaunch.mcLoginLoader.output.Uuid.ToLower()));
-        
-        switch (ModLaunch.mcLoginLoader.input.LoginType)
-        {
-            case ModLaunch.McLoginType.Legacy:
-                text = text.Replace("{login}", replacer("离线"));
-                break;
-            case ModLaunch.McLoginType.Ms:
-                text = text.Replace("{login}", replacer("正版"));
-                break;
-            case ModLaunch.McLoginType.Auth:
-                text = text.Replace("{login}", replacer("Authlib-Injector"));
-                break;
-        }
-    }
-    else
-    {
-        text = text.Replace("{user}", replacer(null));
-        text = text.Replace("{uuid}", replacer(null));
-        text = text.Replace("{login}", replacer(null));
-    }
-    
     // 高级
-    text = ModBase.RegexReplaceEach(text, @"\{hint\}", m => replacer(PageToolsTest.GetRandomHint()));
-    text = ModBase.RegexReplaceEach(text, @"\{cave\}", m => replacer(PageToolsTest.GetRandomCave()));
     text = ModBase.RegexReplaceEach(text, @"\{setup:([a-zA-Z0-9]+)\}", m =>
     {
         if (ConfigService.TryGetConfigItemNoType(m.Groups[1].Value, out var item) && item.Source != ConfigSource.SharedEncrypt)
-            return replacer(item.GetValueNoType(ModInstanceList.McMcInstanceSelected?.PathInstance)?.ToString() ?? "");
+            return replacer(item.GetValueNoType(null)?.ToString() ?? "");
         return replacer("");
     });
     text = ModBase.RegexReplaceEach(text, @"\{varible:([^:\}]+)(?::([^\}]+))?\}", m => replacer(CustomEvent.GetCustomVariable(m.Groups[1].Value, m.Groups[2].Value)));

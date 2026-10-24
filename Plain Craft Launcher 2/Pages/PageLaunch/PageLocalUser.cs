@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using PCL.Core.Minecraft.Profile.LocalUsers;
+using PCL.Core.Users;
 using PCL.Core.Utils;
 
 namespace PCL;

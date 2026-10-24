@@ -795,17 +795,10 @@ public partial class PageSetupUI
                 ModMain.frmToolsLeft.TextToolsCategory.Visibility = isToolsVisible ? Visibility.Visible : Visibility.Collapsed;
                 if (isToolsVisible) ModMain.frmToolsLeft.TextToolsCategory.Opacity = 0.6;
 
-                // 统计工具页可用项数量
-                var toolsCount = 0;
-                if (!conf.ToolsTest)
-                    toolsCount += 1;
+                // AyakaLauncher 本地版：测试工具页已移除，无隐藏子项时收起「更多」页
                 ModMain.frmToolsLeft.PanItem.Visibility =
-                    toolsCount < 2 && !HiddenForceShow ? Visibility.Collapsed : Visibility.Visible;
+                    !HiddenForceShow ? Visibility.Collapsed : Visibility.Visible;
             }
-
-            // 其他入口刷新
-            if (ModMain.frmMain.pageCurrent == FormMain.PageType.InstanceSelect)
-                ModMain.frmSelectRight.BtnEmptyDownload_Loaded();
         }
 
         catch (Exception ex)

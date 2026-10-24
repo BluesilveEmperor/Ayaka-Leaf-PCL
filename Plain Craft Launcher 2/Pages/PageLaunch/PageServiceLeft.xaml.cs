@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using PCL.Core.App;
 using PCL.Core.Ayakaleaf;
-using PCL.Core.Minecraft.Profile.LocalUsers;
+using PCL.Core.Users;
 
 namespace PCL;
 

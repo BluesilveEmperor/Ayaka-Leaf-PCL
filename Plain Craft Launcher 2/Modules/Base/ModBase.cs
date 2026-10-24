@@ -1557,23 +1557,6 @@ public static class ModBase
     [DllImport("kernel32", EntryPoint = "GetShortPathNameA")]
     private static extern int GetShortPathName(string lpszLongPath, StringBuilder lpszShortPath, int cchBuffer);
 
-    public static void CreateSymbolicLink(string linkPath, string targetPath, int flags)
-    {
-        var cMDProcess = new Process();
-        var linkDPath = ModLaunch.ExtractLinkD();
-        {
-            var withBlock = cMDProcess.StartInfo;
-            withBlock.FileName = linkDPath;
-            withBlock.Arguments = $"\"{linkPath}\" \"{targetPath}\"";
-            withBlock.CreateNoWindow = true;
-            withBlock.UseShellExecute = false;
-        }
-        cMDProcess.Start();
-        while (!cMDProcess.HasExited)
-        {
-        }
-    }
-
     #endregion
 
     #region 文本
@@ -3605,7 +3588,6 @@ public static class ModBase
                 OS: {RuntimeInformation.OSDescription} (32-bit: {SystemInfo.Is32BitSystem})
                 Memory: {availableMb} MiB / {totalMb} MiB
                 DPI: {dpi} ({dpiScale * 100}%)
-                MC Folder: {ModFolder.mcFolderSelected ?? "Nothing"}
                 Executable Path: {exePath}
                 """;
 
