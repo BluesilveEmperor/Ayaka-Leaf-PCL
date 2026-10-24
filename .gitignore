@@ -353,3 +353,6 @@ artifact/
 dist/
 # Ayakaleaf 内嵌运行时产物（2.6GB，由打包脚本生成，不入库）
 /runtime/
+
+# claude-code 本地推送配置（不入库）
+.claude/
