@@ -20,8 +20,18 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - **服务台** —— 一键部署 / 启动 / 停止内置 Overleaf 服务（MongoDB 8.0 + Redis 7 + Overleaf），自动初始化 MongoDB 副本集，服务就绪自动探测
 - **容器运行时** —— 基于 Windows WSL 3.0+ 内置容器能力（WSLC），**无需 Docker Desktop**，数据卷为独立 vhd 文件
 - **工作台** —— 内嵌 WebView2 打开 Overleaf，自动开户 + 自动登录，免手动输入
+- **公式联动** —— 左侧选中 LaTeX 公式代码，右侧 PDF 自动高亮对应位置并滚动定位（复用 Overleaf 自带 SyncTeX）
 - **镜像管理** —— 内置镜像 tar.gz（`runtime/images`），部署时自动加载，重复加载幂等
 - **备份恢复** —— 数据卷即 vhd 文件，页面内一键快照 / 恢复
+
+## 📐 编辑器联动
+
+在工作台里用鼠标选中一段公式代码，右侧 PDF 会自动跳到公式渲染位置并高亮，不必再点工具栏的 Sync to PDF：
+
+- 支持 `$…$`、`$$…$$`、`\(…\)`、`\[…\]`，以及 `equation`、`align`、`gather`、`multline`、`split`、`cases`、`matrix` 等 `\begin{}` 环境
+- 只对公式选区生效；选中普通文字、复制粘贴不受影响
+- 右侧需已成功编译出 PDF 才会触发（未编译时静默跳过，不弹错误提示）
+- 高亮框来自 SyncTeX 记录的位置，多行环境可能只覆盖该处首行
 
 ## 💻 支持平台
 
@@ -30,14 +40,14 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 | Windows 10 21H2+ / Windows 11 (x64) | ✅ 完整支持 | [.NET 10 Desktop Runtime](https://get.dot.net/10) + WSL 3.0+ |
 | Windows 10 1809 - 21H2 | ⚠️ 需手动升级 WSL 至 3.0+ | 同上 |
 | Windows 7 / 8 / 8.1 | ❌ 不支持 | / |
-| macOS / Linux | ⚠️ 仅源码编译支持 | [.NET 10 SDK](https://get.dot.net/10) |
+| macOS / Linux | ❌ 不支持 | WPF、WebView2 与 WSLC 容器均为 Windows 专属 |
 
 ## 🚀 快速开始
 
 1. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（x64）
 2. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
 3. 启动 `AyakaLauncher.exe` → 注册本地用户并登录
-4. 服务台页面依次点击：**开始部署** → **启动服务** → **打开工作台**（浏览器访问 `http://localhost:8080`）
+4. 服务台页面依次点击：**开始部署** → **启动服务** → **打开工作台**（服务地址 `http://localhost:8080`，端口可配置）
 
 ## 🔨 构建
 

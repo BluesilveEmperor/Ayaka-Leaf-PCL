@@ -20,8 +20,18 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 - **Service console** — Deploy / start / stop the bundled Overleaf service (MongoDB 8.0 + Redis 7 + Overleaf) with one click; the MongoDB replica set is initialized automatically and service readiness is probed automatically
 - **Container runtime** — Powered by the container capabilities built into Windows WSL 3.0+ (WSLC), **no Docker Desktop required**; data volumes are standalone vhd files
 - **Workbench** — Opens Overleaf in an embedded WebView2 with automatic account provisioning and sign-in, zero manual input
+- **Formula highlight sync** — Select formula code on the left and the PDF on the right highlights the rendered formula and scrolls to it (reuses Overleaf's built-in SyncTeX)
 - **Image management** — Bundled image tarballs (`runtime/images`) are loaded automatically during deployment; repeated loads are idempotent
 - **Backup & restore** — Each data volume is just a vhd file; one-click snapshots and restores from the backup page
+
+## 📐 Editor Sync
+
+Select a piece of formula code in the workbench and the PDF pane jumps to the rendered formula and highlights it — no need to click Sync to PDF in the toolbar:
+
+- Supports `$…$`, `$$…$$`, `\(…\)`, `\[…\]` and `\begin{}` environments such as `equation`, `align`, `gather`, `multline`, `split`, `cases`, `matrix`
+- Only formula selections trigger it; selecting plain text, copying and pasting are unaffected
+- Requires a successfully compiled PDF; it stays silent when no PDF exists (no error toasts)
+- Highlight boxes come from SyncTeX positions, so multi-line environments may only cover the first line of that spot
 
 ## 💻 Supported Platforms
 
@@ -30,14 +40,14 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 | Windows 10 21H2+ / Windows 11 (x64) | ✅ Fully supported | [.NET 10 Desktop Runtime](https://get.dot.net/10) + WSL 3.0+ |
 | Windows 10 1809 - 21H2 | ⚠️ Requires manually upgrading WSL to 3.0+ | Same as above |
 | Windows 7 / 8 / 8.1 | ❌ Not supported | / |
-| macOS / Linux | ⚠️ Source-build only | [.NET 10 SDK](https://get.dot.net/10) |
+| macOS / Linux | ❌ Not supported | WPF, WebView2 and WSLC containers are Windows-only |
 
 ## 🚀 Quick Start
 
 1. Install the [.NET 10 Desktop Runtime](https://get.dot.net/10) (x64)
 2. Enable WSL: in an elevated PowerShell, run `wsl --install --no-distribution`, then run `wsl --update`
 3. Launch `AyakaLauncher.exe` → register a local user and sign in
-4. In the service console, click in order: **Deploy** → **Start Services** → **Open Workbench** (browser opens at `http://localhost:8080`)
+4. In the service console, click in order: **Deploy** → **Start Services** → **Open Workbench** (service address `http://localhost:8080`, port configurable)
 
 ## 🔨 Building
 
