@@ -1,8 +1,11 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
+using PCL.Core.App;
 using PCL.Core.Ayakaleaf;
+using PCL.Core.Logging;
 
 namespace PCL;
 
@@ -12,9 +15,15 @@ namespace PCL;
 /// </summary>
 public partial class WorkbenchWindow
 {
+    /// <summary>编辑器联动脚本（选中公式代码 → 右侧 PDF 自动高亮）。</summary>
+    private const string EditorBridgeResource = "Resources/ayakaleaf/editor-synctex.js";
+
     private readonly AyakaleafAccount _account;
     private string _sid;
     private int _retryCount;
+
+    private static string? _editorBridgeScript;
+    private static bool _editorBridgeLoaded;
 
     private static string UserDataFolder => Path.Combine(AppContext.BaseDirectory, "data", "ayakaleaf", "webview");
 
@@ -46,6 +55,8 @@ public partial class WorkbenchWindow
             Web.CoreWebView2.NavigationCompleted += Web_NavigationCompleted;
             // 不显示浏览器报错页细节，直接进入项目列表
             Web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+            // 必须在首次导航之前注入，才能在编辑器页面加载时生效
+            await InjectEditorBridgeAsync();
             EnterWorkbench();
         }
         catch (Exception ex)
@@ -59,6 +70,50 @@ public partial class WorkbenchWindow
         InjectSession();
         LabLoading.Visibility = System.Windows.Visibility.Collapsed;
         Web.Source = new Uri(AyakaleafService.BaseUrl + "/project");
+    }
+
+    /// <summary>
+    /// 注入编辑器联动脚本：左侧选中 LaTeX 公式代码时，右侧 PDF 自动高亮对应位置。
+    /// 脚本由 WebView2 在每个新文档创建时执行，内部会自行判断当前是否处于编辑器页面。
+    /// </summary>
+    private async Task InjectEditorBridgeAsync()
+    {
+        var script = GetEditorBridgeScript();
+        if (string.IsNullOrEmpty(script)) return;
+
+        try
+        {
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 编辑器联动脚本注入失败");
+        }
+    }
+
+    private static string? GetEditorBridgeScript()
+    {
+        if (_editorBridgeLoaded) return _editorBridgeScript;
+        _editorBridgeLoaded = true;
+
+        try
+        {
+            using var stream = Basics.GetResourceStream(EditorBridgeResource);
+            if (stream is null)
+            {
+                LogWrapper.Warn("[Ayakaleaf] 未找到编辑器联动脚本资源：" + EditorBridgeResource);
+                return null;
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            _editorBridgeScript = reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 编辑器联动脚本加载失败");
+        }
+
+        return _editorBridgeScript;
     }
 
     private void InjectSession()
