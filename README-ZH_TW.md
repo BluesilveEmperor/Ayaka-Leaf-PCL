@@ -26,7 +26,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 📐 編輯器聯動
 
-在工作台裡用滑鼠選取一段公式程式碼，右側 PDF 會自動跳到公式算圖位置並高亮，不必再點工具列的 Sync to PDF：
+在工作台裡用滑鼠選取一段公式程式碼，右側 PDF 會自動跳到公式渲染位置並高亮，不必再點工具列的 Sync to PDF：
 
 - 支援 `$…$`、`$$…$$`、`\(…\)`、`\[…\]`，以及 `equation`、`align`、`gather`、`multline`、`split`、`cases`、`matrix` 等 `\begin{}` 環境
 - 只對公式選取生效；選取一般文字、複製貼上不受影響
