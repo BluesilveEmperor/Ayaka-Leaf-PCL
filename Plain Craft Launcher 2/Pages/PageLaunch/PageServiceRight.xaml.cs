@@ -19,8 +19,34 @@ public partial class PageServiceRight
     private void RefreshAll()
     {
         CardDeploy.Visibility = Config.Ayakaleaf.Deployed ? Visibility.Collapsed : Visibility.Visible;
+        CheckLanAccess.SetChecked(Config.Ayakaleaf.AllowLanAccess, false);
+        RefreshLanAddress();
         RefreshContainers();
         RefreshLog();
+    }
+
+    /// <summary>
+    /// 更新局域网访问地址提示（跟随开关状态与本机当前 IP）。
+    /// </summary>
+    private void RefreshLanAddress()
+    {
+        var url = AyakaleafService.LanSiteUrl;
+        if (url == null)
+        {
+            LabLanAddress.Visibility = Visibility.Collapsed;
+            return;
+        }
+        LabLanAddress.Visibility = Visibility.Visible;
+        var lanIp = AyakaleafService.ResolveLanAddress();
+        LabLanAddress.Text = $"队友访问地址：{url}（简体中文：http://{lanIp}:{AyakaleafService.ChinesePort}）";
+    }
+
+    private void CheckLanAccess_Change(object sender, bool user)
+    {
+        if (!user) return; // 初始化赋值不处理
+        Config.Ayakaleaf.AllowLanAccess = CheckLanAccess.Checked == true;
+        RefreshLanAddress();
+        HintService.Hint("已保存。重启服务后生效（若服务正在运行，请停止后重新启动）", HintType.Success);
     }
 
     private bool TryLock()

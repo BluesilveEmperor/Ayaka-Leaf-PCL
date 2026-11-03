@@ -29,8 +29,8 @@
         <Description>Ayakaleaf 桌面管理器：内嵌运行时部署、服务启停、镜像与数据管理</Description>
         <Product>AyakaLauncher</Product>
         <Copyright>Copyright © 龙腾猫跃 2016. All Rights Reserved.</Copyright>
-        <AssemblyVersion>2.15.1.0</AssemblyVersion>
-        <FileVersion>2.15.1.0</FileVersion>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <FileVersion>1.0.0.0</FileVersion>
         <NoWarn>
             41999;42016;42017;42018;42019;42020;42021;42022;42032;42036;42314;
             VSTHRD002;VSTHRD003;VSTHRD110;VSTHRD200
@@ -123,12 +123,16 @@
     <!-- Ayakaleaf 内嵌运行时（仓库根 runtime\，约 2.6GB，不入库）：
          构建后以目录联接（junction）方式挂到输出目录，避免每次构建复制 2.6GB。
          部署发布包由 artifact + runtime 重新组装（见 .gitignore 中 dist 说明）。 -->
+    <!-- 注意：$(OutDir) 在项目体属性求值阶段为空（由 Sdk.targets 后置赋值），
+         必须在 Target 执行时计算，否则联接路径会错算到项目目录。 -->
     <PropertyGroup>
         <AyakaleafRuntimeSource>$(MSBuildThisFileDirectory)..\runtime</AyakaleafRuntimeSource>
-        <AyakaleafRuntimeLink>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutDir)runtime'))</AyakaleafRuntimeLink>
     </PropertyGroup>
     <Target Name="LinkAyakaleafRuntime" AfterTargets="Build" Condition="Exists('$(AyakaleafRuntimeSource)\images')">
+        <PropertyGroup>
+            <AyakaleafRuntimeLink>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutDir)runtime'))</AyakaleafRuntimeLink>
+        </PropertyGroup>
         <Message Importance="high" Text="链接内嵌运行时: $(AyakaleafRuntimeLink) -> $(AyakaleafRuntimeSource)" />
-        <Exec Command="cmd /c if not exist &quot;$(AyakaleafRuntimeLink)&quot; mklink /J &quot;$(AyakaleafRuntimeLink)&quot; &quot;$(AyakaleafRuntimeSource)&quot;" />
+        <Exec Command="cmd /c if exist &quot;$(AyakaleafRuntimeLink)&quot; rmdir &quot;$(AyakaleafRuntimeLink)&quot; &amp; mklink /J &quot;$(AyakaleafRuntimeLink)&quot; &quot;$(AyakaleafRuntimeSource)&quot;" />
     </Target>
 </Project>

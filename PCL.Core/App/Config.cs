@@ -383,5 +383,24 @@ public static partial class Config
         /// 工作台界面语言（"en" = English，"zh" = 简体中文），在编辑器设置面板中切换。
         /// </summary>
         [ConfigItem<string>("AyakaleafInterfaceLanguage", "en", ConfigSource.Local)] public partial string InterfaceLanguage { get; set; }
+
+        /// <summary>
+        /// 是否允许局域网设备访问（团队协作）。开启后端口绑定 0.0.0.0，
+        /// 同一局域网内的队友可通过本机 IP 访问并注册账号；关闭时仅本机可访问。
+        /// 修改后重启服务生效（容器会按新配置自动重建）。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafAllowLanAccess", true, ConfigSource.Local)] public partial bool AllowLanAccess { get; set; }
+
+        /// <summary>
+        /// 项目邀请令牌密钥。首次使用时随机生成并持久化，之后重建容器复用同一密钥，
+        /// 已发出的邀请链接不失效。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafInviteTokenSecret", "", ConfigSource.Local)] public partial string InviteTokenSecret { get; set; }
+
+        /// <summary>
+        /// 最近一次创建 overleaf 容器使用的配置签名（端口绑定、站点地址、语言映射、邀请密钥）。
+        /// 启动时与期望签名比对，不一致则自动重建容器（数据卷不受影响）。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafContainerProfile", "", ConfigSource.Local)] public partial string ContainerProfile { get; set; }
     }
 }

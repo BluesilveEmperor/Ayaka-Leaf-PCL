@@ -4,6 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -85,6 +89,59 @@ public static class AyakaleafService
     public static string BackupDirectory => Path.Combine(AppContext.BaseDirectory, "backups");
 
     public static string BaseUrl => $"http://localhost:{Config.Ayakaleaf.Port}";
+
+    /// <summary>
+    /// 局域网访问开启时队友可用的站点地址（本机局域网 IP + 主端口），未开启时为 null。
+    /// </summary>
+    public static string? LanSiteUrl => Config.Ayakaleaf.AllowLanAccess
+        ? $"http://{ResolveLanAddress()}:{Config.Ayakaleaf.Port}"
+        : null;
+
+    /// <summary>
+    /// 解析本机局域网 IPv4 地址（跳过回环、隧道与常见虚拟网卡）。
+    /// 找不到可用地址时返回 "localhost"。
+    /// </summary>
+    public static string ResolveLanAddress()
+    {
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
+                var name = nic.Name.ToLowerInvariant();
+                if (name.Contains("vethernet") || name.Contains("vmware") ||
+                    name.Contains("virtualbox") || name.Contains("loopback") ||
+                    name.Contains("tap-") || name.Contains("tun"))
+                    continue;
+                foreach (var addr in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    var ip = addr.Address.ToString();
+                    if (ip.StartsWith("169.254.", StringComparison.Ordinal)) continue;
+                    return ip;
+                }
+            }
+        }
+        catch
+        {
+            // 网络枚举失败按 localhost 处理
+        }
+        return "localhost";
+    }
+
+    /// <summary>
+    /// 取项目邀请令牌密钥；配置为空时生成 32 字节随机值并持久化，
+    /// 之后重建容器复用同一密钥，已发出的邀请链接不失效。
+    /// </summary>
+    private static string EnsureInviteTokenSecret()
+    {
+        var secret = Config.Ayakaleaf.InviteTokenSecret;
+        if (!string.IsNullOrEmpty(secret)) return secret;
+        secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        Config.Ayakaleaf.InviteTokenSecret = secret;
+        return secret;
+    }
 
     /// <summary>
     /// 按界面语言偏好返回工作台入口 URL（"zh" = 简体中文端口，其余 = 主端口 English）。
@@ -307,27 +364,44 @@ public static class AyakaleafService
     }
 
     /// <summary>
-    /// 写出 Overleaf 语言域名映射环境文件，返回文件路径。
-    /// 映射把两种界面语言绑定到同容器的两个端口上，
-    /// 页脚语言选择器据此列出可切换的语言。
+    /// 构造 Overleaf 语言域名映射 JSON（两种界面语言绑定到同容器的两个端口）。
+    /// 局域网开放时额外登记 hide 的 localhost 条目：语言选择器展示可分享的
+    /// 局域网地址，而本机（启动器工作台等）经 localhost 访问仍能正确识别语言。
     /// </summary>
-    private static string WriteOverleafLanguageEnvFile()
+    private static string BuildLangMapping(string host)
+    {
+        var main =
+            "{\"www\":{\"lngCode\":\"en\",\"url\":\"http://" + host + ":" + Config.Ayakaleaf.Port + "\"}," +
+            "\"zh\":{\"lngCode\":\"zh-CN\",\"url\":\"http://" + host + ":" + ChinesePort + "\"}";
+        if (host == "localhost") return main + "}";
+        return main + "," +
+            "\"www-local\":{\"lngCode\":\"en\",\"url\":\"http://localhost:" + Config.Ayakaleaf.Port + "\",\"hide\":true}," +
+            "\"zh-local\":{\"lngCode\":\"zh-CN\",\"url\":\"http://localhost:" + ChinesePort + "\",\"hide\":true}}";
+    }
+
+    /// <summary>
+    /// 写出 Overleaf 语言域名映射环境文件，返回文件路径。
+    /// 页脚语言选择器据此列出可切换的语言；地址使用指定主机
+    /// （局域网开放时为本机 IP，队友点击切换语言同样可达）。
+    /// </summary>
+    private static string WriteOverleafLanguageEnvFile(string host)
     {
         var path = Path.Combine(Path.GetTempPath(), "ayakaleaf-overleaf-lang.env");
-        var mapping =
-            "{\"www\":{\"lngCode\":\"en\",\"url\":\"http://localhost:" + Config.Ayakaleaf.Port + "\"}," +
-            "\"zh\":{\"lngCode\":\"zh-CN\",\"url\":\"http://localhost:" + ChinesePort + "\"}}";
-        File.WriteAllText(path, "OVERLEAF_LANG_DOMAIN_MAPPING=" + mapping + "\n", new System.Text.UTF8Encoding(false));
+        File.WriteAllText(path, "OVERLEAF_LANG_DOMAIN_MAPPING=" + BuildLangMapping(host) + "\n", new System.Text.UTF8Encoding(false));
         return path;
     }
 
     /// <summary>
-    /// 确保容器内 nginx 转发完整的 Host 头（$host → $http_host）。
-    /// 默认的 $host 不带端口，web 服务按 Host 匹配界面语言时
-    /// 无法区分主端口（en）与 +1 端口（zh-CN）。补丁幂等，
-    /// 每次 StartAsync 都会执行；nginx 已运行则重载配置。
+    /// 确保容器内 nginx 两项补丁（幂等，每次 StartAsync 都会执行）：
+    /// 1. 转发完整的 Host 头（$host → $http_host）：默认的 $host 不带端口，
+    ///    web 服务按 Host 匹配界面语言时无法区分主端口（en）与 +1 端口（zh-CN）。
+    /// 2. 语言链接主机保持补丁：sub_filter 向每个 HTML 页面注入脚本，把指向
+    ///    语言端口的链接重写为当前访问的主机名。语言映射中的链接使用局域网 IP，
+    ///    localhost 访问者点击页脚语言选择器会跨主机跳转而丢失会话 Cookie，
+    ///    重写后“在哪个主机访问就在哪个主机上切端口”，localhost 与 IP 均无缝。
+    /// 任一补丁失败不阻断启动；nginx 已运行则重载配置。
     /// </summary>
-    private static async Task EnsureNginxPortForwardingAsync(Action<string> progress)
+    private static async Task EnsureNginxPatchesAsync(Action<string> progress)
     {
         // 用 "." 通配 "$"（写法上避开反斜杠与句中 $，兼容 wslc/sed 参数传递链）
         const string sedScript = "s/Host .host;/Host $http_host;/g";
@@ -346,8 +420,37 @@ public static class AyakaleafService
             await Task.Delay(2000);
         }
 
+        // 语言链接主机保持补丁：写入 conf.d（nginx.conf 已 include），内容经
+        // base64 传递以避开多层引号转义问题
+        var js =
+            "(function(){var ayakaPorts=[\"" + Config.Ayakaleaf.Port + "\",\"" + ChinesePort + "\"];" +
+            "function fix(a){try{var u=new URL(a.href);" +
+            "if(u.hostname===location.hostname||ayakaPorts.indexOf(u.port)<0)return;" +
+            "u.hostname=location.hostname;a.href=u.href}catch(e){}}" +
+            "function run(){for(var l=document.links,i=0;i<l.length;i++)fix(l[i])}" +
+            "var q=false;function s(){if(q)return;q=true;" +
+            "requestAnimationFrame(function(){q=false;run()})}" +
+            "new MutationObserver(s).observe(document.documentElement,{childList:true,subtree:true});s()})()";
+        var conf = "sub_filter '</head>' '<script>" + js + "</script></head>';\n";
+        var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(conf));
+        var write = await WslcInterop.RunAsync(
+            $"exec {OverleafContainer} sh -c \"echo {b64} | base64 -d > /etc/nginx/conf.d/ayaka-lang.conf\"", 30000);
+        if (!write.IsSuccess)
+        {
+            LogWrapper.Warn($"[Ayakaleaf] 语言链接补丁写入失败：{write.ErrorText?.Trim()}");
+            progress("警告：页脚语言切换可能跨主机丢失登录状态（补丁写入失败）");
+        }
+
+        // 校验后重载：校验失败则回滚补丁文件再重载，保证站点不被坏配置卡死。
         // nginx 可能尚未随容器启动完成，重载失败可忽略（启动时会读取已补丁的配置）
-        await WslcInterop.RunAsync($"exec {OverleafContainer} nginx -s reload", 30000);
+        var check = await WslcInterop.RunAsync(
+            $"exec {OverleafContainer} sh -c " +
+            "\"nginx -t && nginx -s reload || (rm -f /etc/nginx/conf.d/ayaka-lang.conf; nginx -s reload)\"",
+            30000);
+        if (!check.IsSuccess)
+        {
+            LogWrapper.Warn("[Ayakaleaf] nginx 配置重载失败（容器启动中属正常，稍后启动进程会读取新配置）");
+        }
     }
 
     // ---------------- 启停 ----------------
@@ -376,25 +479,46 @@ public static class AyakaleafService
             progress);
 
         progress("启动 Ayakaleaf…");
-        await StartContainerAsync(OverleafContainer,
+        // 期望网络配置：局域网开放时绑定 0.0.0.0 并以本机局域网 IP 作为站点地址，
+        // 邀请链接、语言切换地址对队友直接可用；关闭时仅绑定本机回环。
+        var secret = EnsureInviteTokenSecret();
+        var lanIp = Config.Ayakaleaf.AllowLanAccess ? ResolveLanAddress() : "localhost";
+        var bindHost = Config.Ayakaleaf.AllowLanAccess ? "0.0.0.0" : "127.0.0.1";
+        var siteUrl = $"http://{lanIp}:{Config.Ayakaleaf.Port}";
+        var langMapping = BuildLangMapping(lanIp);
+        var profile = $"{bindHost}:{Config.Ayakaleaf.Port},{ChinesePort}|{siteUrl}|{secret}|{langMapping}";
+
+        // 配置漂移（端口、局域网开关、本机 IP、邀请密钥变化）→ 删除重建容器；数据卷不受影响
+        if (Config.Ayakaleaf.ContainerProfile != profile && await ContainerExistsAsync(OverleafContainer))
+        {
+            progress("网络配置已变化，正在重建 Ayakaleaf 容器…");
+            // 容器可能已在运行：先停后删；已停止时结果忽略
+            await WslcInterop.RunAsync($"stop \"{OverleafContainer}\"", 60000);
+            var rm = await WslcInterop.RunAsync($"rm \"{OverleafContainer}\"", 60000);
+            if (!rm.IsSuccess)
+                throw new Exception("网络配置已变化，但旧容器无法删除（重建失败）：" + rm.ErrorText);
+        }
+
+        var created = await StartContainerAsync(OverleafContainer,
             $"run -d --name {OverleafContainer} --network {NetworkName} " +
-            $"-p {Config.Ayakaleaf.Port}:80 -p {ChinesePort}:80 " +
+            $"-p {bindHost}:{Config.Ayakaleaf.Port}:80 -p {bindHost}:{ChinesePort}:80 " +
             "-v overleaf_data:/var/lib/overleaf/data -v overleaf_logs:/var/log/overleaf " +
-            "-e OVERLEAF_INVITE_TOKEN_SECRET=please-change-me-openssl-rand-base64-32 " +
+            $"-e OVERLEAF_INVITE_TOKEN_SECRET={secret} " +
             "-e OVERLEAF_MONGO_URL=mongodb://mongo/sharelatex " +
             "-e OVERLEAF_REDIS_HOST=redis -e REDIS_HOST=redis -e OVERLEAF_REDIS_PORT=6379 " +
             "-e OVERLEAF_ALLOW_PUBLIC_REGISTRATION=true " +
             // 本地实例未配置 SMTP，确认邮件无法发送：
             // 禁用邮箱确认，隐藏项目页“请确认您的主要电子邮件地址”横幅。
             "-e EMAIL_CONFIRMATION_DISABLED=true " +
-            $"-e OVERLEAF_SITE_URL=http://localhost:{Config.Ayakaleaf.Port} " +
+            $"-e OVERLEAF_SITE_URL={siteUrl} " +
             // 界面语言注册（镜像内置 en / zh-CN 双语资源）：
             // 英文=主端口，简体中文=主端口+1，页脚语言选择器可互相切换。
             // JSON 含引号，经 --env-file 传递以避开命令行转义问题。
-            $"--env-file \"{WriteOverleafLanguageEnvFile()}\" " +
+            $"--env-file \"{WriteOverleafLanguageEnvFile(lanIp)}\" " +
             OverleafImage,
             progress);
-        await EnsureNginxPortForwardingAsync(progress);
+        if (created) Config.Ayakaleaf.ContainerProfile = profile;
+        await EnsureNginxPatchesAsync(progress);
 
         progress("等待服务就绪…");
         for (var i = 0; i < StartProbeTimeoutSeconds / 2; i++)
@@ -408,21 +532,23 @@ public static class AyakaleafService
 
     /// <summary>
     /// 启动单只容器：运行中跳过；已存在则启动；否则按参数创建。
+    /// 返回是否新建了容器。
     /// </summary>
-    private static async Task StartContainerAsync(string name, string runArguments, Action<string> progress)
+    private static async Task<bool> StartContainerAsync(string name, string runArguments, Action<string> progress)
     {
-        if (await IsContainerRunningAsync(name)) return;
+        if (await IsContainerRunningAsync(name)) return false;
         if (await ContainerExistsAsync(name))
         {
             progress($"启动既有容器 {name}…");
             var start = await WslcInterop.RunAsync($"start \"{name}\"", 120000);
             if (!start.IsSuccess)
                 throw new Exception($"启动容器 {name} 失败：{start.ErrorText}");
-            return;
+            return false;
         }
         var run = await WslcInterop.RunAsync(runArguments, 300000);
         if (!run.IsSuccess)
             throw new Exception($"创建容器 {name} 失败：{run.ErrorText}");
+        return true;
     }
 
     /// <summary>
