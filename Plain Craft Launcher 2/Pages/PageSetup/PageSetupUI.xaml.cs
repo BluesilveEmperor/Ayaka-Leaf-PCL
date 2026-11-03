@@ -58,7 +58,6 @@ public partial class PageSetupUI
 
             // 字体设置
             ComboUiFont.SelectedFontTag = Config.Preference.Font;
-            ComboUiMotdFont.SelectedFontTag = Config.Preference.MotdFont;
 
             CheckBlur.Checked = Config.Preference.Blur.IsEnabled;
             SliderBlurValue.Value = Config.Preference.Blur.Radius;
@@ -110,34 +109,15 @@ public partial class PageSetupUI
             CheckHiddenPageTools.Checked = uiHidden.PageTools;
 
             // 子页面 设置
-            CheckHiddenSetupLaunch.Checked = uiHidden.SetupLaunch;
             CheckHiddenSetupUI.Checked = uiHidden.SetupUi;
             CheckHiddenSetupLauncherLanguage.Checked = uiHidden.SetupLauncherLanguage;
-            CheckHiddenSetupGameManage.Checked = uiHidden.SetupGameManage;
-            CheckHiddenSetupJava.Checked = uiHidden.SetupJava;
             CheckHiddenLauncherMisc.Checked = uiHidden.SetupLauncherMisc;
             CheckHiddenSetupUpdate.Checked = uiHidden.SetupUpdate;
             CheckHiddenSetupAbout.Checked = uiHidden.SetupAbout;
             CheckHiddenSetupFeedback.Checked = uiHidden.SetupFeedback;
             CheckHiddenSetupLog.Checked = uiHidden.SetupLog;
 
-            // 子页面 工具
-            CheckHiddenToolsTest.Checked = uiHidden.ToolsTest;
-
-            // 子页面 实例设置
-            CheckHiddenVersionEdit.Checked = uiHidden.InstanceEdit;
-            CheckHiddenVersionExport.Checked = uiHidden.InstanceExport;
-            CheckHiddenVersionSave.Checked = uiHidden.InstanceSave;
-            CheckHiddenVersionScreenshot.Checked = uiHidden.InstanceScreenshot;
-            CheckHiddenVersionMod.Checked = uiHidden.InstanceMod;
-            CheckHiddenVersionResourcePack.Checked = uiHidden.InstanceResourcePack;
-            CheckHiddenVersionShader.Checked = uiHidden.InstanceShader;
-            CheckHiddenVersionSchematic.Checked = uiHidden.InstanceSchematic;
-            CheckHiddenVersionServer.Checked = uiHidden.InstanceServer;
-
             // 特定功能
-            CheckHiddenFunctionSelect.Checked = uiHidden.FunctionSelect;
-            CheckHiddenFunctionModUpdate.Checked = uiHidden.FunctionModUpdate;
             CheckHiddenFunctionHidden.Checked = uiHidden.FunctionHidden;
         }
         catch (NullReferenceException ex)
@@ -225,11 +205,6 @@ public partial class PageSetupUI
     private void ComboFontChange(object sender, SelectionChangedEventArgs e)
     {
         if (ModAnimation.AniControlEnabled == 0) Config.Preference.Font = ComboUiFont.SelectedFontTag;
-    }
-
-    private void ComboMotdFontChange(object sender, SelectionChangedEventArgs e)
-    {
-        if (ModAnimation.AniControlEnabled == 0) Config.Preference.MotdFont = ComboUiMotdFont.SelectedFontTag;
     }
 
     // 背景图片
@@ -761,17 +736,11 @@ public partial class PageSetupUI
 
                 // 统计设置页可用项数量
                 var setupCount = 0;
-                if (!conf.SetupLaunch)
-                    setupCount += 1;
                 if (!conf.SetupUi)
                     setupCount += 1;
                 if (!conf.SetupLauncherLanguage)
                     setupCount += 1;
-                if (!conf.SetupGameManage)
-                    setupCount += 1;
                 if (!conf.SetupLauncherMisc)
-                    setupCount += 1;
-                if (!conf.SetupJava)
                     setupCount += 1;
                 if (!conf.SetupUpdate)
                     setupCount += 1;
@@ -784,21 +753,6 @@ public partial class PageSetupUI
                 ModMain.frmSetupLeft.PanItem.Visibility =
                     setupCount < 2 && !HiddenForceShow ? Visibility.Collapsed : Visibility.Visible;
             }
-
-            // 工具子页面 (FrmToolsLeft)
-            if (ModMain.frmToolsLeft is not null)
-            {
-                ModMain.frmToolsLeft.ItemTest.Visibility =
-                    !HiddenForceShow && conf.ToolsTest ? Visibility.Collapsed : Visibility.Visible;
-
-                var isToolsVisible = (!HiddenForceShow && !conf.ToolsTest) || HiddenForceShow;
-                ModMain.frmToolsLeft.TextToolsCategory.Visibility = isToolsVisible ? Visibility.Visible : Visibility.Collapsed;
-                if (isToolsVisible) ModMain.frmToolsLeft.TextToolsCategory.Opacity = 0.6;
-
-                // AyakaLauncher 本地版：测试工具页已移除，无隐藏子项时收起「更多」页
-                ModMain.frmToolsLeft.PanItem.Visibility =
-                    !HiddenForceShow ? Visibility.Collapsed : Visibility.Visible;
-            }
         }
 
         catch (Exception ex)
@@ -809,77 +763,6 @@ public partial class PageSetupUI
                 ModBase.LogLevel.Feedback,
                 userSummary: Lang.Text("Setup.Ui.Error.OperationFailed"));
         }
-    }
-
-    // ================= 设置页面协同 =================
-    private void HiddenSetupMain()
-    {
-        var isChecked = (bool)CheckHiddenPageSetup.Checked;
-        CheckHiddenSetupLaunch.Checked = isChecked;
-        CheckHiddenSetupUI.Checked = isChecked;
-        CheckHiddenSetupLauncherLanguage.Checked = isChecked;
-        CheckHiddenSetupGameManage.Checked = isChecked;
-        CheckHiddenLauncherMisc.Checked = isChecked;
-        CheckHiddenSetupJava.Checked = isChecked;
-        CheckHiddenSetupUpdate.Checked = isChecked;
-        CheckHiddenSetupAbout.Checked = isChecked;
-        CheckHiddenSetupFeedback.Checked = isChecked;
-        CheckHiddenSetupLog.Checked = isChecked;
-    }
-
-    // ================= 设置页面协同 =================
-    private void HiddenSetupMain(object sender, bool user)
-    {
-        if (!user)
-            return; // 仅处理用户点击，防止死循环
-        var isChecked = (bool)CheckHiddenPageSetup.Checked;
-        CheckHiddenSetupLaunch.Checked = isChecked;
-        CheckHiddenSetupUI.Checked = isChecked;
-        CheckHiddenSetupLauncherLanguage.Checked = isChecked;
-        CheckHiddenSetupGameManage.Checked = isChecked;
-        CheckHiddenLauncherMisc.Checked = isChecked;
-        CheckHiddenSetupJava.Checked = isChecked;
-        CheckHiddenSetupUpdate.Checked = isChecked;
-        CheckHiddenSetupAbout.Checked = isChecked;
-        CheckHiddenSetupFeedback.Checked = isChecked;
-        CheckHiddenSetupLog.Checked = isChecked;
-    }
-
-    private void HiddenSetupSub(object sender, bool user)
-    {
-        if (!user)
-            return;
-        var conf = Config.Preference.Hide;
-        // 判断是否全部勾选
-        var allChecked = conf.SetupLaunch && conf.SetupUi && conf.SetupLauncherLanguage && conf.SetupJava &&
-                         conf.SetupUpdate && conf.SetupAbout && conf.SetupFeedback &&
-                         conf.SetupLog && conf.SetupLauncherMisc && conf.SetupGameManage;
-        CheckHiddenPageSetup.Checked = allChecked;
-    }
-
-    // ================= 工具页面协同 =================
-    private void HiddenToolsMain(object sender, bool user)
-    {
-        if (!user)
-            return;
-        var isChecked = (bool)CheckHiddenPageTools.Checked;
-        CheckHiddenToolsTest.Checked = isChecked;
-    }
-
-    private void HiddenToolsSub(object sender, bool user)
-    {
-        if (!user)
-            return;
-        var conf = Config.Preference.Hide;
-        var allChecked = conf.ToolsTest;
-        CheckHiddenPageTools.Checked = allChecked;
-    }
-
-    // 警告提示
-    private void HiddenHint(object sender, bool user)
-    {
-        if (ModAnimation.AniControlEnabled == 0 && sender is MyCheckBox checkBox && checkBox.Checked == true)
-            HintService.Hint(Lang.Text("Setup.Ui.FeatureHide.TemporaryHint"));
     }
 
     #endregion

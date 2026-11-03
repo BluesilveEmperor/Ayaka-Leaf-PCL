@@ -1,15 +1,6 @@
 namespace PCL.Core.App;
 
 /// <summary>
-/// 联机协议偏好
-/// </summary>
-public enum LinkProtocolPreference
-{
-    Tcp,
-    Udp
-}
-
-/// <summary>
 /// 文件下载使用的 HTTP 协议模式。
 /// </summary>
 public enum DownloadHttpMode
@@ -48,62 +39,6 @@ public enum UpdateChannel
     Release = 0,
     Beta = 1,
     Dev = 2
-}
-
-/// <summary>
-/// 游戏窗口大小模式
-/// </summary>
-public enum GameWindowSizeMode
-{
-    Fullscreen = 0,
-    Default = 1,
-    Launcher = 2,
-    Custom = 3,
-    Maximized = 4
-}
-
-/// <summary>
-/// 游戏进程优先级
-/// </summary>
-public enum GameProcessPriority
-{
-    AboveNormal = 0,
-    Normal = 1,
-    BelowNormal = 2,
-    High = 3,
-    RealTime = 4
-}
-
-/// <summary>
-/// 游戏启动后启动器可见性
-/// </summary>
-public enum LauncherVisibility
-{
-    ExitImmediately = 0,
-    ObsoleteCaseDoNotUse = 1,
-    HideAndExit = 2,
-    HideAndReopen = 3,
-    MinimizeAndReopen = 4,
-    DoNothing = 5
-}
-
-/// <summary>
-/// JVM 优先 IP 栈类型
-/// </summary>
-public enum JvmPreferredIpStack
-{
-    PreferV4 = 0,
-    Default = 1,
-    PreferV6 = 2
-}
-
-/// <summary>
-/// 联机中继行为
-/// </summary>
-public enum LinkRelayBehavior
-{
-    Default = 0,
-    ForceRelay = 1
 }
 
 /// <summary>

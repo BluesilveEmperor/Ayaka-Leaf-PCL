@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using PCL.Core.App;
@@ -18,14 +19,22 @@ public partial class WorkbenchWindow
     /// <summary>编辑器联动脚本（选中公式代码 → 右侧 PDF 自动高亮）。</summary>
     private const string EditorBridgeResource = "Resources/ayakaleaf/editor-synctex.js";
 
+    /// <summary>界面语言切换脚本（文件 → 设置 → 拼写和语言 面板中添加“界面语言”选项）。</summary>
+    private const string InterfaceLanguageResource = "Resources/ayakaleaf/interface-language.js";
+
     private readonly AyakaleafAccount _account;
     private string _sid;
     private int _retryCount;
 
     private static string? _editorBridgeScript;
     private static bool _editorBridgeLoaded;
+    private static string? _interfaceLanguageScript;
+    private static bool _interfaceLanguageLoaded;
 
     private static string UserDataFolder => Path.Combine(AppContext.BaseDirectory, "data", "ayakaleaf", "webview");
+
+    /// <summary>按用户语言偏好返回的工作台入口地址。</summary>
+    private static string WorkbenchUrl => AyakaleafService.BaseUrlForLanguage(Config.Ayakaleaf.InterfaceLanguage) + "/project";
 
     public WorkbenchWindow(AyakaleafAccount account, string sessionId)
     {
@@ -53,10 +62,12 @@ public partial class WorkbenchWindow
             var env = await CoreWebView2Environment.CreateAsync(null, UserDataFolder);
             await Web.EnsureCoreWebView2Async(env);
             Web.CoreWebView2.NavigationCompleted += Web_NavigationCompleted;
+            Web.CoreWebView2.WebMessageReceived += Web_WebMessageReceived;
             // 不显示浏览器报错页细节，直接进入项目列表
             Web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             // 必须在首次导航之前注入，才能在编辑器页面加载时生效
             await InjectEditorBridgeAsync();
+            await InjectInterfaceLanguageAsync();
             EnterWorkbench();
         }
         catch (Exception ex)
@@ -69,7 +80,7 @@ public partial class WorkbenchWindow
     {
         InjectSession();
         LabLoading.Visibility = System.Windows.Visibility.Collapsed;
-        Web.Source = new Uri(AyakaleafService.BaseUrl + "/project");
+        Web.Source = new Uri(WorkbenchUrl);
     }
 
     /// <summary>
@@ -116,6 +127,78 @@ public partial class WorkbenchWindow
         return _editorBridgeScript;
     }
 
+    /// <summary>
+    /// 注入界面语言切换脚本：在编辑器 文件 → 设置 → 拼写和语言 面板中
+    /// 添加“界面语言”选项，切换后跳转到对应语言端口的同一路径，
+    /// 并通过 postMessage 通知宿主持久化语言偏好。
+    /// </summary>
+    private async Task InjectInterfaceLanguageAsync()
+    {
+        var raw = GetInterfaceLanguageScript();
+        if (string.IsNullOrEmpty(raw)) return;
+
+        var script = raw
+            .Replace("__AYAKA_MAIN_PORT__", Config.Ayakaleaf.Port.ToString())
+            .Replace("__AYAKA_ZH_PORT__", AyakaleafService.ChinesePort.ToString());
+
+        try
+        {
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 界面语言脚本注入失败");
+        }
+    }
+
+    private static string? GetInterfaceLanguageScript()
+    {
+        if (_interfaceLanguageLoaded) return _interfaceLanguageScript;
+        _interfaceLanguageLoaded = true;
+
+        try
+        {
+            using var stream = Basics.GetResourceStream(InterfaceLanguageResource);
+            if (stream is null)
+            {
+                LogWrapper.Warn("[Ayakaleaf] 未找到界面语言脚本资源：" + InterfaceLanguageResource);
+                return null;
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            _interfaceLanguageScript = reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 界面语言脚本加载失败");
+        }
+
+        return _interfaceLanguageScript;
+    }
+
+    /// <summary>
+    /// 接收页面脚本消息。当前用于持久化工作台界面语言偏好
+    /// （编辑器设置面板中切换“界面语言”时由注入脚本发出）。
+    /// </summary>
+    private void Web_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(e.WebMessageAsJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("type", out var type) &&
+                type.GetString() == "ayaka:setInterfaceLanguage" &&
+                root.TryGetProperty("lang", out var lang))
+            {
+                Config.Ayakaleaf.InterfaceLanguage = lang.GetString() == "zh" ? "zh" : "en";
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 处理工作台消息失败");
+        }
+    }
+
     private void InjectSession()
     {
         if (string.IsNullOrEmpty(_sid)) return;
@@ -137,7 +220,7 @@ public partial class WorkbenchWindow
             _retryCount++;
             _sid = await AyakaleafAccountService.LoginAsync(_account);
             InjectSession();
-            Web.Source = new Uri(AyakaleafService.BaseUrl + "/project");
+            Web.Source = new Uri(WorkbenchUrl);
         }
         catch (Exception ex)
         {

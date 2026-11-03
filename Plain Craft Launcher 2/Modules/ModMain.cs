@@ -31,7 +31,6 @@ public static class ModMain
     public static PageBackup? frmBackup;
     public static PageSpeedLeft? frmSpeedLeft;
     public static PageSpeedRight? frmSpeedRight;
-    public static PageToolsLeft? frmToolsLeft;
     public static PageSetupLeft? frmSetupLeft;
     public static PageSetupUI? frmSetupUI;
     public static PageSetupUpdate? frmSetupUpdate;
@@ -40,7 +39,6 @@ public static class ModMain
     public static PageSetupFeedback? frmSetupFeedback;
     public static PageSetupLauncherLanguage? frmSetupLauncherLanguage;
     public static PageSetupLauncherMisc? frmSetupLauncherMisc;
-    public static PageLocalUser? frmLocalUser;
 
     public static MySlider? dragControl = null;
     private static int timer4Count;
@@ -178,7 +176,6 @@ public static class ModMain
         /// <summary>
         ///     输入模式：文本框的文本。
         ///     选择模式：需要放进去的 List(Of MyListItem)。
-        ///     登录模式：登录步骤 1 中返回的 JSON。
         /// </summary>
         public object Content;
 
@@ -209,7 +206,6 @@ public static class ModMain
         /// <summary>
         ///     输入模式：输入的文本。若点击了 非 第一个按钮，则为 Nothing。
         ///     选择模式：点击的按钮编号，从 1 开始。
-        ///     登录模式：字符串数组 {AccessToken, RefreshToken} 或一个 Exception。
         /// </summary>
         public object Result;
 
@@ -223,9 +219,6 @@ public static class ModMain
         public Collection<IValidator<string>> ValidateRules;
 
         public DispatcherFrame WaitFrame = new(true);
-
-        public string AuthServerDefault = "";
-        public IReadOnlyDictionary<string, string>? AuthServerPresets;
     }
 
     public enum MyMsgBoxType
@@ -233,8 +226,6 @@ public static class ModMain
         Text,
         Select,
         Input,
-        AuthServer,
-        Login,
         Markdown
     }
 
@@ -576,11 +567,6 @@ public static class ModMain
                     case MyMsgBoxType.Select:
                     {
                         frmMain.PanMsg.Children.Add(new MyMsgSelect(WaitingMyMsgBox[0]));
-                        break;
-                    }
-                    case MyMsgBoxType.AuthServer:
-                    {
-                        frmMain.PanMsg.Children.Add(new MyMsgAuthServer(WaitingMyMsgBox[0]));
                         break;
                     }
                     case MyMsgBoxType.Text:

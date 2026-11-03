@@ -68,9 +68,12 @@ public static class AyakaleafService
     public const string RedisContainer = "redis";
     public const string OverleafContainer = "overleaf";
 
-    private const string MongoImage = "mongo:8.0";
-    private const string RedisImage = "redis:7";
-    private const string OverleafImage = "sharelatex/sharelatex:server-pro";
+    public const string MongoImage = "mongo:8.0";
+    public const string RedisImage = "redis:7";
+    public const string OverleafImage = "sharelatex/sharelatex:server-pro";
+
+    /// <summary>简体中文界面使用的端口（主端口 +1，同一容器映射双端口实现语言切换）。</summary>
+    public static int ChinesePort => Config.Ayakaleaf.Port + 1;
 
     /// <summary>服务栈数据卷（独立 VHD 文件）。</summary>
     public static readonly string[] DataVolumes = { "mongo_data", "redis_data", "overleaf_data", "overleaf_logs" };
@@ -82,6 +85,12 @@ public static class AyakaleafService
     public static string BackupDirectory => Path.Combine(AppContext.BaseDirectory, "backups");
 
     public static string BaseUrl => $"http://localhost:{Config.Ayakaleaf.Port}";
+
+    /// <summary>
+    /// 按界面语言偏好返回工作台入口 URL（"zh" = 简体中文端口，其余 = 主端口 English）。
+    /// </summary>
+    public static string BaseUrlForLanguage(string lang) =>
+        lang == "zh" ? $"http://localhost:{ChinesePort}" : BaseUrl;
 
     /// <summary>
     /// 当前部署/运行状态（轻量判断，供 UI 初始显示）。
@@ -297,6 +306,50 @@ public static class AyakaleafService
         throw new Exception($"创建{what}失败：" + r.ErrorText);
     }
 
+    /// <summary>
+    /// 写出 Overleaf 语言域名映射环境文件，返回文件路径。
+    /// 映射把两种界面语言绑定到同容器的两个端口上，
+    /// 页脚语言选择器据此列出可切换的语言。
+    /// </summary>
+    private static string WriteOverleafLanguageEnvFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "ayakaleaf-overleaf-lang.env");
+        var mapping =
+            "{\"www\":{\"lngCode\":\"en\",\"url\":\"http://localhost:" + Config.Ayakaleaf.Port + "\"}," +
+            "\"zh\":{\"lngCode\":\"zh-CN\",\"url\":\"http://localhost:" + ChinesePort + "\"}}";
+        File.WriteAllText(path, "OVERLEAF_LANG_DOMAIN_MAPPING=" + mapping + "\n", new System.Text.UTF8Encoding(false));
+        return path;
+    }
+
+    /// <summary>
+    /// 确保容器内 nginx 转发完整的 Host 头（$host → $http_host）。
+    /// 默认的 $host 不带端口，web 服务按 Host 匹配界面语言时
+    /// 无法区分主端口（en）与 +1 端口（zh-CN）。补丁幂等，
+    /// 每次 StartAsync 都会执行；nginx 已运行则重载配置。
+    /// </summary>
+    private static async Task EnsureNginxPortForwardingAsync(Action<string> progress)
+    {
+        // 用 "." 通配 "$"（写法上避开反斜杠与句中 $，兼容 wslc/sed 参数传递链）
+        const string sedScript = "s/Host .host;/Host $http_host;/g";
+        for (var attempt = 0; ; attempt++)
+        {
+            var r = await WslcInterop.RunAsync(
+                $"exec {OverleafContainer} sed -i \"{sedScript}\" /etc/nginx/sites-enabled/overleaf.conf", 30000);
+            if (r.IsSuccess) break;
+            if (attempt >= 2)
+            {
+                // 补丁失败不阻断启动：语言切换不可用，但服务本身不受影响
+                LogWrapper.Warn($"[Ayakaleaf] nginx Host 头补丁执行失败：{r.ErrorText?.Trim()}");
+                progress("警告：界面语言切换可能不可用（nginx 配置补丁失败）");
+                return;
+            }
+            await Task.Delay(2000);
+        }
+
+        // nginx 可能尚未随容器启动完成，重载失败可忽略（启动时会读取已补丁的配置）
+        await WslcInterop.RunAsync($"exec {OverleafContainer} nginx -s reload", 30000);
+    }
+
     // ---------------- 启停 ----------------
 
     /// <summary>
@@ -325,14 +378,23 @@ public static class AyakaleafService
         progress("启动 Ayakaleaf…");
         await StartContainerAsync(OverleafContainer,
             $"run -d --name {OverleafContainer} --network {NetworkName} " +
-            $"-p {Config.Ayakaleaf.Port}:80 " +
+            $"-p {Config.Ayakaleaf.Port}:80 -p {ChinesePort}:80 " +
             "-v overleaf_data:/var/lib/overleaf/data -v overleaf_logs:/var/log/overleaf " +
             "-e OVERLEAF_INVITE_TOKEN_SECRET=please-change-me-openssl-rand-base64-32 " +
             "-e OVERLEAF_MONGO_URL=mongodb://mongo/sharelatex " +
             "-e OVERLEAF_REDIS_HOST=redis -e REDIS_HOST=redis -e OVERLEAF_REDIS_PORT=6379 " +
             "-e OVERLEAF_ALLOW_PUBLIC_REGISTRATION=true " +
+            // 本地实例未配置 SMTP，确认邮件无法发送：
+            // 禁用邮箱确认，隐藏项目页“请确认您的主要电子邮件地址”横幅。
+            "-e EMAIL_CONFIRMATION_DISABLED=true " +
+            $"-e OVERLEAF_SITE_URL=http://localhost:{Config.Ayakaleaf.Port} " +
+            // 界面语言注册（镜像内置 en / zh-CN 双语资源）：
+            // 英文=主端口，简体中文=主端口+1，页脚语言选择器可互相切换。
+            // JSON 含引号，经 --env-file 传递以避开命令行转义问题。
+            $"--env-file \"{WriteOverleafLanguageEnvFile()}\" " +
             OverleafImage,
             progress);
+        await EnsureNginxPortForwardingAsync(progress);
 
         progress("等待服务就绪…");
         for (var i = 0; i < StartProbeTimeoutSeconds / 2; i++)

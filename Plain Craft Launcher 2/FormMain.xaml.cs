@@ -307,9 +307,6 @@ public partial class FormMain
             ModBase.Log($"[Start] 最高版本号从 {lowerVersionCode} 升高到 {ModBase.versionCode}");
         }
 #endif
-        // 被移除的窗口设置选项 (Commit 3161488 2026/1/23)
-        if ((int)Config.Launch.GameWindowMode == 5)
-            Config.Launch.GameWindowMode = GameWindowSizeMode.Default;
 
         // 输出更新日志
         if (lastVersionCode <= 0)
@@ -1052,7 +1049,7 @@ public partial class FormMain
         Download = 1,
 
         /// <summary>
-        ///     联机。
+        ///     数据备份。
         /// </summary>
         Tools = 3,
 
@@ -1062,39 +1059,14 @@ public partial class FormMain
         Setup = 2,
 
         /// <summary>
-        ///     实例选择。这是一个副页面。
-        /// </summary>
-        InstanceSelect = 5,
-
-        /// <summary>
         ///     任务管理。这是一个副页面。
         /// </summary>
         TaskManager = 6,
 
         /// <summary>
-        ///     实例设置。这是一个副页面。
-        /// </summary>
-        InstanceSetup = 7,
-
-        /// <summary>
-        ///     资源工程详情。这是一个副页面。
-        /// </summary>
-        CompDetail = 8,
-
-        /// <summary>
         ///     帮助详情。这是一个副页面。
         /// </summary>
         HelpDetail = 9,
-
-        /// <summary>
-        ///     游戏实时日志。这是一个副页面。
-        /// </summary>
-        GameLog = 10,
-
-        /// <summary>
-        ///     存档详细管理，这是一个副页面。
-        /// </summary>
-        VersionSaves = 12,
     }
 
     /// <summary>
@@ -1103,53 +1075,13 @@ public partial class FormMain
     public enum PageSubType
     {
         Default = 0,
-        DownloadInstall = 1,
-        DownloadMod = 2,
-        DownloadPack = 3,
-        DownloadDataPack = 4,
-        DownloadResourcePack = 5,
-        DownloadShader = 6,
-        DownloadWorld = 7,
-        DownloadCompFavorites = 8,
-        DownloadClient = 9,
-        DownloadOptiFine = 10,
-        DownloadForge = 11,
-        DownloadNeoForge = 12,
-        DownloadCleanroom = 13,
-        DownloadFabric = 14,
-        DownloadLiteLoader = 16,
-        DownloadLabyMod = 17,
-        DownloadLegacyFabric = 18,
-
-        SetupLaunch = 0,
         SetupUI = 1,
-        SetupGameManage = 2,
-        SetupLink = 3,
         SetupAbout = 4,
         SetupLog = 5,
         SetupFeedback = 6,
         SetupUpdate = 8,
-        SetupJava = 9,
         SetupLauncherMisc = 10,
-        SetupLauncherLanguage = 11,
-
-        ToolsTest = 3,
-
-        VersionOverall = 0,
-        VersionSetup = 1,
-        VersionExport = 2,
-        VersionWorld = 3,
-        VersionScreenshot = 4,
-        VersionMod = 5,
-        VersionModDisabled = 6,
-        VersionResourcePack = 7,
-        VersionShader = 8,
-        VersionSchematic = 9,
-        VersionInstall = 10,
-        VersionServer = 11,
-        VersionModJarInJar = 12,
-        VersionSavesInfo = 0,
-        VersionSavesDatapack = 1
+        SetupLauncherLanguage = 11
     }
 
     /// <summary>

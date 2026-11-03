@@ -80,36 +80,6 @@ public static partial class Config
         [ConfigItem<int>("ToolDownloadFileConnection", 7)] public partial int FileConnectionLimit { get; set; }
         [ConfigItem<int>("ToolDownloadSpeed", 42)] public partial int SpeedLimit { get; set; }
         [ConfigItem<DownloadHttpMode>("ToolDownloadHttpMode", DownloadHttpMode.Auto)] public partial DownloadHttpMode HttpMode { get; set; }
-        [ConfigItem<int>("ToolDownloadSource", 1)] public partial int FileSource { get; set; }
-        [ConfigItem<int>("ToolDownloadVersion", 1)] public partial int VersionListSource { get; set; }
-        [ConfigItem<bool>("ToolDownloadAutoSelectVersion", true)] public partial bool AutoSelectInstance { get; set; }
-        [ConfigItem<bool>("ToolFixAuthlib", true)] public partial bool FixAuthLib { get; set; }
-
-        /// <summary>
-        /// 第三方资源配置。
-        /// </summary>
-        [ConfigGroup("Comp")] partial class CompConfigGroup
-        {
-            [ConfigItem<int>("ToolDownloadTranslate", 0)] public partial int NameFormatV1 { get; set; }
-            [ConfigItem<int>("ToolDownloadTranslateV2", 1)] public partial int NameFormatV2 { get; set; }
-            [ConfigItem<bool>("ToolDownloadIgnoreQuilt", true)] public partial bool IgnoreQuilt { get; set; }
-            [ConfigItem<bool>("ToolDownloadAutoInstallDependencies", true)] public partial bool AutoInstallDependencies { get; set; }
-            [ConfigItem<bool>("ToolDownloadClipboard", false)] public partial bool ReadClipboard { get; set; }
-            [ConfigItem<int>("ToolDownloadMod", 1)] public partial int CompSourceSolution { get; set; }
-            [ConfigItem<int>("ToolModLocalNameStyle", 0)] public partial int UiCompNameSolution { get; set; }
-            [ConfigItem<int>("ToolDownloadQuickBehavior", 0)] public partial int QuickDownloadBehavior { get; set; }
-        }
-    }
-
-    /// <summary>
-    /// 工具配置。
-    /// </summary>
-    [ConfigGroup("Tool")] partial class ToolConfigGroup
-    {
-        [ConfigItem<bool>("ToolHelpChinese", true)] public partial bool AutoChangeLanguage { get; set; }
-        // [ConfigItem<int>("ToolUpdateAlpha", 0, ConfigSource.SharedEncrypt)] public partial int Alpha { get; set; }
-        [ConfigItem<bool>("ToolUpdateRelease", false)] public partial bool ReleaseNotification { get; set; }
-        [ConfigItem<bool>("ToolUpdateSnapshot", false)] public partial bool SnapshotNotification { get; set; }
     }
 
     /// <summary>
@@ -131,57 +101,6 @@ public static partial class Config
         /// Mirror 酱 CDK。
         /// </summary>
         [ConfigItem<string>("SystemMirrorChyanKey", "", ConfigSource.SharedEncrypt)] public partial string MirrorChyanKey { get; set; }
-    }
-
-    /// <summary>
-    /// 联机大厅配置。
-    /// </summary>
-    [ConfigGroup("Link")] partial class LinkConfigGroup
-    {
-        /// <summary>
-        /// 大厅用户名。
-        /// </summary>
-        [ConfigItem<string>("LinkUsername", "")] public partial string Username { get; set; }
-
-        /// <summary>
-        /// 中继方式。
-        /// </summary>
-        [ConfigItem<LinkRelayBehavior>("LinkRelayType", LinkRelayBehavior.Default)] public partial LinkRelayBehavior RelayType { get; set; }
-
-        /// <summary>
-        /// 中继服务器类型 (社区/自有)。
-        /// </summary>
-        [ConfigItem<int>("LinkServerType", 1)] public partial int ServerType { get; set; }
-
-        /// <summary>
-        /// 延迟优先模式。
-        /// </summary>
-        [ConfigItem<bool>("LinkLatencyFirstMode", true)] public partial bool UseLatencyFirstMode { get; set; }
-
-        /// <summary>
-        /// 自定义中继服务器。
-        /// </summary>
-        [ConfigItem<string>("LinkRelayServer", "")] public partial string CustomRelayServer { get; set; }
-
-        /// <summary>
-        /// 传输协议优先策略。
-        /// </summary>
-        [ConfigItem<LinkProtocolPreference>("LinkProtocolPreference", LinkProtocolPreference.Tcp)] public partial LinkProtocolPreference ProtocolPreference { get; set; }
-
-        /// <summary>
-        /// 尝试使用端口猜测打通对称性 NAT。
-        /// </summary>
-        [ConfigItem<bool>("LinkTryPunchSym", true)] public partial bool TryPunchSym { get; set; }
-
-        /// <summary>
-        /// 启用 IPv6。
-        /// </summary>
-        [ConfigItem<bool>("LinkEnableIPv6", true)] public partial bool EnableIPv6 { get; set; }
-        
-        /// <summary>
-        /// 在日志中输出 Cli 信息以用于调试。
-        /// </summary>
-        [ConfigItem<bool>("LinkEnableCliOutput", false)] public partial bool EnableCliOutput { get; set; }
     }
 
     /// <summary>
@@ -223,16 +142,6 @@ public static partial class Config
         /// 全局字体。
         /// </summary>
         [ConfigItem<string>("UiFont", "", ConfigSource.Local)] public partial string Font { get; set; }
-
-        /// <summary>
-        /// MOTD 字体。
-        /// </summary>
-        [ConfigItem<string>("UiMotdFont", "", ConfigSource.Local)] public partial string MotdFont { get; set; }
-
-        /// <summary>
-        /// 详细实例分类。
-        /// </summary>
-        [ConfigItem<bool>("DetailedInstanceClassification", false, ConfigSource.Local)] public partial bool DetailedInstanceClassification {  get; set; }
 
         /// <summary>
         /// 本地化配置。
@@ -437,219 +346,17 @@ public static partial class Config
             [ConfigItem<bool>("UiHiddenPageTools", false, ConfigSource.Local)] public partial bool PageTools { get; set; }
 
             // 子页面 设置
-            [ConfigItem<bool>("UiHiddenSetupLaunch", false, ConfigSource.Local)] public partial bool SetupLaunch { get; set; }
             [ConfigItem<bool>("UiHiddenSetupUi", false, ConfigSource.Local)] public partial bool SetupUi { get; set; }
             [ConfigItem<bool>("UiHiddenSetupLauncherLanguage", false, ConfigSource.Local)] public partial bool SetupLauncherLanguage { get; set; }
             [ConfigItem<bool>("UiHiddenSetupLauncherMisc", false, ConfigSource.Local)] public partial bool SetupLauncherMisc { get; set; }
-            [ConfigItem<bool>("UiHiddenSetupGameManage", false, ConfigSource.Local)] public partial bool SetupGameManage { get; set; }
-            [ConfigItem<bool>("UiHiddenSetupJava", false, ConfigSource.Local)] public partial bool SetupJava { get; set; }
             [ConfigItem<bool>("UiHiddenSetupUpdate", false, ConfigSource.Local)] public partial bool SetupUpdate { get; set; }
-            [ConfigItem<bool>("UiHiddenSetupGameLink", false, ConfigSource.Local)] public partial bool SetupGameLink { get; set; } // 新增
             [ConfigItem<bool>("UiHiddenSetupAbout", false, ConfigSource.Local)] public partial bool SetupAbout { get; set; } // 修正名称
             [ConfigItem<bool>("UiHiddenSetupFeedback", false, ConfigSource.Local)] public partial bool SetupFeedback { get; set; } // 修正名称
             [ConfigItem<bool>("UiHiddenSetupLog", false, ConfigSource.Local)] public partial bool SetupLog { get; set; } // 修正名称
 
-            // 子页面 工具
-            [ConfigItem<bool>("UiHiddenToolsGameLink", false, ConfigSource.Local)] public partial bool ToolsGameLink { get; set; } // 新增
-            [ConfigItem<bool>("UiHiddenToolsTest", false, ConfigSource.Local)] public partial bool ToolsTest { get; set; } // 新增
-
-            // 子页面 实例设置
-            [ConfigItem<bool>("UiHiddenVersionEdit", false, ConfigSource.Local)] public partial bool InstanceEdit { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionExport", false, ConfigSource.Local)] public partial bool InstanceExport { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionSave", false, ConfigSource.Local)] public partial bool InstanceSave { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionScreenshot", false, ConfigSource.Local)] public partial bool InstanceScreenshot { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionMod", false, ConfigSource.Local)] public partial bool InstanceMod { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionResourcePack", false, ConfigSource.Local)] public partial bool InstanceResourcePack { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionShader", false, ConfigSource.Local)] public partial bool InstanceShader { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionSchematic", false, ConfigSource.Local)] public partial bool InstanceSchematic { get; set; }
-            [ConfigItem<bool>("UiHiddenVersionServer", false, ConfigSource.Local)] public partial bool InstanceServer { get; set; }
-
             // 特定功能
-            [ConfigItem<bool>("UiHiddenFunctionSelect", false, ConfigSource.Local)] public partial bool FunctionSelect { get; set; }
-            [ConfigItem<bool>("UiHiddenFunctionModUpdate", false, ConfigSource.Local)] public partial bool FunctionModUpdate { get; set; }
             [ConfigItem<bool>("UiHiddenFunctionHidden", false, ConfigSource.Local)] public partial bool FunctionHidden { get; set; }
         }
-    }
-
-    /// <summary>
-    /// 启动配置。
-    /// </summary>
-    [ConfigGroup("Launch")] partial class LaunchConfigGroup
-    {
-        /// <summary>
-        /// 内存分配模式。
-        /// </summary>
-        [ConfigItem<int>("LaunchRamType", 0, ConfigSource.Local)] public partial int MemoryAllocationMode { get; set; }
-
-        /// <summary>
-        /// 自定义内存分配大小。
-        /// </summary>
-        [ConfigItem<int>("LaunchRamCustom", 15, ConfigSource.Local)] public partial int CustomMemorySize { get; set; }
-
-        /// <summary>
-        /// 自定义初始堆大小（-Xms）的滑块刻度值，0 表示不主动设置。仅在手动分配模式下生效，且实际值不会超过最大堆。
-        /// </summary>
-        [ConfigItem<int>("LaunchRamCustomInitial", 0, ConfigSource.Local)] public partial int CustomInitialMemorySize { get; set; }
-
-        /// <summary>
-        /// 是否固定堆大小：启用后额外追加 -Xms 并使其等于 -Xmx，隐式禁用内存归还以降低延迟抖动、利于 ZGC。见 #3282。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceLockMemory", false, ConfigSource.Local)] public partial bool LockMemory { get; set; }
-
-        /// <summary>
-        /// 优先 IP 协议栈。
-        /// </summary>
-        [ConfigItem<JvmPreferredIpStack>("LaunchPreferredIpStack", JvmPreferredIpStack.Default)] public partial JvmPreferredIpStack PreferredIpStack { get; set; }
-
-        /// <summary>
-        /// 附加 JVM 参数。
-        /// </summary>
-        [ConfigItem<string>("LaunchAdvanceJvm", "-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Djdk.lang.Process.allowAmbiguousCommands=true -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True -Dlog4j2.formatMsgNoLookups=true", ConfigSource.Local)] public partial string JvmArgs { get; set; }
-
-        /// <summary>
-        /// 附加游戏参数。
-        /// </summary>
-        [ConfigItem<string>("LaunchAdvanceGame", "", ConfigSource.Local)] public partial string GameArgs { get; set; }
-
-        /// <summary>
-        /// 预启动指令。
-        /// </summary>
-        [ConfigItem<string>("LaunchAdvanceRun", "", ConfigSource.Local)] public partial string PreLaunchCommand { get; set; }
-
-        /// <summary>
-        /// 是否等待预启动指令完成。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceRunWait", true, ConfigSource.Local)] public partial bool PreLaunchCommandWait { get; set; }
-
-        /// <summary>
-        /// 禁用 Java Launch Wrapper。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceDisableJLW", true, ConfigSource.Local)] public partial bool DisableJlw { get; set; }
-
-        /// <summary>
-        /// 禁用 LegacyFix
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceDisableLF", false, ConfigSource.Local)] public partial bool DisableLF { get; set; }
-
-        /// <summary>
-        /// 强制使用高性能显卡。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceGraphicCard", true)] public partial bool SetGpuPreference { get; set; }
-
-        /// <summary>
-        /// 使用 java 而不是 javaw。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceNoJavaw", false)] public partial bool NoJavaw { get; set; }
-
-        /// <summary>
-        /// 禁用 LWJGL Unsafe Agent。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceDisableLwjglUnsafeAgent", false)] public partial bool DisableLwjglUnsafeAgent { get; set; }
-
-        /// <summary>
-        /// 禁用自动崩溃分析。
-        /// </summary>
-        [ConfigItem<bool>("LaunchAdvanceDisableCrashAnalysis", false, ConfigSource.Local)] public partial bool DisableCrashAnalysis { get; set; }
-
-        /// <summary>
-        /// 渲染器。
-        /// </summary>
-        [ConfigItem<int>("LaunchAdvanceRenderer", 0 ,ConfigSource.Local)] public partial int Renderer { get; set; }
-
-        /// <summary>
-        /// 游戏窗口标题。
-        /// </summary>
-        [ConfigItem<string>("LaunchArgumentTitle", "", ConfigSource.Local)] public partial string Title { get; set; }
-
-        /// <summary>
-        /// 自定义左下角版本信息。
-        /// </summary>
-        [ConfigItem<string>("LaunchArgumentInfo", "PCLCE", ConfigSource.Local)] public partial string TypeInfo { get; set; }
-
-        /// <summary>
-        /// 选择的默认 Java 实例。
-        /// </summary>
-        [ConfigItem<string>("LaunchArgumentJavaSelect", "")] public partial string SelectedJava { get; set; }
-
-        /// <summary>
-        /// 版本隔离 V2。
-        /// </summary>
-        [ConfigItem<int>("LaunchArgumentIndieV2", 4, ConfigSource.Local)] public partial int IndieSolutionV2 { get; set; }
-
-        /// <summary>
-        /// 游戏启动后启动器可见性。
-        /// </summary>
-        [ConfigItem<LauncherVisibility>("LaunchArgumentVisible", LauncherVisibility.DoNothing)] public partial LauncherVisibility LauncherVisibility { get; set; }
-
-        /// <summary>
-        /// 游戏进程优先级。
-        /// </summary>
-        [ConfigItem<GameProcessPriority>("LaunchArgumentPriority", GameProcessPriority.Normal)] public partial GameProcessPriority ProcessPriority { get; set; }
-
-        /// <summary>
-        /// 游戏窗口宽度。
-        /// </summary>
-        [ConfigItem<int>("LaunchArgumentWindowWidth", 854, ConfigSource.Local)] public partial int GameWindowWidth { get; set; }
-
-        /// <summary>
-        /// 游戏窗口高度。
-        /// </summary>
-        [ConfigItem<int>("LaunchArgumentWindowHeight", 480, ConfigSource.Local)] public partial int GameWindowHeight { get; set; }
-
-        /// <summary>
-        /// 游戏窗口模式 (正常/最大化/全屏)。
-        /// </summary>
-        [ConfigItem<GameWindowSizeMode>("LaunchArgumentWindowType", GameWindowSizeMode.Default, ConfigSource.Local)] public partial GameWindowSizeMode GameWindowMode { get; set; }
-
-        /// <summary>
-        /// 正版登录方式。
-        /// </summary>
-        [ConfigItem<int>("LoginMsAuthType", 1)] public partial int LoginMsAuthType { get; set; }
-    }
-
-    /// <summary>
-    /// 实例独立配置。<br/>
-    /// 懒得写注释了，自己理解吧。
-    /// </summary>
-    [ConfigGroup("Instance", ConfigSource.GameInstance)] partial class InstanceConfigGroup
-    {
-        [ConfigItem<string>("VersionAdvanceJvm", "")] public partial ArgConfig<string> JvmArgs { get; }
-        [ConfigItem<string>("VersionAdvanceGame", "")] public partial ArgConfig<string> GameArgs { get; }
-        [ConfigItem<int>("VersionAdvanceRenderer", 0)] public partial ArgConfig<int> Renderer { get; }
-        [ConfigItem<int>("VersionAdvanceAssets", 0)] public partial ArgConfig<int> AssetVerifySolutionV1 { get; }
-        [ConfigItem<bool>("VersionAdvanceAssetsV2", false)] public partial ArgConfig<bool> DisableAssetVerifyV2 { get; }
-        [ConfigItem<bool>("VersionAdvanceJava", false)] public partial ArgConfig<bool> IgnoreJavaCompatibility { get; }
-        [ConfigItem<bool>("VersionAdvanceDisableJlw", false)] public partial ArgConfig<bool> DisableJlwObsolete { get; }
-        [ConfigItem<string>("VersionAdvanceRun", "")] public partial ArgConfig<string> PreLaunchCommand { get; }
-        [ConfigItem<string>("VersionAdvanceClasspathHead", "")] public partial ArgConfig<string> ClasspathHead { get; }
-        [ConfigItem<bool>("VersionAdvanceRunWait", true)] public partial ArgConfig<bool> PreLaunchCommandWait { get; }
-        [ConfigItem<bool>("VersionAdvanceDisableJLW", false)] public partial ArgConfig<bool> DisableJlw { get; }
-        [ConfigItem<bool>("VersionAdvanceDisableLwjglUnsafeAgent", false)] public partial ArgConfig<bool> DisableLwjglUnsafeAgent { get; }
-        [ConfigItem<bool>("VersionAdvanceUseProxyV2", false)] public partial ArgConfig<bool> UseProxy { get; }
-        [ConfigItem<bool>("VersionAdvanceDisableLF", false)] public partial ArgConfig<bool> DisableLF { get; }
-        [ConfigItem<bool>("VersionUseDebugLog4j2Config", false)] public partial ArgConfig<bool> UseDebugLof4j2Config { get; }
-        [ConfigItem<int>("VersionRamType", 2)] public partial ArgConfig<int> MemorySolution { get; }
-        [ConfigItem<int>("VersionRamCustom", 15)] public partial ArgConfig<int> CustomMemorySize { get; }
-        [ConfigItem<int>("VersionRamCustomInitial", 0)] public partial ArgConfig<int> CustomInitialMemorySize { get; }
-        [ConfigItem<string>("VersionArgumentTitle", "")] public partial ArgConfig<string> Title { get; }
-        [ConfigItem<bool>("VersionArgumentTitleEmpty", false)] public partial ArgConfig<bool> UseGlobalTitle { get; }
-        [ConfigItem<string>("VersionArgumentInfo", "")] public partial ArgConfig<string> TypeInfo { get; }
-        [ConfigItem<int>("VersionArgumentIndie", -1)] public partial ArgConfig<int> IndieV1 { get; }
-        [ConfigItem<bool>("VersionArgumentIndieV2", false)] public partial ArgConfig<bool> IndieV2 { get; }
-        [ConfigItem<string>("VersionArgumentJavaSelect", "使用全局设置")] public partial ArgConfig<string> SelectedJava { get; }
-        [ConfigItem<string>("VersionServerEnter", "")] public partial ArgConfig<string> ServerToEnter { get; }
-    }
-
-    /// <summary>
-    /// 实例独立配置的认证部分
-    /// </summary>
-    [ConfigGroup("InstanceAuth", ConfigSource.GameInstance)] partial class InstanceAuthConfigGroup
-    {
-        [ConfigItem<int>("VersionServerLoginRequire", 0)] public partial ArgConfig<int> LoginRequirementSolution { get; }
-        [ConfigItem<string>("VersionServerAuthRegister", "")] public partial ArgConfig<string> AuthRegisterAddress { get; }
-        [ConfigItem<string>("VersionServerAuthName", "")] public partial ArgConfig<string> AuthServerDisplayName { get; }
-        [ConfigItem<string>("VersionServerAuthServer", "")] public partial ArgConfig<string> AuthServerAddress { get; }
-        [ConfigItem<bool>("VersionServerLoginLock", false)] public partial ArgConfig<bool> AuthLocked { get; }
     }
 
     /// <summary>
@@ -671,5 +378,10 @@ public static partial class Config
         /// 内嵌运行时是否已完成部署。
         /// </summary>
         [ConfigItem<bool>("AyakaleafDeployed", false, ConfigSource.Local)] public partial bool Deployed { get; set; }
+
+        /// <summary>
+        /// 工作台界面语言（"en" = English，"zh" = 简体中文），在编辑器设置面板中切换。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafInterfaceLanguage", "en", ConfigSource.Local)] public partial string InterfaceLanguage { get; set; }
     }
 }

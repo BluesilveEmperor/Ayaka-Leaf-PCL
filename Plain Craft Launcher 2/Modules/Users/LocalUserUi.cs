@@ -15,7 +15,7 @@ namespace PCL;
 
 /// <summary>
 /// 本地用户的界面交互：注册、登录、切换与删除。
-/// 用户数据存放在 SQLite，每个用户拥有独立的游戏目录与离线档案。
+/// 用户数据存放在 SQLite，每个用户拥有独立的数据目录。
 /// </summary>
 public static class LocalUserUi
 {
