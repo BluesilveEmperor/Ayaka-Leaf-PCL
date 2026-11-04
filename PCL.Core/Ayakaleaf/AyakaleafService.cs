@@ -104,7 +104,8 @@ public static class AyakaleafService
         : null;
 
     /// <summary>
-    /// 解析本机局域网 IPv4 地址（跳过回环、隧道与常见虚拟网卡）。
+    /// 解析本机局域网 IPv4 地址（跳过回环、隧道、常见虚拟网卡，
+    /// 以及代理 TUN 虚拟网卡如 Mihomo/Clash 与 198.18.0.0/15 保留网段）。
     /// 找不到可用地址时返回 "localhost"。
     /// </summary>
     public static string ResolveLanAddress()
@@ -118,13 +119,22 @@ public static class AyakaleafService
                 var name = nic.Name.ToLowerInvariant();
                 if (name.Contains("vethernet") || name.Contains("vmware") ||
                     name.Contains("virtualbox") || name.Contains("loopback") ||
-                    name.Contains("tap-") || name.Contains("tun"))
+                    name.Contains("tap-") || name.Contains("tun") ||
+                    // 代理 TUN 虚拟网卡（Clash Verge/Mihomo 走 wintun 驱动，
+                    // 接口类型显示为 Ethernet，接口名默认 "Mihomo"，上方类型与 tun 过滤拦不住）
+                    name.Contains("mihomo") || name.Contains("clash") ||
+                    name.Contains("singbox") || name.Contains("sing-box") ||
+                    name.Contains("wintun") || name.Contains("wireguard"))
                     continue;
                 foreach (var addr in nic.GetIPProperties().UnicastAddresses)
                 {
                     if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
                     var ip = addr.Address.ToString();
                     if (ip.StartsWith("169.254.", StringComparison.Ordinal)) continue;
+                    // 198.18.0.0/15：RFC 2544 基准保留段，Mihomo/Clash/sing-box 等
+                    // 代理 TUN 默认网段；真实局域网不会使用，排除以免误选虚拟网卡 IP
+                    if (ip.StartsWith("198.18.", StringComparison.Ordinal) ||
+                        ip.StartsWith("198.19.", StringComparison.Ordinal)) continue;
                     return ip;
                 }
             }
