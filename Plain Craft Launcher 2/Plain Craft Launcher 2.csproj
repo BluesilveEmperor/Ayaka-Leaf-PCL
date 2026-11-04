@@ -135,4 +135,19 @@
         <Message Importance="high" Text="链接内嵌运行时: $(AyakaleafRuntimeLink) -> $(AyakaleafRuntimeSource)" />
         <Exec Command="cmd /c if exist &quot;$(AyakaleafRuntimeLink)&quot; rmdir &quot;$(AyakaleafRuntimeLink)&quot; &amp; mklink /J &quot;$(AyakaleafRuntimeLink)&quot; &quot;$(AyakaleafRuntimeSource)&quot;" />
     </Target>
+    <!-- dotnet publish 同理：publish 输出目录（默认 bin\...\publish\，或 -o 指定如 artifact\）
+         里的 exe 供本机直接运行，同样需要 runtime\images 就位，Publish 后也挂联接。
+         $(PublishDir) 相对时基于项目目录拼接，绝对时（-o 传绝对路径）直接使用，
+         不能盲目拼接（GetFullPath 对"相对前缀+绝对路径"会抛 NotSupportedException）。
+         CI 上仓库无 runtime\，Condition 不满足即整体跳过，publish 产物保持纯净。 -->
+    <Target Name="LinkAyakaleafRuntimeOnPublish" AfterTargets="Publish" Condition="Exists('$(AyakaleafRuntimeSource)\images')">
+        <PropertyGroup>
+            <!-- MSBuild 条件表达式不支持嵌套单引号：先求布尔值再比较 -->
+            <AyakaleafPublishDirIsRooted>$([System.IO.Path]::IsPathRooted('$(PublishDir)'))</AyakaleafPublishDirIsRooted>
+            <AyakaleafRuntimePublishLink Condition="'$(AyakaleafPublishDirIsRooted)' == 'True'">$([System.IO.Path]::GetFullPath('$(PublishDir)runtime'))</AyakaleafRuntimePublishLink>
+            <AyakaleafRuntimePublishLink Condition="'$(AyakaleafPublishDirIsRooted)' != 'True'">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(PublishDir)runtime'))</AyakaleafRuntimePublishLink>
+        </PropertyGroup>
+        <Message Importance="high" Text="链接内嵌运行时: $(AyakaleafRuntimePublishLink) -> $(AyakaleafRuntimeSource)" />
+        <Exec Command="cmd /c if exist &quot;$(AyakaleafRuntimePublishLink)&quot; rmdir &quot;$(AyakaleafRuntimePublishLink)&quot; &amp; mklink /J &quot;$(AyakaleafRuntimePublishLink)&quot; &quot;$(AyakaleafRuntimeSource)&quot;" />
+    </Target>
 </Project>
