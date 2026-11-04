@@ -351,9 +351,9 @@ MaskFiles/
 artifact/
 # 分发打包产物（约 2GB，可由 artifact + runtime 重新组装，不入库）
 dist/
-# 发布 zip（约 1.9GB，由 release.ps1 生成，不入库）
+# 发布 zip（约 1.7GB，由 release.ps1 生成，不入库）
 release/
-# Ayakaleaf 内嵌运行时产物（2.6GB，由打包脚本生成，不入库）
+# Ayakaleaf 内嵌运行时（约 1.6GB，单个镜像包 1262.9MB 超过 GitHub 100MB 单文件限制，不入库；由 Release 附件 runtime.zip 分发）
 /runtime/
 # 项目目录内的 runtime junction（指向仓库根 runtime，防 git 穿透入库）
 Plain Craft Launcher 2/runtime/

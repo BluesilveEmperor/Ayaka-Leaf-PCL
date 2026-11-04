@@ -44,13 +44,14 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载**完整分发包** `AyakaLauncher_<版本>_Release_x64.zip`（约 1.6GB，已内嵌运行时）并解压到任意目录
-2. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（x64）
-3. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
-4. 启动 `AyakaLauncher.exe` → 注册本地用户并登录
-5. 服务台页面依次点击：**开始部署** → **启动服务** → **打开工作台**（服务地址 `http://localhost:8080`，端口可配置）
+1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）与运行时包 `runtime.zip`
+2. 把 exe 与 `runtime.zip` 放到同一目录，解压 `runtime.zip` 得到 `runtime\images\`（约 1.6GB，详见下节）
+3. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架构与主程序一致）
+4. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
+5. 启动 `AyakaLauncher_Release_<平台>.exe` → 注册本地用户并登录
+6. 服务台页面依次点击：**开始部署** → **启动服务** → **打开工作台**（服务地址 `http://localhost:8080`，端口可配置）
 
-> ⚠️ `runtime\` 是容器镜像运行时，必须与 `AyakaLauncher.exe` 保持**同级、不可拆分或改名**。若只下载 13MB 的独立 exe，需自备 `runtime\`（见下节）。
+> ⚠️ `runtime\` 是容器镜像运行时，必须与 exe 保持**同级、不可拆分或改名**。exe 本身不含镜像，缺少 `runtime\images\` 时无法部署服务。
 
 ## 📦 内嵌运行时（runtime）
 
@@ -65,15 +66,15 @@ runtime\
    └─ redis-7.tar.gz                 # Redis 7（约 42MB）
 ```
 
-三个包合计约 1.6GB，**不入 git 仓库**（`.gitignore` 已排除）。获取方式任选其一：
+三个包合计约 1.6GB，**不入 git 仓库**（`.gitignore` 已排除），分发走下文「发布与分发」中的 Release 附件 `runtime.zip`。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
-| Release 完整包解压 | 全部 | 最省事，`AyakaLauncher_*_Release_x64.zip` 内已含 `runtime\` |
-| `wslc` 自助导出 | mongo / redis | 标准镜像：`wslc pull mongo:8.0` 后 `wslc save -o runtime\images\mongo-8.0.tar mongo:8.0`（redis 同理） |
+| Release 附件 `runtime.zip` 解压 | 全部 | 最省事，解压到 exe 同级即为 `runtime\images\` |
+| `wslc` 自助导出 | mongo / redis | 标准镜像：`wslc pull mongo:8.0` 后 `wslc save -o runtime\images\mongo-8.0.tar.gz mongo:8.0`（redis 同理） |
 | ayakaleaf-pro 构建 | sharelatex 定制镜像 | 从 [ayakaleaf-pro](https://github.com/ayaka-notes/ayakaleaf-pro) 构建镜像后 `wslc save` 导出 |
 
-**放置位置**：分发包内放在 exe 同级；源码开发放在**仓库根** `runtime\images\`（构建后自动挂到输出目录，见下节）。
+**放置位置**：解压后的 `runtime.zip` 或整合包内，均放在 exe 同级；源码开发放在**仓库根** `runtime\images\`（构建后自动挂到输出目录，见下节）。
 
 ## 🛠️ 本地开发
 
@@ -107,13 +108,52 @@ dotnet run --project "Plain Craft Launcher 2"
 
 **首次运行流程**：注册本地用户并登录 → 服务台点击 **开始部署**（自动加载镜像、初始化 MongoDB 副本集）→ **启动服务** → **打开工作台**。可用 `wslc images` 确认 3 个镜像、`wslc list` 确认 3 个容器（mongo / redis / overleaf）均已就绪。
 
-### 发布打包
+## 📦 发布与分发（Release）
+
+正式版本统一从 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载，附件包含：
+
+| 附件 | 说明 |
+|---|---|
+| `AyakaLauncher_Release_x64.exe` | x64 主程序，Framework-dependent 单文件，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
+| `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
+| `runtime.zip` | 内嵌容器运行时镜像包，约 1.6GB |
+
+### 部署步骤
+
+1. 把 `AyakaLauncher_Release_<平台>.exe` 与 `runtime.zip` 放到同一目录
+2. 解压 `runtime.zip` 到该目录，得到 `runtime\images\`（含 `sharelatex-server-pro`、`mongo-8.0`、`redis-7` 三个镜像包）
+3. 运行 exe，按「快速开始」完成首次部署
+
+### 首次发布（runtime.zip 来源）
+
+CI 无法凭空生成 `runtime.zip`——运行时镜像不入库，干净的构建机上也拿不到这些文件。因此：
+
+- **首次发布**（此前没有任何包含 `runtime.zip` 的 Release）：先在本机执行 `pwsh release.ps1` 得到 `release\runtime.zip`，手动上传到该 Release；或手动触发工作流时，在 `runtime_source_tag` 输入中指定已含 `runtime.zip` 的 Release 标签。
+- **之后的发布**：`package_runtime` job 会自动查找最近一个包含 `runtime.zip` 的非草稿 Release，下载并复用其中的 `runtime.zip` 上传到新 Release，无需再次手动上传。
+
+### 为什么 runtime 不进入代码仓库
+
+单个镜像包最大为 1262.9MB，远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由 Release 附件 `runtime.zip` 分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
+
+### 本地打包
 
 ```powershell
+# 默认：产出 exe 与 runtime.zip
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+
+# 可选：同时产出整合包
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
-产出 `release\AyakaLauncher_<版本>_Release_x64.zip`（exe + 真实 runtime 文件，可直接分发）及 `artifact\AyakaLauncher.exe` 单文件。本机日常运行无需打包——构建输出目录已通过 junction 挂好 runtime。
+打包前脚本会校验 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 三个镜像是否齐备，缺失则直接报错，并提示先从 Release 附件 `runtime.zip` 解压恢复。
+
+| 产物 | 触发条件 | 说明 |
+|---|---|---|
+| `release\AyakaLauncher_<配置>_<平台>.exe` | 默认 | 主程序，命名与 Release 附件一致（不含版本号） |
+| `release\runtime.zip` | 默认 | 内嵌运行时镜像包，约 1.6GB，即随 Release 分发的 `runtime.zip` |
+| `release\AyakaLauncher_<版本>_<配置>_<平台>.zip` | 加 `-WithBundle` | exe + runtime 整合包，约 1.7GB，适合离线分发 |
+
+脚本使用 Windows 自带的 `C:\Windows\System32\tar.exe` 打包 zip，不依赖 PATH 中的 tar。本机日常运行无需打包——构建输出目录已通过 junction 挂好 runtime。
 
 ## 🔒 许可证
 
@@ -125,3 +165,4 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 - [PCL Community Edition](https://github.com/PCL-Community/PCL-CE) —— UI 框架与工程基础
 - [Meloong-Git/PCL](https://github.com/Meloong-Git/PCL) —— 上游原项目
 - [Overleaf](https://github.com/overleaf/overleaf) —— 内嵌的协作 LaTeX 服务
+- [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro) —— 上游 Overleaf 定制服务端，本项目内嵌运行时与工作台的服务端来源
