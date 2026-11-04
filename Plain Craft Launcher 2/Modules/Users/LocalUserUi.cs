@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using FluentValidation;
 using PCL.Core.App;
 using PCL.Core.Users;
 using PCL.Core.Users.Api;
@@ -159,12 +161,18 @@ public static class LocalUserUi
         HintService.Hint("启动前请先登录本地用户。", HintType.Info);
         while (true)
         {
-            // MyMsgBoxSelect 的参数含 WPF 控件构造，必须在 UI 线程求值
-            var choice = ModBase.RunInUiWait<int?>(() => ModMain.MyMsgBoxSelect(
-            [
-                new MyListItem { Title = "登录已有本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in", Checked = true },
-                new MyListItem { Title = "注册新的本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-plus" }
-            ], "启动前请先登录本地用户", "继续", "取消"));
+            var choice = _UiSelect(() => new List<IMyRadio>
+            {
+                new MyListItem
+                {
+                    Title = "登录已有本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in",
+                    Checked = true
+                },
+                new MyListItem
+                {
+                    Title = "注册新的本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-plus"
+                }
+            }, "启动前请先登录本地用户", "继续", "取消");
 
             if (choice is null) return false;
 
@@ -180,17 +188,81 @@ public static class LocalUserUi
     #region 用户中心入口
 
     /// <summary>
+    /// 账户中心：切换用户 / 注册新用户 / 管理员用户管理 / 登出。
+    /// 所有异常在本方法内捕获，不向调用方抛出。
+    /// </summary>
+    public static async Task ShowAccountCenterAsync()
+    {
+        try
+        {
+            var current = LocalUserSession.Instance.Current;
+
+            // 条目与动作按同一顺序追加，避免按索引分派时因条件条目而错位
+            var actions = new List<Func<Task>>();
+            var selections = _UiSelect(() =>
+            {
+                var items = new List<IMyRadio>
+                {
+                    new MyListItem
+                    {
+                        Title = "切换/登录用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in",
+                        Checked = true
+                    },
+                    new MyListItem
+                    {
+                        Title = "注册新用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-plus"
+                    }
+                };
+                actions.Add(ShowSwitchUserAsync);
+                actions.Add(ShowRegisterAsync);
+                if (current is { IsAdmin: true })
+                {
+                    items.Add(new MyListItem
+                    {
+                        Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/users-round"
+                    });
+                    actions.Add(ShowUserManagementAsync);
+                }
+
+                if (current is not null)
+                {
+                    items.Add(new MyListItem
+                        { Title = "登出当前用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-out" });
+                    actions.Add(() =>
+                    {
+                        LogoutCurrentUser();
+                        return Task.CompletedTask;
+                    });
+                }
+
+                return items;
+            }, "账户中心", "继续", "取消");
+
+            if (selections is null) return;
+            if (selections.Value < 0 || selections.Value >= actions.Count) return;
+            await actions[selections.Value]().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "[LocalUser] 账户中心操作失败");
+            HintService.Hint("操作失败，请查看日志。", HintType.Error);
+        }
+    }
+
+    /// <summary>
     /// 注册新用户。
     /// </summary>
     public static async Task ShowRegisterAsync()
     {
-        var userName = ModMain.MyMsgBoxInput("注册本地用户", "请输入用户名（3-16 位字母、数字或下划线）", "",
-            validateRules: [new PCL.Core.Utils.Validate.RegexValidator("^[A-Za-z0-9_]{3,16}$", "用户名需为 3-16 位字母、数字或下划线")],
-            hintText: "用户名将同时作为该用户的游戏数据目录名与游戏内玩家名", button1: "下一步");
+        var userName = _UiInput("注册本地用户", "请输入用户名（3-16 位字母、数字或下划线）",
+            "用户名将同时作为该用户的游戏数据目录名与游戏内玩家名",
+            validateRules:
+            [
+                new PCL.Core.Utils.Validate.RegexValidator("^[A-Za-z0-9_]{3,16}$", "用户名需为 3-16 位字母、数字或下划线")
+            ]);
         if (string.IsNullOrWhiteSpace(userName)) return;
 
-        var password = ModMain.MyMsgBoxInput("注册本地用户", "请输入密码（至少 6 位）", "",
-            hintText: "密码使用 PBKDF2 加盐哈希存储，不会保存明文", button1: "下一步");
+        var password = _UiInput("注册本地用户", "请输入密码（至少 6 位）", "请输入至少 6 位密码", isPassword: true);
         if (string.IsNullOrEmpty(password)) return;
 
         if (password.Length < LocalUserService.MinPasswordLength)
@@ -199,8 +271,7 @@ public static class LocalUserUi
             return;
         }
 
-        var confirm = ModMain.MyMsgBoxInput("注册本地用户", "请再次输入密码以确认", "",
-            hintText: "两次输入的密码必须一致", button1: "注册");
+        var confirm = _UiInput("注册本地用户", "请再次输入密码以确认", "请再次输入相同的密码", isPassword: true);
         if (string.IsNullOrEmpty(confirm)) return;
 
         if (!string.Equals(password, confirm, StringComparison.Ordinal))
@@ -254,12 +325,10 @@ public static class LocalUserUi
     /// </summary>
     public static async Task ShowLoginAsync()
     {
-        var userName = ModMain.MyMsgBoxInput("登录本地用户", "请输入用户名", "",
-            hintText: "输入注册时使用的用户名", button1: "下一步");
+        var userName = _UiInput("登录本地用户", "请输入用户名", "输入注册时使用的用户名");
         if (string.IsNullOrWhiteSpace(userName)) return;
 
-        var password = ModMain.MyMsgBoxInput("登录本地用户", "请输入密码", "",
-            hintText: "密码将以 PBKDF2 校验", button1: "登录");
+        var password = _UiInput("登录本地用户", "请输入密码", "请输入该用户的登录密码", isPassword: true);
         if (string.IsNullOrEmpty(password)) return;
 
         LocalUserResult result;
@@ -323,30 +392,28 @@ public static class LocalUserUi
         }
 
         var current = LocalUserSession.Instance.Current;
-        var selections = new List<IMyRadio>();
-        var userIds = new List<string>();
-        foreach (var user in selectable)
+        var selected = _UiSelect(() =>
         {
-            userIds.Add(user.Id);
-            selections.Add(new MyListItem
-            {
-                Title = $"{user.DisplayName}（{user.UserName}）{(user.IsAdmin ? " · 管理员" : "")}",
-                Type = MyListItem.CheckType.RadioBox,
-                SvgIcon = "lucide/user",
-                Checked = current is not null && current.Id == user.Id
-            });
-        }
-
-        var selected = ModMain.MyMsgBoxSelect(selections, "选择要切换到的用户", "切换", "取消");
+            var items = new List<IMyRadio>();
+            foreach (var user in selectable)
+                items.Add(new MyListItem
+                {
+                    Title = $"{user.DisplayName}（{user.UserName}）{(user.IsAdmin ? " · 管理员" : "")}",
+                    Type = MyListItem.CheckType.RadioBox,
+                    SvgIcon = "lucide/user",
+                    Checked = current is not null && current.Id == user.Id
+                });
+            return items;
+        }, "选择要切换到的用户", "切换", "取消");
         if (selected is null) return;
+        if (selected.Value < 0 || selected.Value >= selectable.Count) return;
 
-        var targetId = userIds[selected.Value];
-        if (string.IsNullOrEmpty(targetId)) return;
+        var target = selectable[selected.Value];
+        if (string.IsNullOrEmpty(target.Id)) return;
 
-        var result = await LocalUserSession.Instance.LoginAsAsync(targetId).ConfigureAwait(true);
+        var result = await LocalUserSession.Instance.LoginAsAsync(target.Id).ConfigureAwait(true);
         if (result == LocalUserResult.Success)
         {
-            var target = selectable[selected.Value];
             HintService.Hint($"已切换到用户：{target.DisplayName}", HintType.Success);
             ApplyUserGameFolder(target);
         }
@@ -371,15 +438,13 @@ public static class LocalUserUi
     /// </summary>
     public static async Task ShowChangePasswordAsync(LocalUser user)
     {
-        var oldPassword = ModMain.MyMsgBoxInput("修改密码", $"请输入 {user.UserName} 的当前密码", "",
-            hintText: "用于确认身份", button1: "下一步");
+        var oldPassword = _UiInput("修改密码", $"请输入 {user.UserName} 的当前密码", "用于确认身份", isPassword: true);
         if (string.IsNullOrEmpty(oldPassword)) return;
 
-        var newPassword = ModMain.MyMsgBoxInput("修改密码", "请输入新密码（至少 6 位）", "",
-            hintText: "新密码将重新加盐哈希", button1: "下一步");
+        var newPassword = _UiInput("修改密码", "请输入新密码（至少 6 位）", "请输入至少 6 位新密码", isPassword: true);
         if (string.IsNullOrEmpty(newPassword)) return;
 
-        var confirm = ModMain.MyMsgBoxInput("修改密码", "请再次输入新密码", "", button1: "确认修改");
+        var confirm = _UiInput("修改密码", "请再次输入新密码", "请再次输入相同的新密码", isPassword: true);
         if (string.IsNullOrEmpty(confirm)) return;
 
         if (!string.Equals(newPassword, confirm, StringComparison.Ordinal))
@@ -442,22 +507,26 @@ public static class LocalUserUi
                 return;
             }
 
-            var selections = new List<IMyRadio>();
-            for (var i = 0; i < users.Count; i++)
+            var picked = _UiSelect(() =>
             {
-                var user = users[i];
-                selections.Add(new MyListItem
+                var items = new List<IMyRadio>();
+                for (var i = 0; i < users.Count; i++)
                 {
-                    Title = $"{user.DisplayName}（{user.UserName}）" +
-                            $"{(user.IsAdmin ? " · 管理员" : "")}{(user.IsDisabled ? " · 已停用" : "")}",
-                    Type = MyListItem.CheckType.RadioBox,
-                    SvgIcon = "lucide/user",
-                    Checked = i == 0
-                });
-            }
+                    var user = users[i];
+                    items.Add(new MyListItem
+                    {
+                        Title = $"{user.DisplayName}（{user.UserName}）" +
+                                $"{(user.IsAdmin ? " · 管理员" : "")}{(user.IsDisabled ? " · 已停用" : "")}",
+                        Type = MyListItem.CheckType.RadioBox,
+                        SvgIcon = "lucide/user",
+                        Checked = i == 0
+                    });
+                }
 
-            var picked = ModMain.MyMsgBoxSelect(selections, "用户管理：选择要操作的用户", "操作", "关闭");
+                return items;
+            }, "用户管理：选择要操作的用户", "操作", "关闭");
             if (picked is null) return;
+            if (picked.Value < 0 || picked.Value >= users.Count) return;
             var target = users[picked.Value];
 
             var acted = await ShowUserActionAsync(session, me, target).ConfigureAwait(true);
@@ -472,36 +541,44 @@ public static class LocalUserUi
     {
         var isSelf = string.Equals(target.Id, me.Id, StringComparison.OrdinalIgnoreCase);
 
-        var actions = new List<IMyRadio>
+        var act = _UiSelect(() =>
         {
-            new MyListItem { Title = "重置密码", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/key-round", Checked = true }
-        };
-        if (!isSelf)
-        {
-            actions.Add(new MyListItem
+            var actions = new List<IMyRadio>
             {
-                Title = target.IsDisabled ? "启用该用户" : "停用该用户",
-                Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-x"
-            });
-            actions.Add(new MyListItem
-                { Title = "删除该用户（含数据目录）", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/trash-2" });
-        }
+                new MyListItem
+                {
+                    Title = "重置密码", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/key-round",
+                    Checked = true
+                }
+            };
+            if (!isSelf)
+            {
+                actions.Add(new MyListItem
+                {
+                    Title = target.IsDisabled ? "启用该用户" : "停用该用户",
+                    Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-x"
+                });
+                actions.Add(new MyListItem
+                    { Title = "删除该用户（含数据目录）", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/trash-2" });
+            }
 
-        var act = ModMain.MyMsgBoxSelect(actions, $"用户管理：{target.UserName}{(isSelf ? "（当前登录，仅可改密）" : "")}", "执行", "返回");
+            return actions;
+        }, $"用户管理：{target.UserName}{(isSelf ? "（当前登录，仅可改密）" : "")}", "执行", "返回");
         if (act is null) return true;
 
         switch (act.Value)
         {
             case 0: // 重置密码
             {
-                var newPwd = ModMain.MyMsgBoxInput("重置密码", $"为 {target.UserName} 设置新密码（至少 6 位）", "",
-                    hintText: "无需提供旧密码（管理员权限）", button1: "重置");
+                var newPwd = _UiInput("重置密码", $"为 {target.UserName} 设置新密码（至少 6 位）",
+                    "无需提供旧密码（管理员权限）", isPassword: true);
                 if (string.IsNullOrEmpty(newPwd)) return true;
                 if (newPwd.Length < LocalUserService.MinPasswordLength)
                 {
                     HintService.Hint($"密码至少需要 {LocalUserService.MinPasswordLength} 位。", HintType.Error);
                     return true;
                 }
+
                 var result = await session.ResetPasswordAsync(target.Id, newPwd).ConfigureAwait(true);
                 HintService.Hint(result == LocalUserResult.Success ? "密码已重置。" : "重置失败，请查看日志。",
                     result == LocalUserResult.Success ? HintType.Success : HintType.Error);
@@ -514,6 +591,7 @@ public static class LocalUserUi
                     HintService.Hint("不能停用最后一个可用的管理员。", HintType.Error);
                     return true;
                 }
+
                 var result = await session.SetDisabledAsync(target.Id, !target.IsDisabled).ConfigureAwait(true);
                 if (result == LocalUserResult.Success)
                     HintService.Hint(target.IsDisabled ? "已启用。" : "已停用。", HintType.Success);
@@ -523,15 +601,16 @@ public static class LocalUserUi
             }
             case 2 when !isSelf: // 删除
             {
-                var confirm = ModMain.MyMsgBox(
+                var confirm = _UiConfirm(
                     $"将删除用户 {target.UserName} 及其全部游戏数据（存档、版本、配置），且不可恢复！确定继续？",
-                    "删除本地用户", "删除", "取消", isWarn: true, forceWait: true);
+                    "删除本地用户", "删除", "取消", true);
                 if (confirm != 1) return true;
                 if (target.IsAdmin && await _CountEnabledAdminsAsync(session) <= 1)
                 {
                     HintService.Hint("不能删除最后一个可用的管理员。", HintType.Error);
                     return true;
                 }
+
                 var result = await session.DeleteAsync(target.Id, true).ConfigureAwait(true);
                 HintService.Hint(result == LocalUserResult.Success ? "用户已删除。" : "删除失败，请查看日志。",
                     result == LocalUserResult.Success ? HintType.Success : HintType.Error);
@@ -552,6 +631,86 @@ public static class LocalUserUi
         catch (Exception)
         {
             return int.MaxValue; // 查询失败时按“不止一个”处理，避免误锁
+        }
+    }
+
+    #endregion
+
+    #region 弹窗 UI 线程调度
+
+    // MyMsgBox* 内部使用 Dispatcher.PushFrame 嵌套消息泵，只能在 UI 线程调用；
+    // 且列表项等 WPF 控件也必须在同一线程构造。
+    // 因此所有用户交互统一经由以下辅助方法，禁止在调用线程直接创建弹窗内容。
+
+    /// <summary>
+    /// 在 UI 线程显示输入弹窗并返回输入内容。取消、无法显示或发生异常时返回 <c>null</c>。
+    /// </summary>
+    /// <param name="title">弹窗标题。</param>
+    /// <param name="text">弹窗说明文本。</param>
+    /// <param name="hintText">输入框下方的提示文本。</param>
+    /// <param name="isPassword">是否为密码输入模式（遮蔽显示，依赖 C-PASSWORD-INPUT@1）。</param>
+    /// <param name="validateRules">输入校验规则。</param>
+    private static string? _UiInput(string title, string text, string hintText, bool isPassword = false,
+        Collection<IValidator<string>>? validateRules = null)
+    {
+        if (Application.Current is null) return null; // 没有 UI 环境时按“取消”处理
+        try
+        {
+            return ModBase.RunInUiWait<string>(() => ModMain.MyMsgBoxInput(title, text, "", validateRules, hintText,
+                isPassword: isPassword));
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "[LocalUser] 显示输入弹窗失败");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 在 UI 线程显示选择弹窗，返回选中项索引。取消、无法显示或发生异常时返回 <c>null</c>。
+    /// </summary>
+    private static int? _UiSelect(List<IMyRadio> selections, string title, string button1, string button2)
+    {
+        return _UiSelect(() => selections, title, button1, button2);
+    }
+
+    /// <summary>
+    /// 在 UI 线程显示选择弹窗，返回选中项索引。取消、无法显示或发生异常时返回 <c>null</c>。
+    /// 列表项由 <paramref name="selectionsFactory" /> 在 UI 线程内构造，
+    /// 避免在后台线程提前 new 出 WPF 控件。
+    /// </summary>
+    private static int? _UiSelect(Func<List<IMyRadio>> selectionsFactory, string title, string button1,
+        string button2)
+    {
+        if (Application.Current is null) return null; // 没有 UI 环境时按“取消”处理
+        try
+        {
+            return ModBase.RunInUiWait<int?>(() =>
+                ModMain.MyMsgBoxSelect(selectionsFactory(), title, button1, button2));
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "[LocalUser] 显示选择弹窗失败");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 在 UI 线程显示确认弹窗，返回点击的按钮编号（从 1 开始）。
+    /// 取消、无法显示或发生异常时返回 <c>0</c>，调用方应按“取消”处理。
+    /// </summary>
+    private static int _UiConfirm(string message, string title, string button1, string button2, bool isWarn)
+    {
+        if (Application.Current is null) return 0; // 没有 UI 环境时按“取消”处理
+        try
+        {
+            return ModBase.RunInUiWait<int>(() =>
+                ModMain.MyMsgBox(message, title, button1, button2, isWarn: isWarn, forceWait: true));
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "[LocalUser] 显示确认弹窗失败");
+            return 0;
         }
     }
 

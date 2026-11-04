@@ -12,27 +12,52 @@ public partial class MyMsgInput
     private readonly ModMain.MyMsgBoxConverter myConverter;
     private readonly int uuid = ModBase.GetUuid();
 
+    /// <summary>
+    ///     密码模式下遮蔽输入框是否可用。不可用时必须禁止提交，不能退回明文输入。
+    /// </summary>
+    private bool passwordInputAvailable = true;
+
     public MyMsgInput(ModMain.MyMsgBoxConverter converter)
     {
+        myConverter = converter;
         try
         {
             InitializeComponent();
             AppendUniqueNameSuffix(Btn1);
             AppendUniqueNameSuffix(Btn2);
-            myConverter = converter;
             LabTitle.Text = converter.Title;
             LabText.Text = converter.Text;
             PanText.Visibility = string.IsNullOrEmpty(converter.Text) ? Visibility.Collapsed : Visibility.Visible;
-            TextArea.Text = (string)converter.Content;
-            TextArea.HintText = converter.HintText;
+            if (converter.IsPassword)
+            {
+                // 密码模式：隐藏明文输入框，改用遮蔽输入框，且不设置任何提示文本
+                TextArea.Visibility = Visibility.Collapsed;
+                var passwordArea = PasswordArea;
+                passwordInputAvailable = passwordArea is not null;
+                if (passwordArea is not null)
+                {
+                    passwordArea.Visibility = Visibility.Visible;
+                    passwordArea.Password = converter.Content as string ?? "";
+                }
+            }
+            else
+            {
+                TextArea.Text = (string)converter.Content;
+                TextArea.HintText = converter.HintText;
+            }
+
             TextArea.ValidateRules = converter.ValidateRules;
             ConfigurePrimaryButton(converter.Button1, converter.IsWarn);
             ConfigureSecondaryButton(converter.Button2);
             ShapeLine.StrokeThickness = ModBase.GetWPFSize(1d);
+            if (converter.IsPassword && !passwordInputAvailable)
+                ApplyPasswordFallback("密码输入框不可用，已禁止提交");
         }
 
         catch (Exception ex)
         {
+            if (converter.IsPassword)
+                ApplyPasswordFallback("密码输入弹窗初始化失败，已禁止提交");
             ModBase.Log(
                 ex,
                 "输入弹窗初始化失败",
@@ -41,6 +66,34 @@ public partial class MyMsgInput
         }
 
         Loaded += Load;
+    }
+
+    /// <summary>
+    ///     密码模式的安全兜底：隐藏明文输入框并禁用输入与提交，避免敏感内容回显。
+    /// </summary>
+    private void ApplyPasswordFallback(string reason)
+    {
+        passwordInputAvailable = false;
+        try
+        {
+            if (TextArea is not null)
+            {
+                TextArea.Visibility = Visibility.Collapsed;
+                TextArea.IsEnabled = false;
+            }
+
+            if (PasswordArea is not null)
+                PasswordArea.IsEnabled = false;
+
+            if (Btn1 is not null)
+                Btn1.IsEnabled = false;
+            ModBase.Log("[Control] " + reason, ModBase.LogLevel.Hint);
+        }
+
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "密码输入弹窗安全兜底失败", ModBase.LogLevel.Hint);
+        }
     }
 
     private void AppendUniqueNameSuffix(FrameworkElement element)
@@ -71,8 +124,16 @@ public partial class MyMsgInput
             // UI 初始化
             if (Btn2.IsVisible && !(Btn1.ColorType == MyButton.ColorState.Red))
                 Btn1.ColorType = MyButton.ColorState.Highlight;
-            TextArea.Focus();
-            TextArea.SelectionStart = TextArea.Text.Length;
+            if (myConverter.IsPassword)
+            {
+                // 密码模式聚焦遮蔽输入框
+                PasswordArea?.Focus();
+            }
+            else
+            {
+                TextArea.Focus();
+                TextArea.SelectionStart = TextArea.Text.Length;
+            }
             // 动画
             Opacity = 0d;
             ModAnimation.AniStart(
@@ -132,11 +193,24 @@ public partial class MyMsgInput
 
     public void Btn1_Click(object sender, MouseButtonEventArgs e)
     {
-        TextArea.Validate(); // #5773
-        if (myConverter.IsExited || !TextArea.IsValidated)
-            return;
+        string text;
+        if (myConverter.IsPassword)
+        {
+            // 密码模式跳过明文本框校验，直接提交遮蔽输入框中的原文
+            if (myConverter.IsExited || !passwordInputAvailable)
+                return;
+            text = PasswordArea?.Password ?? "";
+        }
+        else
+        {
+            TextArea.Validate(); // #5773
+            if (myConverter.IsExited || !TextArea.IsValidated)
+                return;
+            text = TextArea.Text;
+        }
+
         myConverter.IsExited = true;
-        myConverter.Result = TextArea.Text;
+        myConverter.Result = text;
         Close();
     }
 

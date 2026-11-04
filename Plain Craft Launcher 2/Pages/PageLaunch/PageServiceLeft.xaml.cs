@@ -160,7 +160,7 @@ public partial class PageServiceLeft
     {
         try
         {
-            await LocalUserUi.ShowSwitchUserAsync();
+            await LocalUserUi.ShowAccountCenterAsync();
             RefreshStatusAsync();
         }
         catch (Exception ex)

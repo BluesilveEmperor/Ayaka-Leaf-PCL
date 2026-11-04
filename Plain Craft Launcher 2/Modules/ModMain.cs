@@ -201,6 +201,11 @@ public static class ModMain
         /// </summary>
         public bool IsExited = false;
 
+        /// <summary>
+        ///     输入模式：是否为密码输入，显示遮蔽控件且不记录明文日志。
+        /// </summary>
+        public bool IsPassword = false;
+
         public bool IsWarn;
 
         /// <summary>
@@ -436,9 +441,10 @@ public static class ModMain
     /// <param name="button1">显示的第一个按钮，默认为“确定”。</param>
     /// <param name="button2">显示的第二个按钮，默认为“取消”。</param>
     /// <param name="isWarn">是否为警告弹窗，若为 True，弹窗配色和背景会变为红色。</param>
-    public static string MyMsgBoxInput(string title, string text = "", string defaultInput = "",
+    /// <param name="isPassword">是否为密码输入模式；为 True 时以遮蔽字符显示输入内容，且不记录明文日志。</param>
+    public static string? MyMsgBoxInput(string title, string text = "", string defaultInput = "",
         Collection<IValidator<string>>? validateRules = null, string hintText = "", string? button1 = null,
-        string? button2 = null, bool isWarn = false)
+        string? button2 = null, bool isWarn = false, bool isPassword = false)
     {
         button1 ??= GetDefaultConfirmText();
         button2 ??= GetDefaultCancelText();
@@ -447,7 +453,7 @@ public static class ModMain
         {
             Text = text, HintText = hintText, Type = MyMsgBoxType.Input,
             ValidateRules = validateRules ?? [], Button1 = button1, Button2 = button2,
-            Content = defaultInput, IsWarn = isWarn, Title = title
+            Content = defaultInput, IsWarn = isWarn, IsPassword = isPassword, Title = title
         };
         WaitingMyMsgBox.Add(converter);
         // 虽然我也不知道这是啥但是能用就成了 :)
@@ -462,7 +468,12 @@ public static class ModMain
             ComponentDispatcher.PopModal();
         }
 
-        ModBase.Log($"[Control] 输入弹框返回：{converter.Result}");
+        // 密码输入的内容不得写入日志（取消时同样隐藏）
+        if (converter.IsPassword)
+            ModBase.Log("[Control] 密码输入弹框已提交（内容已隐藏）");
+        else
+            ModBase.Log($"[Control] 输入弹框返回：{converter.Result}");
+
         return converter.Result?.ToString();
     }
 

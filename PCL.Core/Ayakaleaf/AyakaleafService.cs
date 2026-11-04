@@ -79,6 +79,12 @@ public static class AyakaleafService
     /// <summary>简体中文界面使用的端口（主端口 +1，同一容器映射双端口实现语言切换）。</summary>
     public static int ChinesePort => Config.Ayakaleaf.Port + 1;
 
+    /// <summary>
+    /// 界面语言切换（端口映射 + nginx Host/链接补丁）是否已确认可用。
+    /// 这是运行时自检结果而非部署配置：服务处于 Running 并不代表语言切换可用。
+    /// </summary>
+    public static bool LanguageSwitchAvailable { get; private set; }
+
     /// <summary>服务栈数据卷（独立 VHD 文件）。</summary>
     public static readonly string[] DataVolumes = { "mongo_data", "redis_data", "overleaf_data", "overleaf_logs" };
 
@@ -415,6 +421,7 @@ public static class AyakaleafService
                 // 补丁失败不阻断启动：语言切换不可用，但服务本身不受影响
                 LogWrapper.Warn($"[Ayakaleaf] nginx Host 头补丁执行失败：{r.ErrorText?.Trim()}");
                 progress("警告：界面语言切换可能不可用（nginx 配置补丁失败）");
+                LanguageSwitchAvailable = false;
                 return;
             }
             await Task.Delay(2000);
@@ -439,6 +446,7 @@ public static class AyakaleafService
         {
             LogWrapper.Warn($"[Ayakaleaf] 语言链接补丁写入失败：{write.ErrorText?.Trim()}");
             progress("警告：页脚语言切换可能跨主机丢失登录状态（补丁写入失败）");
+            LanguageSwitchAvailable = false;
         }
 
         // 校验后重载：校验失败则回滚补丁文件再重载，保证站点不被坏配置卡死。
@@ -453,6 +461,56 @@ public static class AyakaleafService
         }
     }
 
+
+    /// <summary>
+    /// 重新自检界面语言切换能力（供打开工作台前调用）。
+    /// 该状态是静态运行时结果，启动器重启后会被重置，而服务可能仍在运行，
+    /// 因此显示“不可用”提示前需要重新确认一次（超时较短，避免拖慢界面）。
+    /// </summary>
+    public static Task RefreshLanguageSwitchAvailabilityAsync() => VerifyLanguageSwitchAsync(5000);
+
+    /// <summary>
+    /// 运行时自检界面语言切换能力（探活通过后执行一次）：
+    /// 1. <c>/etc/nginx/sites-enabled/overleaf.conf</c> 的 <c>proxy_set_header Host</c> 行带
+    ///    <c>$http_host</c>（默认的 <c>$host</c> 丢掉端口，web 服务无法按 Host 区分界面语言）；
+    /// 2. <c>/etc/nginx/conf.d/ayaka-lang.conf</c> 存在（页脚语言链接主机保持补丁）。
+    /// 任一不满足即视为不可用并告警；自检本身执行失败只告警，不影响 Running 状态。
+    /// </summary>
+    private static async Task VerifyLanguageSwitchAsync(int timeoutMs = 30000)
+    {
+        try
+        {
+            // 用 "." 通配 "$"，规避 wslc 参数传递链对 $ 的处理（与 sed 补丁写法一致）
+            var hostPatch = await WslcInterop.RunAsync(
+                $"exec {OverleafContainer} sh -c \"grep -q 'proxy_set_header Host .http_host' /etc/nginx/sites-enabled/overleaf.conf\"",
+                timeoutMs);
+            if (!hostPatch.IsSuccess)
+            {
+                LanguageSwitchAvailable = false;
+                LogWrapper.Warn("[Ayakaleaf] 界面语言切换不可用：nginx 未转发完整 Host 头（缺少 $http_host 补丁）");
+                return;
+            }
+
+            var langConf = await WslcInterop.RunAsync(
+                $"exec {OverleafContainer} sh -c \"test -f /etc/nginx/conf.d/ayaka-lang.conf\"", timeoutMs);
+            if (!langConf.IsSuccess)
+            {
+                LanguageSwitchAvailable = false;
+                LogWrapper.Warn("[Ayakaleaf] 界面语言切换不可用：缺少语言链接主机保持补丁 ayaka-lang.conf");
+                return;
+            }
+
+            LanguageSwitchAvailable = true;
+            LogWrapper.Info("[Ayakaleaf] 界面语言切换自检通过：Host 头与语言补丁均已生效");
+        }
+        catch (Exception ex)
+        {
+            // 容器不可用等异常：保持不可用状态，但服务本身仍可处于 Running
+            LanguageSwitchAvailable = false;
+            LogWrapper.Warn(ex, "[Ayakaleaf] 界面语言切换自检失败");
+        }
+    }
+
     // ---------------- 启停 ----------------
 
     /// <summary>
@@ -463,6 +521,9 @@ public static class AyakaleafService
     {
         if (!WslcInterop.IsAvailable)
             throw new Exception("未找到 wslc.exe（WSL 容器工具），请将 WSL 升级到 3.0 或更高版本后重试");
+
+        // 启动过程中语言端口尚不可达：先置不可用，探活通过后由自检刷新
+        LanguageSwitchAvailable = false;
 
         await EnsureResourcesAsync(progress, ct);
 
@@ -524,9 +585,15 @@ public static class AyakaleafService
         for (var i = 0; i < StartProbeTimeoutSeconds / 2; i++)
         {
             ct.ThrowIfCancellationRequested();
-            if (await ProbeAsync()) return;
+            if (await ProbeAsync())
+            {
+                // 探活只证明主端口可访问，语言切换另需确认 nginx 补丁真的落地
+                await VerifyLanguageSwitchAsync();
+                return;
+            }
             await Task.Delay(2000, ct);
         }
+        LanguageSwitchAvailable = false;
         throw new Exception($"等待服务就绪超时（{StartProbeTimeoutSeconds} 秒），请查看服务日志");
     }
 
@@ -588,13 +655,21 @@ public static class AyakaleafService
     public static async Task StopAsync(Action<string> progress, CancellationToken ct = default)
     {
         progress("正在停止 Ayakaleaf 服务栈…");
-        foreach (var name in new[] { OverleafContainer, RedisContainer, MongoContainer })
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            if (!await ContainerExistsAsync(name)) continue;
-            var stop = await WslcInterop.RunAsync($"stop \"{name}\"", 120000);
-            if (!stop.IsSuccess)
-                LogWrapper.Info($"[Ayakaleaf] 停止容器 {name} 返回 exit={stop.ExitCode}（可能已停止）：{stop.ErrorText?.Trim()}");
+            foreach (var name in new[] { OverleafContainer, RedisContainer, MongoContainer })
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!await ContainerExistsAsync(name)) continue;
+                var stop = await WslcInterop.RunAsync($"stop \"{name}\"", 120000);
+                if (!stop.IsSuccess)
+                    LogWrapper.Info($"[Ayakaleaf] 停止容器 {name} 返回 exit={stop.ExitCode}（可能已停止）：{stop.ErrorText?.Trim()}");
+            }
+        }
+        finally
+        {
+            // 服务已停止（或停止过程被取消）：语言端口不再可达，切换能力随之失效
+            LanguageSwitchAvailable = false;
         }
     }
 

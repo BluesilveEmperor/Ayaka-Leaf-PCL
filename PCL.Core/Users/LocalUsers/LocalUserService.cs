@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using PCL.Core.App;
+using PCL.Core.Logging;
 
 namespace PCL.Core.Users;
 
@@ -126,8 +127,22 @@ public sealed class LocalUserService : IDisposable
         if (!PasswordHasher.Verify(password, user.ToPasswordHash()))
             return (LocalUserResult.InvalidPassword, null);
 
+        // 密码校验通过即视为登录成功；审计字段属于非关键写入，失败只降级为警告。
         user.LastLoginAt = DateTimeOffset.UtcNow;
-        await _store.UpdateAsync(user, ct).ConfigureAwait(false);
+        try
+        {
+            await _store.UpdateAsync(user, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 取消不属于登录失败，按取消语义向上传播
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, $"[LocalUser] 更新最后登录时间失败：{user.UserName}");
+        }
+
         return (LocalUserResult.Success, user);
     }
 

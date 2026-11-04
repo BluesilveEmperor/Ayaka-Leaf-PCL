@@ -97,6 +97,44 @@ public partial class MyMsgSelect
                 }
             }
         }
+
+        // 预选项在事件订阅之前就已置位，且此时尚未挂到可视树，不会触发 Check 事件。
+        // 因此在订阅完成后回扫一次，同步选中索引与主按钮的可用状态（C-MSGSELECT-DEFAULT@1）。
+        if (!myConverter.MultiSelect) _SyncPreselectedIndex();
+    }
+
+    /// <summary>
+    ///     扫描已加入的列表项，把首个预选项在 PanSelection.Children 中的索引同步到 selectedIndex，
+    ///     并启用主按钮。无预选项时保持禁用。
+    /// </summary>
+    private void _SyncPreselectedIndex()
+    {
+        for (var i = 0; i < PanSelection.Children.Count; i++)
+        {
+            if (PanSelection.Children[i] is not FrameworkElement element)
+                continue; // 非控件元素直接跳过，不抛异常
+            var content = MyVirtualizingElement.TryInit(element);
+            if (content is not IMyRadio radio)
+                continue;
+            if (!_IsChecked(radio))
+                continue;
+            selectedIndex = i;
+            Btn1.IsEnabled = true;
+            return;
+        }
+    }
+
+    /// <summary>
+    ///     判断选择项是否处于勾选状态。IMyRadio 未公开 Checked，按具体类型读取。
+    /// </summary>
+    private static bool _IsChecked(IMyRadio radio)
+    {
+        return radio switch
+        {
+            MyListItem listItem => listItem.Checked,
+            MyRadioBox radioBox => radioBox.Checked,
+            _ => false
+        };
     }
 
     private void Load(object sender, EventArgs e)

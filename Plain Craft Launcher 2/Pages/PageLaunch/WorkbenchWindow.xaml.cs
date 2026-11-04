@@ -22,9 +22,25 @@ public partial class WorkbenchWindow
     /// <summary>界面语言切换脚本（文件 → 设置 → 拼写和语言 面板中添加“界面语言”选项）。</summary>
     private const string InterfaceLanguageResource = "Resources/ayakaleaf/interface-language.js";
 
+    /// <summary>界面语言切换不可用时的中文提示（服务可正常使用，只是切换不会生效）。</summary>
+    private const string LanguageUnavailableHint =
+        "提示：界面语言切换当前不可用（服务语言补丁未生效），可在日志中查看原因。";
+
     private readonly AyakaleafAccount _account;
     private string _sid;
     private int _retryCount;
+
+    /// <summary>是否需要在窗口顶部保留“界面语言切换不可用”提示。</summary>
+    private bool _languageUnavailableNotice;
+
+    /// <summary>是否正在等待一次语言端口切换导航完成（用于区分加载失败是否由语言切换引起）。</summary>
+    private bool _pendingLanguageSwitch;
+
+    /// <summary>本次语言切换的目标地址（导航失败时用于日志与提示）。</summary>
+    private string? _pendingLanguageTargetUrl;
+
+    /// <summary>当前是否正在显示“界面语言切换失败”提示。</summary>
+    private bool _languageSwitchFailed;
 
     private static string? _editorBridgeScript;
     private static bool _editorBridgeLoaded;
@@ -59,6 +75,18 @@ public partial class WorkbenchWindow
                 return;
             }
 
+            // 服务处于“运行中”但语言补丁未落地时，工作台仍可正常编辑，
+            // 只是切换界面语言不会生效 —— 用中文提示明确告知，不阻断进入。
+            // 静态可用性状态在启动器重启后会被重置，而服务可能仍在运行：先重新自检一次。
+            if (!AyakaleafService.LanguageSwitchAvailable)
+                await AyakaleafService.RefreshLanguageSwitchAvailabilityAsync();
+
+            if (!AyakaleafService.LanguageSwitchAvailable)
+            {
+                _languageUnavailableNotice = true;
+                ShowLanguageUnavailableHint();
+            }
+
             var env = await CoreWebView2Environment.CreateAsync(null, UserDataFolder);
             await Web.EnsureCoreWebView2Async(env);
             Web.CoreWebView2.NavigationCompleted += Web_NavigationCompleted;
@@ -79,8 +107,57 @@ public partial class WorkbenchWindow
     private void EnterWorkbench()
     {
         InjectSession();
-        LabLoading.Visibility = System.Windows.Visibility.Collapsed;
+        // 语言切换不可用时保留顶部提示；否则按正常流程隐藏加载提示
+        if (!_languageUnavailableNotice)
+            LabLoading.Visibility = System.Windows.Visibility.Collapsed;
         Web.Source = new Uri(WorkbenchUrl);
+    }
+
+    /// <summary>
+    /// 在 <see cref="LabLoading"/> 上显示“界面语言切换不可用”提示。
+    /// 进入工作台后该提示停靠在窗口顶部且不拦截鼠标，避免影响编辑器交互。
+    /// </summary>
+    private void ShowLanguageUnavailableHint()
+    {
+        ShowTopHint(LanguageUnavailableHint);
+        LogWrapper.Warn("[Ayakaleaf] 界面语言切换当前不可用（服务语言补丁未生效），工作台仍以当前语言进入");
+    }
+
+    /// <summary>
+    /// 把 <see cref="LabLoading"/> 配置为窗口顶部的提示条（不拦截编辑器点击）。
+    /// </summary>
+    private void ShowTopHint(string text)
+    {
+        LabLoading.Text = text;
+        LabLoading.FontSize = 12;
+        LabLoading.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
+        LabLoading.VerticalAlignment = System.Windows.VerticalAlignment.Top;
+        LabLoading.Margin = new System.Windows.Thickness(0, 8, 0, 0);
+        LabLoading.IsHitTestVisible = false;
+        LabLoading.Visibility = System.Windows.Visibility.Visible;
+    }
+
+    /// <summary>
+    /// 语言端口导航失败时的中文提示：说明失败原因与目标端口，
+    /// 并保持可见直到下一次语言切换成功，避免失败被静默掩盖。
+    /// </summary>
+    private void ShowLanguageSwitchFailedHint(string port, CoreWebView2WebErrorStatus status)
+    {
+        _languageSwitchFailed = true;
+        ShowTopHint($"界面语言切换失败：服务语言端口不可达（{port}），请检查服务状态后重试。（{status}）");
+    }
+
+    /// <summary>
+    /// 语言切换成功后撤掉失败提示；若服务本身存在“切换不可用”提示则恢复该提示。
+    /// </summary>
+    private void ClearLanguageSwitchFailedHint()
+    {
+        if (!_languageSwitchFailed) return;
+        _languageSwitchFailed = false;
+        if (_languageUnavailableNotice)
+            ShowTopHint(LanguageUnavailableHint);
+        else
+            LabLoading.Visibility = System.Windows.Visibility.Collapsed;
     }
 
     /// <summary>
@@ -177,8 +254,9 @@ public partial class WorkbenchWindow
     }
 
     /// <summary>
-    /// 接收页面脚本消息。当前用于持久化工作台界面语言偏好
-    /// （编辑器设置面板中切换“界面语言”时由注入脚本发出）。
+    /// 接收页面脚本消息：
+    /// 1. <c>ayaka:setInterfaceLanguage</c> —— 持久化工作台界面语言偏好，并回发保存结果；
+    /// 2. <c>ayaka:langAnchorMissing</c> —— 注入脚本找不到“拼写和语言”设置锚点，记录警告。
     /// </summary>
     private void Web_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -186,16 +264,112 @@ public partial class WorkbenchWindow
         {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson);
             var root = doc.RootElement;
-            if (root.TryGetProperty("type", out var type) &&
-                type.GetString() == "ayaka:setInterfaceLanguage" &&
-                root.TryGetProperty("lang", out var lang))
+            if (!root.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String) return;
+
+            switch (type.GetString())
             {
-                Config.Ayakaleaf.InterfaceLanguage = lang.GetString() == "zh" ? "zh" : "en";
+                case "ayaka:setInterfaceLanguage":
+                    SaveInterfaceLanguage(root);
+                    break;
+                case "ayaka:langAnchorMissing":
+                    LogWrapper.Warn("[Ayakaleaf] 未找到工作台拼写和语言设置锚点，界面语言条目未注入");
+                    break;
             }
         }
         catch (Exception ex)
         {
             LogWrapper.Warn(ex, "[Ayakaleaf] 处理工作台消息失败");
+        }
+    }
+
+    /// <summary>
+    /// 持久化界面语言偏好并回发 <c>ayaka:interfaceLanguageSaved</c>。
+    /// 回执仅用于日志与可观测性，不是页面跳转的前置条件（跳转由注入脚本自行调度），
+    /// 避免网络/线程抖动导致“点了没反应”。
+    /// </summary>
+    private void SaveInterfaceLanguage(JsonElement root)
+    {
+        var lang = root.TryGetProperty("lang", out var langElement) && langElement.ValueKind == JsonValueKind.String
+            ? langElement.GetString()
+            : null;
+        var normalized = lang == "zh" ? "zh" : "en";
+
+        var ok = true;
+        try
+        {
+            Config.Ayakaleaf.InterfaceLanguage = normalized;
+        }
+        catch (Exception ex)
+        {
+            ok = false;
+            LogWrapper.Warn(ex, "[Ayakaleaf] 保存工作台界面语言失败");
+        }
+
+        if (ok)
+            LogWrapper.Info($"[Ayakaleaf] 工作台界面语言已保存：{normalized}（下次打开工作台沿用该语言）");
+
+        // 无论持久化是否成功，脚本都会跳转语言端口：失败回执不能阻止跳转，
+        // 因此仍需记录“待确认的语言切换”，在导航失败时给出明确提示。
+        TrackPendingLanguageSwitch(normalized);
+        ReplyInterfaceLanguageSaved(normalized, ok);
+    }
+
+    /// <summary>
+    /// 标记一次待确认的语言端口切换，用于在导航失败时判断失败是否由语言切换引起。
+    /// 目标端口与当前地址端口一致时（注入脚本不会跳转）不标记，避免误报。
+    /// </summary>
+    private void TrackPendingLanguageSwitch(string lang)
+    {
+        var targetPort = lang == "zh" ? AyakaleafService.ChinesePort : Config.Ayakaleaf.Port;
+        // CoreWebView2.Source 会跟随页面内导航，比控件的 Source 属性更可靠
+        string? currentUrl = null;
+        try
+        {
+            currentUrl = Web.CoreWebView2?.Source;
+        }
+        catch
+        {
+            // WebView 可能已被释放：按地址未知处理，仅在导航失败时才会用到该标记
+        }
+
+        if (string.IsNullOrEmpty(currentUrl)) currentUrl = Web.Source?.ToString();
+
+        if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out var currentUri))
+        {
+            // 地址未知时保守标记，仅在导航失败时才会给出提示
+            _pendingLanguageSwitch = true;
+            _pendingLanguageTargetUrl = $"http://localhost:{targetPort}";
+            return;
+        }
+
+        // 已在目标端口：注入脚本不会跳转，无需等待导航结果
+        if (currentUri.Port == targetPort) return;
+
+        // 注入脚本按“同路径换端口”跳转，据此推导出本次切换的目标地址
+        _pendingLanguageSwitch = true;
+        _pendingLanguageTargetUrl = new UriBuilder(currentUri) { Port = targetPort }.Uri.ToString();
+    }
+
+    /// <summary>
+    /// 向页面回发语言偏好保存结果。
+    /// </summary>
+    private void ReplyInterfaceLanguageSaved(string lang, bool ok)
+    {
+        var core = Web.CoreWebView2;
+        if (core is null) return;
+
+        try
+        {
+            core.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "ayaka:interfaceLanguageSaved",
+                lang,
+                ok,
+            }));
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 回发界面语言保存结果失败");
         }
     }
 
@@ -211,9 +385,45 @@ public partial class WorkbenchWindow
 
     private async void Web_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
     {
+        // CoreWebView2.Source 会跟随页面内导航；失败时可能为空，回退到控件上设置的地址
+        var uri = Web.CoreWebView2?.Source ?? Web.Source?.ToString() ?? "";
+
+        // 1. 加载失败：绝不静默；语言端口切换失败时额外给出用户可见的中文提示
+        if (!e.IsSuccess)
+        {
+            // 语言切换导航失败时以目标地址为准（失败后 CoreWebView2.Source 可能仍是旧页面）
+            var failedUrl = _pendingLanguageSwitch && !string.IsNullOrEmpty(_pendingLanguageTargetUrl)
+                ? _pendingLanguageTargetUrl
+                : uri;
+            LogWrapper.Warn($"[Ayakaleaf] 工作台页面加载失败（{e.WebErrorStatus}）：{failedUrl}");
+
+            if (_pendingLanguageSwitch)
+            {
+                var targetUrl = _pendingLanguageTargetUrl ?? "未知地址";
+                var port = Uri.TryCreate(targetUrl, UriKind.Absolute, out var targetUri)
+                    ? targetUri.Port.ToString()
+                    : "未知端口";
+                _pendingLanguageSwitch = false;
+                _pendingLanguageTargetUrl = null;
+                LogWrapper.Warn($"[Ayakaleaf] 界面语言切换失败：目标语言端口不可达（{targetUrl}），错误状态 {e.WebErrorStatus}");
+                ShowLanguageSwitchFailedHint(port, e.WebErrorStatus);
+            }
+
+            return;
+        }
+
+        // 2. 加载成功：记录结果；若本次导航正是语言切换的目标则确认完成并撤掉失败提示
+        LogWrapper.Info($"[Ayakaleaf] 工作台页面加载完成：{uri}");
+        if (_pendingLanguageSwitch)
+        {
+            _pendingLanguageSwitch = false;
+            _pendingLanguageTargetUrl = null;
+            ClearLanguageSwitchFailedHint();
+        }
+
+        // 3. 会话失效重试（既有逻辑）
         try
         {
-            var uri = Web.Source?.ToString() ?? "";
             if (!uri.Contains("/login") || _retryCount >= 2) return;
 
             // 会话失效：重新登录并注入，最多重试 2 次
