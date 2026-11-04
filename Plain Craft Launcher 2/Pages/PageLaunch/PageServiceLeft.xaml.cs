@@ -131,27 +131,43 @@ public partial class PageServiceLeft
 
     private void BtnStop_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => RunStackOperation(false);
 
+    /// <summary>
+    /// 打开内嵌工作台：后台线程自动开户（已存在则复用）+ 登录取会话，再在 UI 线程创建窗口。
+    /// 账号流程失败按 <see cref="AyakaleafAccountException" /> 携带的中文文案原样展示（不拼前缀），
+    /// 其它异常保留“打开工作台失败：”前缀；任何失败后刷新服务状态灯，使提示与状态灯保持一致。
+    /// </summary>
     private void BtnOpen_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (Interlocked.Exchange(ref _openBusy, 1) == 1) return;
         ModBase.RunInNewThread(() =>
         {
+            // 未登录本地用户时传空串，由账号服务按“本地用户缺失”分类给出中文提示
+            var failed = false;
             try
             {
-                var user = LocalUserSession.Instance.Current;
-                // 自动开户（已存在则复用）+ 登录取会话，然后 UI 线程打开内嵌工作台
-                var account = AyakaleafAccountService.GetOrCreateAccountAsync(user.UserName)
+                var userName = LocalUserSession.Instance.Current?.UserName ?? string.Empty;
+                var account = AyakaleafAccountService.GetOrCreateAccountAsync(userName)
                     .GetAwaiter().GetResult();
                 var sid = AyakaleafAccountService.LoginAsync(account).GetAwaiter().GetResult();
                 ModBase.RunInUi(() => new WorkbenchWindow(account, sid).Show());
             }
+            catch (AyakaleafAccountException ex)
+            {
+                // ex.Message 已是由账号服务提供的简体中文分类文案，可直接展示：不拼接前缀、不改写
+                failed = true;
+                ModBase.Log(ex, "[Ayakaleaf] 打开工作台失败");
+                HintService.Hint(ex.Message, HintType.Error);
+            }
             catch (Exception ex)
             {
+                failed = true;
+                ModBase.Log(ex, "[Ayakaleaf] 打开工作台失败");
                 HintService.Hint("打开工作台失败：" + ex.Message, HintType.Error);
             }
             finally
             {
                 Interlocked.Exchange(ref _openBusy, 0);
+                if (failed) ModBase.RunInUi(RefreshStatusAsync);
             }
         }, "Ayakaleaf OpenWorkbench");
     }

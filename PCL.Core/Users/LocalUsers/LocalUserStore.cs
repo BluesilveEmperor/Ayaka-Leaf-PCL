@@ -9,7 +9,8 @@ using PCL.Core.App;
 namespace PCL.Core.Users;
 
 /// <summary>
-/// 本地用户的 SQLite 存储。存放于共享数据目录下的 users.db。
+/// 本地用户的 SQLite 存储。数据库文件随启动器目录存放（<c>PCL\users.db</c>），
+/// 便于便携管理，且不同启动器目录之间互不串数据。
 /// </summary>
 public sealed class LocalUserStore : IDisposable
 {
@@ -59,7 +60,9 @@ public sealed class LocalUserStore : IDisposable
 
     public LocalUserStore(string? databasePath = null)
     {
-        DatabasePath = databasePath ?? Path.Combine(Paths.SharedData, DatabaseFileName);
+        // 默认随启动器目录存放（Paths.Data 即启动器目录下的 PCL 目录），便于便携管理；
+        // 显式传入路径时保持原样，便于测试或探针注入独立数据库。
+        DatabasePath = databasePath ?? Path.Combine(Paths.Data, DatabaseFileName);
         var directory = Path.GetDirectoryName(DatabasePath);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
         _connectionString = $"Data Source={DatabasePath};Pooling=True;Default Timeout=15";

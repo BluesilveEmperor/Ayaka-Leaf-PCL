@@ -434,8 +434,11 @@ public partial class WorkbenchWindow
         }
         catch (Exception ex)
         {
-            if (_retryCount >= 2)
-                LabLoading.Text = "自动登录失败：" + ex.Message;
+            // 续期失败必须可见：无论是否达到重试上限都展示原因（Message 为账号服务的分类中文文案），
+            // 否则工作台会静默停在登录页，用户无从得知是服务未启动、账号密码失效还是本地用户缺失。
+            LogWrapper.Warn(ex, "[Ayakaleaf] 工作台会话续期失败");
+            LabLoading.Text = "自动登录失败：" + ex.Message;
+            LabLoading.Visibility = System.Windows.Visibility.Visible;
         }
     }
 }

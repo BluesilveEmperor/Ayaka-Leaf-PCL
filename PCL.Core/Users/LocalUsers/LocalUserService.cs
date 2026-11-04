@@ -55,8 +55,9 @@ public sealed class LocalUserService : IDisposable
 
     /// <summary>
     /// 用户数据根目录。所有用户的独立游戏目录均位于其下。
+    /// 随启动器目录存放（<c>PCL\Users</c>），便于便携管理，不同启动器目录之间互不串数据。
     /// </summary>
-    public static string UsersRootDirectory => Path.Combine(Paths.SharedLocalData, "Users");
+    public static string UsersRootDirectory => Path.Combine(Paths.Data, "Users");
 
     /// <summary>
     /// 校验用户名的合法性。
