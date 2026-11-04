@@ -1,3 +1,4 @@
+using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -14,6 +15,10 @@ public partial class PageServiceRight
     {
         InitializeComponent();
         Loaded += (_, _) => RefreshAll();
+        // 本页为单例（ModMain.frmServiceRight 仅构造一次），Loaded 只在首次挂载触发；
+        // 局域网地址若不跟随网络变化刷新，切网（Wi-Fi↔热点等）后会一直显示旧 IP 误导用户。
+        // NetworkAddressChanged 在后台线程触发，须切回 UI 线程更新界面。
+        NetworkChange.NetworkAddressChanged += (_, _) => ModBase.RunInUi(RefreshLanAddress);
     }
 
     private void RefreshAll()
