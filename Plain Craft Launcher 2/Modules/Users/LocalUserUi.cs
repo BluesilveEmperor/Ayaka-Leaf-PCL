@@ -215,14 +215,14 @@ public static class LocalUserUi
                 };
                 actions.Add(ShowSwitchUserAsync);
                 actions.Add(ShowRegisterAsync);
-                if (current is { IsAdmin: true })
+
+                // 用户管理入口对所有用户展示，避免非管理员因看不到入口而误以为无法管理用户；
+                // 非管理员点击后由 _ShowUserManagementEntryAsync 给出权限说明。
+                items.Add(new MyListItem
                 {
-                    items.Add(new MyListItem
-                    {
-                        Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/users-round"
-                    });
-                    actions.Add(ShowUserManagementAsync);
-                }
+                    Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/users-round"
+                });
+                actions.Add(_ShowUserManagementEntryAsync);
 
                 if (current is not null)
                 {
@@ -246,6 +246,54 @@ public static class LocalUserUi
         {
             ModBase.Log(ex, "[LocalUser] 账户中心操作失败");
             HintService.Hint("操作失败，请查看日志。", HintType.Error);
+        }
+    }
+
+    /// <summary>
+    /// 「用户管理」入口的动作：管理员进入用户管理界面，非管理员给出权限说明。
+    /// 入口对所有用户展示，以保证功能的可发现性；非管理员场景下尽量列出当前可用的管理员用户名。
+    /// </summary>
+    private static async Task _ShowUserManagementEntryAsync()
+    {
+        var current = LocalUserSession.Instance.Current;
+        if (current is null)
+        {
+            HintService.Hint("请先登录本地用户。", HintType.Info);
+            return;
+        }
+
+        if (!current.IsAdmin)
+        {
+            var message = "需要管理员权限才能管理用户。当前账号不是管理员，请改用管理员账号登录。" +
+                          "若这是新目录的第一个账号，可重新注册以成为管理员。";
+            var adminNames = await _ListEnabledAdminNamesAsync().ConfigureAwait(true);
+            if (adminNames.Count > 0)
+                message += $"当前可用的管理员账号：{string.Join("、", adminNames)}。";
+            HintService.Hint(message, HintType.Info);
+            return;
+        }
+
+        await ShowUserManagementAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// 查询当前可用的管理员用户名列表。查询失败时返回空列表，不向调用方抛出异常。
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> _ListEnabledAdminNamesAsync()
+    {
+        try
+        {
+            var users = await LocalUserSession.Instance.ListUsersAsync().ConfigureAwait(true);
+            return users
+                .Where(u => u.IsAdmin && !u.IsDisabled)
+                .Select(u => u.UserName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(ex, "[LocalUser] 查询可用管理员列表失败");
+            return Array.Empty<string>();
         }
     }
 
