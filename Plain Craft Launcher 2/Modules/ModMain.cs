@@ -29,6 +29,7 @@ public static class ModMain
     public static PageServiceRight? frmServiceRight;
     public static PageMirror? frmMirror;
     public static PageBackup? frmBackup;
+    public static PageCollab? frmCollab;
     public static PageSpeedLeft? frmSpeedLeft;
     public static PageSpeedRight? frmSpeedRight;
     public static PageSetupLeft? frmSetupLeft;

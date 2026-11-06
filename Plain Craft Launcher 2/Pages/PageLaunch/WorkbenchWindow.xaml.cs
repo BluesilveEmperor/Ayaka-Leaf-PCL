@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using PCL.Core.App;
 using PCL.Core.Ayakaleaf;
+using PCL.Core.Ayakaleaf.Collab;
 using PCL.Core.Logging;
 
 namespace PCL;
@@ -27,9 +29,18 @@ public partial class WorkbenchWindow
     private const string LanguageUnavailableHint =
         "提示：界面语言切换当前不可用（服务语言补丁未生效），可在日志中查看原因。";
 
-    private readonly AyakaleafAccount _account;
+    private readonly AyakaleafAccount? _account;
     private string _sid;
     private int _retryCount;
+
+    /// <summary>访客模式：经协作转发端口访问房主服务（无本地会话注入）。</summary>
+    private readonly bool _isGuestMode;
+
+    /// <summary>访客模式：可用的界面语言（按转发端口探测）。</summary>
+    private readonly IReadOnlyList<CollabGuestLanguage>? _guestLanguages;
+
+    /// <summary>访客模式：工作台入口地址（房主主端口的本地转发）。</summary>
+    private readonly string _guestBaseUrl = "";
 
     /// <summary>初始访问路径（默认 /project；管理面板入口传 /admin）。</summary>
     private readonly string _initialPath;
@@ -54,7 +65,9 @@ public partial class WorkbenchWindow
     private static string UserDataFolder => Path.Combine(AppContext.BaseDirectory, "data", "ayakaleaf", "webview");
 
     /// <summary>按 <see cref="_initialPath"/> 与用户语言偏好生成的初始访问地址。</summary>
-    private string InitialUrl => AyakaleafService.BaseUrlForLanguage(Config.Ayakaleaf.InterfaceLanguage) + _initialPath;
+    private string InitialUrl => _isGuestMode
+        ? _guestBaseUrl + _initialPath
+        : AyakaleafService.BaseUrlForLanguage(Config.Ayakaleaf.InterfaceLanguage) + _initialPath;
 
     public WorkbenchWindow(AyakaleafAccount account, string sessionId, string initialPath = "/project")
     {
@@ -62,6 +75,21 @@ public partial class WorkbenchWindow
         _account = account;
         _sid = sessionId;
         // 路径规范化：空白回退默认 /project；确保以 / 开头
+        var path = string.IsNullOrWhiteSpace(initialPath) ? "/project" : initialPath.Trim();
+        _initialPath = path.StartsWith('/') ? path : "/" + path;
+        Loaded += WorkbenchWindow_Loaded;
+    }
+
+    /// <summary>
+    /// 访客模式构造：经协作端口转发访问房主的 Ayakaleaf 服务。
+    /// 不注入本地会话（账号在房主的服务上注册/登录），语言列表来自加入时对转发端口的探测。
+    /// </summary>
+    public WorkbenchWindow(IReadOnlyList<CollabGuestLanguage> languages, string initialPath = "/project")
+    {
+        InitializeComponent();
+        _isGuestMode = true;
+        _guestLanguages = languages;
+        _guestBaseUrl = languages.Count > 0 ? $"http://localhost:{languages[0].LocalPort}" : "http://localhost";
         var path = string.IsNullOrWhiteSpace(initialPath) ? "/project" : initialPath.Trim();
         _initialPath = path.StartsWith('/') ? path : "/" + path;
         Loaded += WorkbenchWindow_Loaded;
@@ -85,13 +113,17 @@ public partial class WorkbenchWindow
             // 服务处于“运行中”但语言补丁未落地时，工作台仍可正常编辑，
             // 只是切换界面语言不会生效 —— 用中文提示明确告知，不阻断进入。
             // 静态可用性状态在启动器重启后会被重置，而服务可能仍在运行：先重新自检一次。
-            if (!AyakaleafService.LanguageSwitchAvailable)
-                await AyakaleafService.RefreshLanguageSwitchAvailabilityAsync();
-
-            if (!AyakaleafService.LanguageSwitchAvailable)
+            // 访客模式跳过本地补丁检测：语言列表来自加入协作时对房主端口的探测。
+            if (!_isGuestMode)
             {
-                _languageUnavailableNotice = true;
-                ShowLanguageUnavailableHint();
+                if (!AyakaleafService.LanguageSwitchAvailable)
+                    await AyakaleafService.RefreshLanguageSwitchAvailabilityAsync();
+
+                if (!AyakaleafService.LanguageSwitchAvailable)
+                {
+                    _languageUnavailableNotice = true;
+                    ShowLanguageUnavailableHint();
+                }
             }
 
             var env = await CoreWebView2Environment.CreateAsync(null, UserDataFolder);
@@ -236,17 +268,33 @@ public partial class WorkbenchWindow
 
     /// <summary>
     /// 构造注入脚本使用的语言列表 JSON：
-    /// <c>[{"code":"en","name":"English","port":8080},…]</c>，
-    /// name 取各语言自称，port 按启用顺序分配（en=主端口，其后 +1）。
+    /// <c>[{"code":"en","name":"English","port":8080},…]</c>。
+    /// 本地模式：name 取各语言自称，port 按启用顺序分配（en=主端口，其后 +1）；
+    /// 访客模式：直接使用加入协作时探测到的语言与本地转发端口。
     /// </summary>
-    private static string BuildLanguagesJson()
+    private string BuildLanguagesJson()
     {
         var sb = new StringBuilder("[");
-        var langs = AyakaleafService.GetEnabledLanguages();
-        for (var i = 0; i < langs.Count; i++)
+
+        if (_isGuestMode)
+        {
+            var langs = _guestLanguages ?? [];
+            for (var i = 0; i < langs.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"code\":\"").Append(langs[i].Code)
+                    .Append("\",\"name\":\"").Append(langs[i].Name)
+                    .Append("\",\"port\":").Append(langs[i].LocalPort)
+                    .Append('}');
+            }
+            return sb.Append(']').ToString();
+        }
+
+        var enabled = AyakaleafService.GetEnabledLanguages();
+        for (var i = 0; i < enabled.Count; i++)
         {
             if (i > 0) sb.Append(',');
-            var code = langs[i];
+            var code = enabled[i];
             var native = AyakaleafService.SupportedLanguages
                 .Where(l => l.Code == code)
                 .Select(l => l.NativeName)
@@ -330,7 +378,9 @@ public partial class WorkbenchWindow
         var ok = true;
         try
         {
-            Config.Ayakaleaf.InterfaceLanguage = normalized;
+            // 访客模式不写本地配置：该偏好描述的是房主服务的语言，与本地服务无关
+            if (!_isGuestMode)
+                Config.Ayakaleaf.InterfaceLanguage = normalized;
         }
         catch (Exception ex)
         {
@@ -353,7 +403,7 @@ public partial class WorkbenchWindow
     /// </summary>
     private void TrackPendingLanguageSwitch(string lang)
     {
-        var targetPort = AyakaleafService.PortForLanguage(lang);
+        var targetPort = PortForLanguageOrGuest(lang);
         // CoreWebView2.Source 会跟随页面内导航，比控件的 Source 属性更可靠
         string? currentUrl = null;
         try
@@ -406,6 +456,22 @@ public partial class WorkbenchWindow
         }
     }
 
+    /// <summary>
+    /// 查询界面语言对应的访问端口：本地模式按服务语言端口，
+    /// 访客模式按协作转发端口（未知语言回落主端口）。
+    /// </summary>
+    private int PortForLanguageOrGuest(string lang)
+    {
+        if (_isGuestMode)
+        {
+            var match = _guestLanguages?.FirstOrDefault(l =>
+                string.Equals(l.Code, lang, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) return match.LocalPort;
+            return _guestLanguages is { Count: > 0 } ? _guestLanguages[0].LocalPort : Config.Ayakaleaf.Port;
+        }
+        return AyakaleafService.PortForLanguage(lang);
+    }
+
     private void InjectSession()
     {
         if (string.IsNullOrEmpty(_sid)) return;
@@ -454,10 +520,10 @@ public partial class WorkbenchWindow
             ClearLanguageSwitchFailedHint();
         }
 
-        // 3. 会话失效重试（既有逻辑）
+        // 3. 会话失效重试（既有逻辑）；访客模式无本地账号，不自动重登
         try
         {
-            if (!uri.Contains("/login") || _retryCount >= 2) return;
+            if (_isGuestMode || !uri.Contains("/login") || _retryCount >= 2) return;
 
             // 会话失效：重新登录并注入，最多重试 2 次
             _retryCount++;

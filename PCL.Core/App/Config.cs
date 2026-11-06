@@ -419,6 +419,24 @@ public static partial class Config
         /// </summary>
         [ConfigItem<bool>("AyakaleafEnableGitBridge", false, ConfigSource.Local)] public partial bool EnableGitBridge { get; set; }
 
+        // ---------------- 远程协作 ----------------
+
+        /// <summary>
+        /// 远程协作是否隐藏真实 IP：不监听、不直连，全部流量经公共节点中继。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafCollabHideIp", false, ConfigSource.Local)] public partial bool CollabHideIp { get; set; }
+
+        /// <summary>
+        /// 远程协作是否仅允许 P2P 直连（不经过公共节点中继兜底）。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafCollabDirectOnly", false, ConfigSource.Local)] public partial bool CollabDirectOnly { get; set; }
+
+        /// <summary>
+        /// 远程协作自定义节点：逗号分隔的节点 URL（tcp://…、udp://…、wss://…、https://…），
+        /// 非空时追加到内置公共节点之后。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafCollabCustomNodes", "", ConfigSource.Local)] public partial string CollabCustomNodes { get; set; }
+
         // ---------------- AI ----------------
 
         /// <summary>

@@ -24,7 +24,9 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 - **Image management** — Bundled image tarballs (`runtime/images`) are loaded automatically during deployment; repeated loads are idempotent
 - **Backup & restore** — Each data volume is just a vhd file; one-click snapshots and restores from the backup page
 - **LAN sharing** — The service console shows a live "teammate access address" so peers on the same LAN can reach your Overleaf directly; the address refreshes automatically on network changes, and VPN / TUN virtual adapters (Mihomo / Clash, etc.) are excluded automatically
+- **Remote collaboration** — EasyTier-based virtual networking: the host opens the local Overleaf service with a one-click invite code; remote peers join the virtual network and get port forwards automatically — no public IP or port mapping needed. See the "Remote Collaboration" chapter
 - **Portable account isolation** — Account database, credentials and user data all live next to the launcher exe; copy the folder for a fully portable install, and multiple copies never share or collide accounts
+- **Theme colors** — Four built-in theme colors to switch at will — Sky Blue, Totoro Blue, Crash Blue and Campfire Orange (Campfire's signature #E2680C) — adapted to both light and dark modes
 
 ## 📐 Editor Sync
 
@@ -34,6 +36,33 @@ Select a piece of formula code in the workbench and the PDF pane jumps to the re
 - Only formula selections trigger it; selecting plain text, copying and pasting are unaffected
 - Requires a successfully compiled PDF; it stays silent when no PDF exists (no error toasts)
 - Highlight boxes come from SyncTeX positions, so multi-line environments may only cover the first line of that spot
+
+## 🤝 Remote Collaboration
+
+Remote peers can join your Overleaf service with an invite code — no public IP or port mapping required. The virtual network is powered by [EasyTier](https://github.com/EasyTier/EasyTier) (Apache-2.0).
+
+**Host**
+
+1. Start the service, open the "Collab" page and click "Start Collaboration"
+2. Copy the generated invite code (format `A/XXXX-XXXX-XXXX-XXXX`) and send it to your teammates
+3. Wait for peers to join; the member list shows each peer's connection type (direct / relayed) and latency in real time
+
+**Guest**
+
+1. Open the "Collab" page, paste the invite code and click "Join Collaboration"
+2. Port forwards are established automatically on join; click "Open Workbench" to access the host's service
+3. On first visit, register or sign in on the host's service
+
+**Privacy & security**
+
+- Traffic is end-to-end encrypted; public relay nodes only forward ciphertext and cannot decrypt contents
+- The host-side whitelist only exposes the Overleaf service ports — no other local port is reachable
+- The invite code is the network key, with a checksum digit against typos; do not share it publicly
+- Advanced options via the `AyakaleafCollab*` config entries: "hide IP" (peers cannot see each other's virtual IPs), "direct only" (no relay fallback), and custom relay nodes
+
+**Network nodes**
+
+Five community relay nodes are connected automatically by default; custom nodes (`tcp://` / `udp://` / `wss://` / `https://`, comma-separated) can be added and are appended to the built-in ones.
 
 ## 💻 Supported Platforms
 

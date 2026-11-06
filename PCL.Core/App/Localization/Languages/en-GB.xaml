@@ -3209,6 +3209,7 @@
 
     <!-- Setup.Ui.Theme -->
 
+    <sys:String x:Key="Setup.Ui.Theme.Color.Campfire">Campfire Orange</sys:String>
     <sys:String x:Key="Setup.Ui.Theme.Color.CatBlue">LTCat Blue</sys:String>
     <sys:String x:Key="Setup.Ui.Theme.Color.CrashBlue">Crash Blue</sys:String>
     <sys:String x:Key="Setup.Ui.Theme.Color.Hmcl">HMCL</sys:String>

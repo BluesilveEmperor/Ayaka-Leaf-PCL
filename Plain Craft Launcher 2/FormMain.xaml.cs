@@ -10,6 +10,7 @@ using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Core.App.IoC;
 using PCL.Core.App.Localization;
+using PCL.Core.Ayakaleaf.Collab;
 using PCL.Core.Logging;
 using PCL.Core.UI;
 using PCL.Core.UI.Theme;
@@ -565,6 +566,8 @@ public partial class FormMain
         ModBase.Log("[System] 程序已退出，返回值：" + ModBase.GetStringFromEnum(returnCode));
         // If ReturnCode <> ProcessReturnValues.Success Then Environment.Exit(ReturnCode)
         // Process.GetCurrentProcess.Kill()
+        // 停止远程协作会话（同步结束 easytier 子进程；JobObject 兜底）
+        CollabService.Shutdown();
         Lifecycle.Shutdown((int)returnCode, force);
     }
 
@@ -1054,6 +1057,11 @@ public partial class FormMain
         Tools = 3,
 
         /// <summary>
+        ///     远程协作。
+        /// </summary>
+        Collab = 4,
+
+        /// <summary>
         ///     设置。
         /// </summary>
         Setup = 2,
@@ -1371,6 +1379,12 @@ public partial class FormMain
                     {
                         ModMain.frmBackup ??= new PageBackup();
                         PageChangeAnim(new MyPageLeft(), ModMain.frmBackup);
+                        break;
+                    }
+                case PageType.Collab: // 远程协作
+                    {
+                        ModMain.frmCollab ??= new PageCollab();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmCollab);
                         break;
                     }
                 case PageType.Setup: // 设置
