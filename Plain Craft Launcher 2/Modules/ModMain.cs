@@ -39,6 +39,7 @@ public static class ModMain
     public static PageSetupFeedback? frmSetupFeedback;
     public static PageSetupLauncherLanguage? frmSetupLauncherLanguage;
     public static PageSetupLauncherMisc? frmSetupLauncherMisc;
+    public static PageSetupAyakaleaf? frmSetupAyakaleaf;
 
     public static MySlider? dragControl = null;
     private static int timer4Count;

@@ -2,11 +2,13 @@
  * Ayakaleaf 界面语言切换
  * ---------------------------------------------------------------------------
  * 在编辑器 文件 → 设置 → 拼写和语言 面板末尾添加“界面语言”选项。
- * Overleaf 的界面语言由访问端口决定（主端口 = English，主端口 + 1 = 简体中文），
- * 切换时先通知宿主持久化偏好，再跳转到另一端口的同一路径，行为与页脚语言选择器一致。
+ * Overleaf 的界面语言由访问端口决定（每个启用的语言绑定一个端口，
+ * en 固定主端口），切换时先通知宿主持久化偏好，再跳转到目标语言端口的
+ * 同一路径，行为与页脚语言选择器一致。
  *
  * 注入方式：WebView2 的 AddScriptToExecuteOnDocumentCreatedAsync，每次文档创建都执行。
- * __AYAKA_MAIN_PORT__ / __AYAKA_ZH_PORT__ 占位符由启动器在注入前替换为实际端口。
+ * __AYAKA_LANGUAGES_JSON__ 占位符由启动器在注入前替换为语言列表 JSON：
+ * [{"code":"en","name":"English","port":8080},...]（仅含已启用的语言）。
  *
  * 前端结构可能随镜像版本变化，因此设置面板锚点使用 4 级回退链；
  * 全部缺失时只告警（并上报宿主），不抛异常，保证界面语言条目缺位不影响编辑器功能。
@@ -15,8 +17,7 @@
 (() => {
   'use strict'
 
-  var MAIN_PORT = '__AYAKA_MAIN_PORT__'
-  var ZH_PORT = '__AYAKA_ZH_PORT__'
+  var LANGS = __AYAKA_LANGUAGES_JSON__
 
   var ROW_ID = 'setting-ayakaInterfaceLanguage'
   var SELECT_ID = 'ayakaInterfaceLanguage'
@@ -27,13 +28,16 @@
   var firstRun = !window.__ayakaInterfaceLanguage
   window.__ayakaInterfaceLanguage = true
 
-  var isZh = function () {
-    return window.location.port === ZH_PORT
+  function currentLang() {
+    for (var i = 0; i < LANGS.length; i++) {
+      if (String(LANGS[i].port) === window.location.port) return LANGS[i]
+    }
+    return LANGS[0]
   }
 
-  // 标签文案跟随当前界面语言
+  // 标签文案跟随当前界面语言（简体中文 / 其他语言用英文文案）
   var strings = function () {
-    return isZh()
+    return currentLang().code === 'zh-CN'
       ? {
           title: '界面语言',
           desc: '切换 Overleaf 界面的显示语言',
@@ -86,19 +90,27 @@
     var ref = anchor ? anchor.querySelector('select') : null
     select.className = ref && ref.className ? ref.className : DEFAULT_SELECT_CLASS
 
-    var optEn = new Option('English', MAIN_PORT)
-    var optZh = new Option('简体中文', ZH_PORT)
-    select.add(optEn)
-    select.add(optZh)
-    select.value = isZh() ? ZH_PORT : MAIN_PORT
+    var current = currentLang()
+    for (var i = 0; i < LANGS.length; i++) {
+      select.add(new Option(LANGS[i].name, String(LANGS[i].port)))
+    }
+    select.value = String(current.port)
 
     select.addEventListener('change', function () {
       var targetPort = select.value
+      var target = null
+      for (var i = 0; i < LANGS.length; i++) {
+        if (String(LANGS[i].port) === targetPort) {
+          target = LANGS[i]
+          break
+        }
+      }
+      if (!target) return
       // 1. 先通知宿主持久化偏好：WebView2 在文档卸载时可能丢弃后续消息，
       //    因此必须在任何导航动作之前发出，且导航要延迟到消息投递之后。
       postToHost({
         type: 'ayaka:setInterfaceLanguage',
-        lang: targetPort === ZH_PORT ? 'zh' : 'en',
+        lang: target.code,
       })
       // 2. 已在目标端口时不跳转（避免产生重复历史记录）
       if (window.location.port === targetPort) {
@@ -137,7 +149,7 @@
   function updateRowValue(row) {
     var select = rowSelect(row)
     if (!select) return
-    var want = isZh() ? ZH_PORT : MAIN_PORT
+    var want = String(currentLang().port)
     if (select.value !== want) select.value = want
   }
 

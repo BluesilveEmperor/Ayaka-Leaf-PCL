@@ -38,6 +38,22 @@
                             <ColumnDefinition Width="1*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="功能速览" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
+                        <local:MyButton Grid.Column="1" x:Name="BtnRefreshFeatures" Height="30" Width="80"
+                                        Text="刷新" Click="BtnRefreshFeatures_Click" />
+                    </Grid>
+                    <TextBlock Margin="0,6,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+                               Text="按当前配置实际生效的功能（开关开启且必要凭据齐全）。各项开关在「设置 → Ayakaleaf」中调整。" />
+                    <WrapPanel x:Name="PanFeatureChips" Margin="0,10,0,0" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="容器" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
                         <local:MyButton Grid.Column="1" x:Name="BtnRefreshContainers" Height="30" Width="80"
                                         Text="刷新" Click="BtnRefreshContainers_Click" />

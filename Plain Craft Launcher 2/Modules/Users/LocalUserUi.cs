@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using FluentValidation;
 using PCL.Core.App;
+using PCL.Core.Ayakaleaf;
 using PCL.Core.Users;
 using PCL.Core.Users.Api;
 using PCL.Core.Utils;
@@ -223,6 +224,35 @@ public static class LocalUserUi
                     Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/users-round"
                 });
                 actions.Add(_ShowUserManagementEntryAsync);
+
+                if (current is not null)
+                {
+                    // Ayakaleaf 管理面板：仅对已认领/配置的 Ayakaleaf 管理员本地用户展示
+                    if (_IsAyakaleafAdminUser(current))
+                    {
+                        items.Add(new MyListItem
+                        {
+                            Title = "打开 Ayakaleaf 管理面板", Type = MyListItem.CheckType.RadioBox,
+                            SvgIcon = "lucide/layout-dashboard"
+                        });
+                        actions.Add(() =>
+                        {
+                            _OpenAyakaleafAdminPanel();
+                            return Task.CompletedTask;
+                        });
+                    }
+
+                    items.Add(new MyListItem
+                    {
+                        Title = "重置 Ayakaleaf 账号密码", Type = MyListItem.CheckType.RadioBox,
+                        SvgIcon = "lucide/key-round"
+                    });
+                    actions.Add(() =>
+                    {
+                        _ResetAyakaleafPassword();
+                        return Task.CompletedTask;
+                    });
+                }
 
                 if (current is not null)
                 {
@@ -521,6 +551,111 @@ public static class LocalUserUi
 
     #endregion
 
+    #region Ayakaleaf 账号联动
+
+    /// <summary>
+    /// 判断本地用户是否为 Ayakaleaf 管理面板的目标用户：
+    /// 管理员尚未认领时本地管理员可认领（其打开面板/工作台时成为 Ayakaleaf 管理员），
+    /// 已认领后仅与 <see cref="Config.Ayakaleaf.AdminLocalUserName" /> 一致的本地用户可进入面板。
+    /// </summary>
+    private static bool _IsAyakaleafAdminUser(LocalUser current)
+    {
+        var adminName = Config.Ayakaleaf.AdminLocalUserName?.Trim();
+        if (string.IsNullOrEmpty(adminName)) return current.IsAdmin;
+        return string.Equals(current.UserName.Trim(), adminName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 打开 Ayakaleaf 管理面板：复用/开户当前用户凭据 → 幂等认领并开通服务端管理员 →
+    /// 登录取会话后以内嵌工作台窗口打开 <c>/admin</c>（复用 sid 注入）。
+    /// 管理员开通失败时仍尝试打开，由站点按实际权限响应。
+    /// </summary>
+    private static void _OpenAyakaleafAdminPanel()
+    {
+        var current = LocalUserSession.Instance.Current;
+        if (current is null)
+        {
+            HintService.Hint("请先登录本地用户。", HintType.Info);
+            return;
+        }
+
+        var adminName = Config.Ayakaleaf.AdminLocalUserName?.Trim();
+        if (!string.IsNullOrEmpty(adminName) &&
+            !string.Equals(current.UserName.Trim(), adminName, StringComparison.OrdinalIgnoreCase))
+        {
+            HintService.Hint($"Ayakaleaf 管理面板仅对管理员用户（{adminName}）开放，请先切换到该本地用户。", HintType.Info);
+            return;
+        }
+
+        ModBase.RunInNewThread(() =>
+        {
+            try
+            {
+                var userName = current.UserName;
+                // 复用/开户凭据 → 幂等认领 + mongosh 开通（开户时开通失败在此重试）
+                var account = AyakaleafAccountService.GetOrCreateAccountAsync(userName)
+                    .GetAwaiter().GetResult();
+                var isAdmin = AyakaleafAccountService.EnsureServerAdminAsync(userName)
+                    .GetAwaiter().GetResult();
+                if (!isAdmin)
+                    ModBase.Log($"[Ayakaleaf] 未能确认 {userName} 的服务端管理员身份，仍尝试打开管理面板");
+                var sid = AyakaleafAccountService.LoginAsync(account).GetAwaiter().GetResult();
+                ModBase.RunInUi(() => new WorkbenchWindow(account, sid, "/admin").Show());
+            }
+            catch (AyakaleafAccountException ex)
+            {
+                // ex.Message 已是账号服务提供的简体中文分类文案，直接展示
+                ModBase.Log(ex, "[Ayakaleaf] 打开管理面板失败");
+                ModBase.RunInUi(() => HintService.Hint(ex.Message, HintType.Error));
+            }
+            catch (Exception ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 打开管理面板失败");
+                ModBase.RunInUi(() => HintService.Hint("打开管理面板失败：" + ex.Message, HintType.Error));
+            }
+        }, "Ayakaleaf OpenAdminPanel");
+    }
+
+    /// <summary>
+    /// 重置当前本地用户的 Ayakaleaf 账号密码：
+    /// 用本机旧凭据登录 → 服务端改密为新随机密码 → 原子更新本机凭据（其它会话被服务端注销）。
+    /// </summary>
+    private static void _ResetAyakaleafPassword()
+    {
+        var current = LocalUserSession.Instance.Current;
+        if (current is null)
+        {
+            HintService.Hint("请先登录本地用户。", HintType.Info);
+            return;
+        }
+
+        var confirm = _UiConfirm(
+            $"将重置本地用户 {current.UserName} 的 Ayakaleaf 账号密码：密码会被替换为新的随机密码并更新本机保存的凭据，其它已登录会话将被注销。确定继续？",
+            "重置 Ayakaleaf 密码", "重置", "取消", false);
+        if (confirm != 1) return;
+
+        ModBase.RunInNewThread(() =>
+        {
+            try
+            {
+                AyakaleafAccountService.ResetPasswordAsync(current.UserName).GetAwaiter().GetResult();
+                ModBase.RunInUi(() => HintService.Hint("Ayakaleaf 账号密码已重置，本机凭据已更新。", HintType.Success));
+            }
+            catch (AyakaleafAccountException ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 重置账号密码失败");
+                ModBase.RunInUi(() => HintService.Hint(ex.Message, HintType.Error));
+            }
+            catch (Exception ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 重置账号密码失败");
+                ModBase.RunInUi(() => HintService.Hint("重置 Ayakaleaf 密码失败：" + ex.Message, HintType.Error));
+            }
+        }, "Ayakaleaf ResetPassword");
+    }
+
+    #endregion
+
     #region 管理员用户管理
 
     /// <summary>
@@ -660,8 +795,29 @@ public static class LocalUserUi
                 }
 
                 var result = await session.DeleteAsync(target.Id, true).ConfigureAwait(true);
-                HintService.Hint(result == LocalUserResult.Success ? "用户已删除。" : "删除失败，请查看日志。",
-                    result == LocalUserResult.Success ? HintType.Success : HintType.Error);
+                if (result != LocalUserResult.Success)
+                {
+                    HintService.Hint("删除失败，请查看日志。", HintType.Error);
+                    return true;
+                }
+
+                // 本地删除成功后同步清理 Ayakaleaf 服务端账号与本机凭据：
+                // 服务端清理失败不回滚本地删除（游戏数据目录已删），仅明确提示剩余操作
+                try
+                {
+                    await AyakaleafAccountService.DeleteServerAccountAsync(target.UserName).ConfigureAwait(true);
+                    HintService.Hint("用户已删除（含 Ayakaleaf 服务端账号）。", HintType.Success);
+                }
+                catch (AyakaleafAccountException ex)
+                {
+                    ModBase.Log(ex, "[Ayakaleaf] 删除 Ayakaleaf 服务端账号失败");
+                    HintService.Hint($"本地用户已删除，但其 Ayakaleaf 服务端账号删除失败：{ex.Message}", HintType.Error);
+                }
+                catch (Exception ex)
+                {
+                    ModBase.Log(ex, "[Ayakaleaf] 删除 Ayakaleaf 服务端账号失败");
+                    HintService.Hint($"本地用户已删除，但其 Ayakaleaf 服务端账号删除失败：{ex.Message}", HintType.Error);
+                }
                 return true;
             }
             default:

@@ -235,6 +235,12 @@ public partial class PageSetupLeft
                     ModMain.frmSetupLauncherMisc = new PageSetupLauncherMisc();
                 return ModMain.frmSetupLauncherMisc;
             }
+            case FormMain.PageSubType.SetupAyakaleaf:
+            {
+                if (ModMain.frmSetupAyakaleaf is null)
+                    ModMain.frmSetupAyakaleaf = new PageSetupAyakaleaf();
+                return ModMain.frmSetupAyakaleaf;
+            }
 
             default:
             {

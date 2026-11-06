@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.NetworkInformation;
@@ -9,9 +10,12 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
 using PCL.Core.App;
+using PCL.Core.App.Configuration;
 using PCL.Core.Logging;
 
 namespace PCL.Core.Ayakaleaf;
@@ -71,13 +75,21 @@ public static class AyakaleafService
     public const string MongoContainer = "mongo";
     public const string RedisContainer = "redis";
     public const string OverleafContainer = "overleaf";
+    public const string GitBridgeContainer = "git-bridge";
 
     public const string MongoImage = "mongo:8.0";
     public const string RedisImage = "redis:7";
     public const string OverleafImage = "sharelatex/sharelatex:server-pro";
+    public const string GitBridgeImage = "ghcr.io/ayaka-notes/overleaf-pro/git-bridge:latest";
 
-    /// <summary>简体中文界面使用的端口（主端口 +1，同一容器映射双端口实现语言切换）。</summary>
-    public static int ChinesePort => Config.Ayakaleaf.Port + 1;
+    /// <summary>
+    /// 实际使用的 Overleaf 镜像（repo:tag）：配置覆盖优先，留空回落内置默认值。
+    /// </summary>
+    public static string EffectiveOverleafImage =>
+        string.IsNullOrWhiteSpace(Config.Ayakaleaf.OverleafImage) ? OverleafImage : Config.Ayakaleaf.OverleafImage.Trim();
+
+    /// <summary>简体中文界面使用的端口（启用 zh-CN 时为主端口 +1；未启用时回落主端口，该端口不再映射）。</summary>
+    public static int ChinesePort => PortForLanguage("zh-CN");
 
     /// <summary>
     /// 界面语言切换（端口映射 + nginx Host/链接补丁）是否已确认可用。
@@ -85,8 +97,19 @@ public static class AyakaleafService
     /// </summary>
     public static bool LanguageSwitchAvailable { get; private set; }
 
-    /// <summary>服务栈数据卷（独立 VHD 文件）。</summary>
+    /// <summary>服务栈基础数据卷（独立 VHD 文件）。</summary>
     public static readonly string[] DataVolumes = { "mongo_data", "redis_data", "overleaf_data", "overleaf_logs" };
+
+    /// <summary>Git-Bridge 数据卷（仅启用 Git-Bridge 时创建/使用）。</summary>
+    public const string GitBridgeVolume = "git_bridge_data";
+
+    /// <summary>
+    /// 当前应存在的数据卷集合：基础 4 卷 + （启用 Git-Bridge 时）git_bridge_data。
+    /// </summary>
+    public static IReadOnlyList<string> ActiveDataVolumes =>
+        Config.Ayakaleaf.EnableGitBridge
+            ? new[] { "mongo_data", "redis_data", "overleaf_data", "overleaf_logs", GitBridgeVolume }
+            : new[] { "mongo_data", "redis_data", "overleaf_data", "overleaf_logs" };
 
     /// <summary>内嵌运行时目录（分发包内，含 images\ 镜像包）。</summary>
     public static string RuntimeDirectory => Path.Combine(AppContext.BaseDirectory, "runtime");
@@ -160,10 +183,86 @@ public static class AyakaleafService
     }
 
     /// <summary>
-    /// 按界面语言偏好返回工作台入口 URL（"zh" = 简体中文端口，其余 = 主端口 English）。
+    /// 按界面语言偏好返回工作台入口 URL（语言代码经 <see cref="NormalizeLanguageCode"/> 归一化，
+    /// 未启用/未知语言回落主端口 English）。
     /// </summary>
-    public static string BaseUrlForLanguage(string lang) =>
-        lang == "zh" ? $"http://localhost:{ChinesePort}" : BaseUrl;
+    public static string BaseUrlForLanguage(string lang) => $"http://localhost:{PortForLanguage(lang)}";
+
+    // ---------------- 界面语言（多语言端口分配） ----------------
+
+    /// <summary>镜像内置的界面语言：Code 为服务端 lngCode，NativeName 为语言自称（注入脚本下拉显示），Name 为设置页中文名。</summary>
+    public sealed record AyakaleafLanguage(string Code, string NativeName, string Name);
+
+    /// <summary>
+    /// 镜像内置的全部界面语言（对照 ayakaleaf-pro <c>services/web/locales</c> 的 18 份语言资源）。
+    /// 顺序即设置页展示顺序；en 固定首位绑定主端口。
+    /// </summary>
+    public static readonly AyakaleafLanguage[] SupportedLanguages =
+    [
+        new("en", "English", "英语"),
+        new("zh-CN", "简体中文", "简体中文"),
+        new("cs", "Čeština", "捷克语"),
+        new("da", "Dansk", "丹麦语"),
+        new("de", "Deutsch", "德语"),
+        new("es", "Español", "西班牙语"),
+        new("fi", "Suomi", "芬兰语"),
+        new("fr", "Français", "法语"),
+        new("it", "Italiano", "意大利语"),
+        new("ja", "日本語", "日语"),
+        new("ko", "한국어", "韩语"),
+        new("nl", "Nederlands", "荷兰语"),
+        new("no", "Norsk", "挪威语"),
+        new("pl", "Polski", "波兰语"),
+        new("pt", "Português", "葡萄牙语"),
+        new("ru", "Русский", "俄语"),
+        new("sv", "Svenska", "瑞典语"),
+        new("tr", "Türkçe", "土耳其语"),
+    ];
+
+    /// <summary>
+    /// 解析 <c>EnabledLanguages</c> 配置为有序语言代码列表：
+    /// 逗号分隔、忽略未知代码与重复项、en 固定首位（绑定主端口）。
+    /// 默认配置 "en,zh-CN" → [en, zh-CN]，与历史双语言行为完全一致。
+    /// </summary>
+    public static List<string> GetEnabledLanguages()
+    {
+        var result = new List<string>();
+        foreach (var raw in (Config.Ayakaleaf.EnabledLanguages ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var code = NormalizeLanguageCode(raw.Trim());
+            if (code == "en" || result.Contains(code)) continue;
+            result.Add(code);
+        }
+        result.Insert(0, "en");
+        return result;
+    }
+
+    /// <summary>
+    /// 归一化语言代码：旧值 "zh" 兼容映射为 "zh-CN"；匹配镜像内置语言（忽略大小写）；
+    /// 未知代码回落 "en"。
+    /// </summary>
+    public static string NormalizeLanguageCode(string? lang)
+    {
+        if (string.Equals(lang, "zh", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
+        foreach (var supported in SupportedLanguages)
+        {
+            if (string.Equals(supported.Code, lang, StringComparison.OrdinalIgnoreCase)) return supported.Code;
+        }
+        return "en";
+    }
+
+    /// <summary>语言在启用列表中的序号（en=0），未启用返回 0。</summary>
+    public static int LanguageIndex(string lang)
+    {
+        var code = NormalizeLanguageCode(lang);
+        return GetEnabledLanguages().IndexOf(code);
+    }
+
+    /// <summary>指定界面语言绑定的本机端口：en（或未启用/未知语言）= 主端口，其后每语言 +1。</summary>
+    public static int PortForLanguage(string lang) => Config.Ayakaleaf.Port + LanguageIndex(lang);
+
+    /// <summary>指定语言是否已在 <c>EnabledLanguages</c> 中启用（lang 先归一化，"zh" 视同 "zh-CN"）。</summary>
+    public static bool IsLanguageEnabled(string lang) => LanguageIndex(lang) > 0;
 
     /// <summary>
     /// 当前部署/运行状态（轻量判断，供 UI 初始显示）。
@@ -247,7 +346,8 @@ public static class AyakaleafService
                 if (name == null) continue;
                 if (!name.Equals(MongoContainer, StringComparison.Ordinal) &&
                     !name.Equals(RedisContainer, StringComparison.Ordinal) &&
-                    !name.Equals(OverleafContainer, StringComparison.Ordinal))
+                    !name.Equals(OverleafContainer, StringComparison.Ordinal) &&
+                    !name.Equals(GitBridgeContainer, StringComparison.Ordinal))
                     continue;
                 list.Add(new AyakaleafContainer(name, image ?? "", status ?? ""));
             }
@@ -275,7 +375,7 @@ public static class AyakaleafService
     public static async Task<List<string>> ListVolumesAsync()
     {
         var list = new List<string>();
-        foreach (var volume in DataVolumes)
+        foreach (var volume in ActiveDataVolumes)
         {
             if ((await WslcInterop.RunAsync($"volume inspect \"{volume}\"", 30000)).IsSuccess)
                 list.Add(volume);
@@ -351,7 +451,7 @@ public static class AyakaleafService
     private static async Task EnsureResourcesAsync(Action<string> progress, CancellationToken ct)
     {
         progress("检查数据卷…");
-        foreach (var volume in DataVolumes)
+        foreach (var volume in ActiveDataVolumes)
         {
             ct.ThrowIfCancellationRequested();
             await CreateResourceIfMissingAsync(
@@ -380,20 +480,37 @@ public static class AyakaleafService
     }
 
     /// <summary>
-    /// 构造 Overleaf 语言域名映射 JSON（两种界面语言绑定到同容器的两个端口）。
+    /// 构造 Overleaf 语言域名映射 JSON（每个启用的界面语言绑定到同容器的一个端口）。
     /// 局域网开放时额外登记 hide 的 localhost 条目：语言选择器展示可分享的
     /// 局域网地址，而本机（启动器工作台等）经 localhost 访问仍能正确识别语言。
     /// </summary>
     private static string BuildLangMapping(string host)
     {
-        var main =
-            "{\"www\":{\"lngCode\":\"en\",\"url\":\"http://" + host + ":" + Config.Ayakaleaf.Port + "\"}," +
-            "\"zh\":{\"lngCode\":\"zh-CN\",\"url\":\"http://" + host + ":" + ChinesePort + "\"}";
-        if (host == "localhost") return main + "}";
-        return main + "," +
-            "\"www-local\":{\"lngCode\":\"en\",\"url\":\"http://localhost:" + Config.Ayakaleaf.Port + "\",\"hide\":true}," +
-            "\"zh-local\":{\"lngCode\":\"zh-CN\",\"url\":\"http://localhost:" + ChinesePort + "\",\"hide\":true}}";
+        var langs = GetEnabledLanguages();
+        var entries = new List<string>();
+        var localEntries = new List<string>();
+        for (var i = 0; i < langs.Count; i++)
+        {
+            var code = langs[i];
+            var port = Config.Ayakaleaf.Port + i;
+            var key = SubdomainKeyFor(code);
+            entries.Add($"\"{key}\":{{\"lngCode\":\"{code}\",\"url\":\"http://{host}:{port}\"}}");
+            if (host != "localhost")
+                localEntries.Add($"\"{key}-local\":{{\"lngCode\":\"{code}\",\"url\":\"http://localhost:{port}\",\"hide\":true}}");
+        }
+        return "{" + string.Join(",", entries.Concat(localEntries)) + "}";
     }
+
+    /// <summary>
+    /// 语言映射 JSON 键：en=www、zh-CN=zh（两者与历史配置保持一致，
+    /// 默认配置升级后 ContainerProfile 不变、容器不会无谓重建），其余语言用自身代码。
+    /// </summary>
+    private static string SubdomainKeyFor(string code) => code switch
+    {
+        "en" => "www",
+        "zh-CN" => "zh",
+        _ => code,
+    };
 
     /// <summary>
     /// 写出 Overleaf 语言域名映射环境文件，返回文件路径。
@@ -405,6 +522,183 @@ public static class AyakaleafService
         var path = Path.Combine(Path.GetTempPath(), "ayakaleaf-overleaf-lang.env");
         File.WriteAllText(path, "OVERLEAF_LANG_DOMAIN_MAPPING=" + BuildLangMapping(host) + "\n", new System.Text.UTF8Encoding(false));
         return path;
+    }
+
+    // ---------------- 功能环境变量构建 ----------------
+
+    /// <summary>
+    /// 构建 Overleaf 容器的功能环境变量集合（不含基础连接变量与站点地址，
+    /// 也不含经 --env-file 传递的语言映射）。
+    /// 每个功能遵循「开关开启且必要凭据非空才注入」；凭据缺失时不注入半套变量。
+    /// </summary>
+    private static List<KeyValuePair<string, string>> BuildFeatureEnvironment()
+    {
+        var env = new List<KeyValuePair<string, string>>();
+        var cfg = Config.Ayakaleaf;
+
+        // Git-Bridge / MCP Server
+        if (cfg.EnableGitBridge)
+        {
+            env.Add(new("GIT_BRIDGE_ENABLED", "true"));
+            env.Add(new("GIT_BRIDGE_HOST", GitBridgeContainer));
+            env.Add(new("GIT_BRIDGE_PORT", "8000"));
+        }
+
+        // AI Chat / Error Assistant
+        if (cfg.EnableAi && !string.IsNullOrWhiteSpace(cfg.AiBaseUrl) &&
+            !string.IsNullOrWhiteSpace(cfg.AiApiKey) && !string.IsNullOrWhiteSpace(cfg.AiModel))
+        {
+            env.Add(new("AI_ENABLED", "true"));
+            env.Add(new("AI_BASE_URL", cfg.AiBaseUrl.Trim()));
+            env.Add(new("AI_API_KEY", cfg.AiApiKey.Trim()));
+            env.Add(new("AI_MODEL", cfg.AiModel.Trim()));
+            if (!string.IsNullOrWhiteSpace(cfg.AiImageModel)) env.Add(new("AI_IMAGE_MODEL", cfg.AiImageModel.Trim()));
+            if (!string.IsNullOrWhiteSpace(cfg.AiPdfModel)) env.Add(new("AI_PDF_MODEL", cfg.AiPdfModel.Trim()));
+            if (cfg.AiTokenQuota > 0)
+            {
+                env.Add(new("AI_TOKEN_QUOTA", cfg.AiTokenQuota.ToString()));
+                env.Add(new("AI_TOKEN_QUOTA_PERIOD", "month"));
+            }
+        }
+
+        // Template Gallery
+        if (cfg.EnableTemplateGallery)
+        {
+            env.Add(new("OVERLEAF_TEMPLATE_GALLERY", "true"));
+            if (!string.IsNullOrWhiteSpace(cfg.TemplatesUserId))
+                env.Add(new("OVERLEAF_TEMPLATES_USER_ID", cfg.TemplatesUserId.Trim()));
+            if (!string.IsNullOrWhiteSpace(cfg.TemplateCategories))
+                env.Add(new("OVERLEAF_TEMPLATE_CATEGORIES", cfg.TemplateCategories.Trim()));
+        }
+
+        // GitHub Sync
+        if (cfg.EnableGithubSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GithubClientId) && !string.IsNullOrWhiteSpace(cfg.GithubClientSecret))
+        {
+            env.Add(new("GITHUB_SYNC_ENABLED", "true"));
+            env.Add(new("GITHUB_SYNC_URL", cfg.GithubSyncUrl.Trim()));
+            env.Add(new("GITHUB_SYNC_CLIENT_ID", cfg.GithubClientId.Trim()));
+            env.Add(new("GITHUB_SYNC_CLIENT_SECRET", cfg.GithubClientSecret.Trim()));
+            env.Add(new("GITHUB_TOKEN_CIPHER_PASSWORD", EnsureTokenCipherPassword(
+                cfg.GithubTokenCipherPassword, v => cfg.GithubTokenCipherPassword = v)));
+        }
+
+        // GitLab Sync
+        if (cfg.EnableGitlabSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GitlabClientId) && !string.IsNullOrWhiteSpace(cfg.GitlabClientSecret))
+        {
+            env.Add(new("GITLAB_SYNC_ENABLED", "true"));
+            env.Add(new("GITLAB_SYNC_URL", cfg.GitlabSyncUrl.Trim()));
+            env.Add(new("GITLAB_SYNC_CLIENT_ID", cfg.GitlabClientId.Trim()));
+            env.Add(new("GITLAB_SYNC_CLIENT_SECRET", cfg.GitlabClientSecret.Trim()));
+            env.Add(new("GITLAB_TOKEN_CIPHER_PASSWORD", EnsureTokenCipherPassword(
+                cfg.GitlabTokenCipherPassword, v => cfg.GitlabTokenCipherPassword = v)));
+        }
+
+        // Gitea Sync
+        if (cfg.EnableGiteaSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GiteaClientId) && !string.IsNullOrWhiteSpace(cfg.GiteaClientSecret))
+        {
+            env.Add(new("GITEA_SYNC_ENABLED", "true"));
+            env.Add(new("GITEA_SYNC_URL", cfg.GiteaSyncUrl.Trim()));
+            env.Add(new("GITEA_SYNC_CLIENT_ID", cfg.GiteaClientId.Trim()));
+            env.Add(new("GITEA_SYNC_CLIENT_SECRET", cfg.GiteaClientSecret.Trim()));
+            env.Add(new("GITEA_TOKEN_CIPHER_PASSWORD", EnsureTokenCipherPassword(
+                cfg.GiteaTokenCipherPassword, v => cfg.GiteaTokenCipherPassword = v)));
+        }
+
+        // Zotero / Mendeley（链接文件类型按需追加）
+        var linkedTypes = new List<string>();
+        if (cfg.EnableZotero && !string.IsNullOrWhiteSpace(cfg.ZoteroClientId) && !string.IsNullOrWhiteSpace(cfg.ZoteroClientSecret))
+        {
+            linkedTypes.Add("zotero");
+            env.Add(new("ZOTERO_CLIENT_ID", cfg.ZoteroClientId.Trim()));
+            env.Add(new("ZOTERO_CLIENT_SECRET", cfg.ZoteroClientSecret.Trim()));
+        }
+        if (cfg.EnableMendeley && !string.IsNullOrWhiteSpace(cfg.MendeleyClientId) && !string.IsNullOrWhiteSpace(cfg.MendeleyClientSecret))
+        {
+            linkedTypes.Add("mendeley");
+            env.Add(new("MENDELEY_CLIENT_ID", cfg.MendeleyClientId.Trim()));
+            env.Add(new("MENDELEY_CLIENT_SECRET", cfg.MendeleyClientSecret.Trim()));
+        }
+        if (linkedTypes.Count > 0)
+            env.Add(new("ENABLED_LINKED_FILE_TYPES", "project_file,project_output_file," + string.Join(",", linkedTypes)));
+
+        // reCAPTCHA
+        if (cfg.EnableRecaptcha && !string.IsNullOrWhiteSpace(cfg.RecaptchaSiteKey) && !string.IsNullOrWhiteSpace(cfg.RecaptchaSecretKey))
+        {
+            env.Add(new("RECAPTCHA_SITE_KEY", cfg.RecaptchaSiteKey.Trim()));
+            env.Add(new("RECAPTCHA_SECRET_KEY", cfg.RecaptchaSecretKey.Trim()));
+        }
+
+        // 泄露密码检查
+        if (cfg.EnableHibp)
+            env.Add(new("HAVE_I_BEEN_PWNED_ENABLED", "true"));
+
+        // 品牌化
+        if (!string.IsNullOrWhiteSpace(cfg.AppName)) env.Add(new("OVERLEAF_APP_NAME", cfg.AppName.Trim()));
+        if (!string.IsNullOrWhiteSpace(cfg.NavTitle)) env.Add(new("OVERLEAF_NAV_TITLE", cfg.NavTitle.Trim()));
+        if (!string.IsNullOrWhiteSpace(cfg.HeaderImageUrl)) env.Add(new("OVERLEAF_HEADER_IMAGE_URL", cfg.HeaderImageUrl.Trim()));
+        if (!string.IsNullOrWhiteSpace(cfg.HeaderImageUrlLight)) env.Add(new("OVERLEAF_HEADER_IMAGE_URL_LIGHT", cfg.HeaderImageUrlLight.Trim()));
+        if (!string.IsNullOrWhiteSpace(cfg.HeaderImageUrlDark)) env.Add(new("OVERLEAF_HEADER_IMAGE_URL_DARK", cfg.HeaderImageUrlDark.Trim()));
+
+        // 高级环境变量（每行 key=value，原样注入；用于 SSO 等未提供专用 UI 的配置）
+        foreach (var raw in (cfg.AdvancedEnv ?? "").Split('\n'))
+        {
+            var line = raw.Trim();
+            var eq = line.IndexOf('=');
+            if (line.Length == 0 || line.StartsWith('#') || eq <= 0) continue;
+            var key = line[..eq].Trim();
+            var value = line[(eq + 1)..].Trim();
+            if (key.Length == 0) continue;
+            env.Add(new(key, value));
+        }
+
+        return env;
+    }
+
+    /// <summary>
+    /// 按注册策略生成注册相关环境变量：
+    /// Open → 允许公开注册；DomainList → 域列表（域名非空时）；
+    /// Closed → 不注入（服务端默认不开放注册）。
+    /// </summary>
+    private static List<KeyValuePair<string, string>> BuildRegistrationEnvironment()
+    {
+        var cfg = Config.Ayakaleaf;
+        switch (cfg.RegistrationMode)
+        {
+            case AyakaleafRegistrationMode.Open:
+                return [new("OVERLEAF_ALLOW_PUBLIC_REGISTRATION", "true")];
+            case AyakaleafRegistrationMode.DomainList when !string.IsNullOrWhiteSpace(cfg.RegistrationDomains):
+                return [new("OVERLEAF_ALLOW_PUBLIC_REGISTRATION", cfg.RegistrationDomains.Replace("\n", "").Replace(" ", ""))];
+            case AyakaleafRegistrationMode.Closed:
+            default:
+                return [];
+        }
+    }
+
+    /// <summary>
+    /// 计算功能环境变量的稳定指纹：按 key 排序后拼接 key=value，
+    /// 取 UTF-8 SHA256 前 16 位十六进制。用于 ContainerProfile 漂移检测。
+    /// </summary>
+    internal static string ComputeFeatureFingerprint(IEnumerable<KeyValuePair<string, string>> env)
+    {
+        var joined = string.Join("\n", env
+            .OrderBy(p => p.Key, StringComparer.Ordinal)
+            .Select(p => p.Key + "=" + p.Value));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// 取用户 token 加密密钥；配置为空时生成 32 字节随机值并持久化（每个 provider 独立）。
+    /// </summary>
+    private static string EnsureTokenCipherPassword(string current, Action<string> persist)
+    {
+        if (!string.IsNullOrEmpty(current)) return current;
+        var secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        persist(secret);
+        return secret;
     }
 
     /// <summary>
@@ -439,8 +733,9 @@ public static class AyakaleafService
 
         // 语言链接主机保持补丁：写入 conf.d（nginx.conf 已 include），内容经
         // base64 传递以避开多层引号转义问题
+        var languagePorts = string.Join("\",\"", GetEnabledLanguages().Select((_, i) => Config.Ayakaleaf.Port + i));
         var js =
-            "(function(){var ayakaPorts=[\"" + Config.Ayakaleaf.Port + "\",\"" + ChinesePort + "\"];" +
+            "(function(){var ayakaPorts=[\"" + languagePorts + "\"];" +
             "function fix(a){try{var u=new URL(a.href);" +
             "if(u.hostname===location.hostname||ayakaPorts.indexOf(u.port)<0)return;" +
             "u.hostname=location.hostname;a.href=u.href}catch(e){}}" +
@@ -556,37 +851,80 @@ public static class AyakaleafService
         var lanIp = Config.Ayakaleaf.AllowLanAccess ? ResolveLanAddress() : "localhost";
         var bindHost = Config.Ayakaleaf.AllowLanAccess ? "0.0.0.0" : "127.0.0.1";
         var siteUrl = $"http://{lanIp}:{Config.Ayakaleaf.Port}";
-        var langMapping = BuildLangMapping(lanIp);
-        var profile = $"{bindHost}:{Config.Ayakaleaf.Port},{ChinesePort}|{siteUrl}|{secret}|{langMapping}";
 
-        // 配置漂移（端口、局域网开关、本机 IP、邀请密钥变化）→ 删除重建容器；数据卷不受影响
+        // 功能环境变量（注册策略 + 各 Pro 功能开关）与功能指纹：
+        // 任一功能配置变化 → 指纹变化 → 容器签名漂移 → 自动重建容器（数据卷不受影响）
+        var featureEnv = new List<KeyValuePair<string, string>>(BuildRegistrationEnvironment());
+        featureEnv.AddRange(BuildFeatureEnvironment());
+        var fingerprint = ComputeFeatureFingerprint(featureEnv);
+
+        // Git-Bridge（启用时）：随站点地址重建的无状态容器，数据在 git_bridge_data 卷中
+        if (Config.Ayakaleaf.EnableGitBridge)
+        {
+            progress("启动 Git-Bridge…");
+            await WslcInterop.RunAsync($"stop \"{GitBridgeContainer}\"", 60000);
+            await WslcInterop.RunAsync($"rm \"{GitBridgeContainer}\"", 60000);
+            var gb = await WslcInterop.RunAsync(
+                $"run -d --name {GitBridgeContainer} --network {NetworkName} " +
+                $"-v {GitBridgeVolume}:/data/git-bridge " +
+                "-e GIT_BRIDGE_PORT=8000 " +
+                $"-e GIT_BRIDGE_API_BASE_URL=http://{OverleafContainer}:3000/api/v0 " +
+                $"-e GIT_BRIDGE_OAUTH2_SERVER=http://{OverleafContainer}:3000 " +
+                $"-e GIT_BRIDGE_POSTBACK_BASE_URL=http://{GitBridgeContainer}:8000 " +
+                "-e GIT_BRIDGE_ROOT_DIR=/data/git-bridge " +
+                $"-e GIT_BRIDGE_ALLOWED_CORS_ORIGINS={siteUrl} " +
+                GitBridgeImage, 300000);
+            if (!gb.IsSuccess)
+                throw new Exception($"创建容器 {GitBridgeContainer} 失败（请确认已在镜像页导入 git-bridge 镜像包）：" + gb.ErrorText);
+        }
+        else if (await ContainerExistsAsync(GitBridgeContainer))
+        {
+            // 已关闭 Git-Bridge：清理遗留容器（数据卷保留，重新启用不受影响）
+            await WslcInterop.RunAsync($"stop \"{GitBridgeContainer}\"", 60000);
+            await WslcInterop.RunAsync($"rm \"{GitBridgeContainer}\"", 60000);
+        }
+
+        var langMapping = BuildLangMapping(lanIp);
+        // 多语言端口分配：en=主端口，其后每语言 +1（默认 en,zh-CN → 主端口,主端口+1，与历史一致）
+        var languagePorts = GetEnabledLanguages().Select((_, i) => Config.Ayakaleaf.Port + i).ToList();
+        var profile = $"{bindHost}:{string.Join(",", languagePorts)}|{siteUrl}|{secret}|{langMapping}|{fingerprint}";
+
+        // 配置漂移（端口、局域网开关、本机 IP、邀请密钥、功能配置变化）→ 删除重建容器；数据卷不受影响
         if (Config.Ayakaleaf.ContainerProfile != profile && await ContainerExistsAsync(OverleafContainer))
         {
-            progress("网络配置已变化，正在重建 Ayakaleaf 容器…");
+            progress("配置已变化，正在重建 Ayakaleaf 容器…");
             // 容器可能已在运行：先停后删；已停止时结果忽略
             await WslcInterop.RunAsync($"stop \"{OverleafContainer}\"", 60000);
             var rm = await WslcInterop.RunAsync($"rm \"{OverleafContainer}\"", 60000);
             if (!rm.IsSuccess)
-                throw new Exception("网络配置已变化，但旧容器无法删除（重建失败）：" + rm.ErrorText);
+                throw new Exception("配置已变化，但旧容器无法删除（重建失败）：" + rm.ErrorText);
+        }
+
+        // 功能环境变量逐项追加（值统一去引号并整体加引号，兼容含空格的取值）
+        var envArgs = new StringBuilder();
+        foreach (var kv in featureEnv)
+        {
+            var value = kv.Value.Replace("\"", "");
+            envArgs.Append($"-e \"{kv.Key}={value}\" ");
         }
 
         var created = await StartContainerAsync(OverleafContainer,
             $"run -d --name {OverleafContainer} --network {NetworkName} " +
-            $"-p {bindHost}:{Config.Ayakaleaf.Port}:80 -p {bindHost}:{ChinesePort}:80 " +
+            string.Join(" ", languagePorts.Select(p => $"-p {bindHost}:{p}:80")) + " " +
             "-v overleaf_data:/var/lib/overleaf/data -v overleaf_logs:/var/log/overleaf " +
             $"-e OVERLEAF_INVITE_TOKEN_SECRET={secret} " +
             "-e OVERLEAF_MONGO_URL=mongodb://mongo/sharelatex " +
             "-e OVERLEAF_REDIS_HOST=redis -e REDIS_HOST=redis -e OVERLEAF_REDIS_PORT=6379 " +
-            "-e OVERLEAF_ALLOW_PUBLIC_REGISTRATION=true " +
             // 本地实例未配置 SMTP，确认邮件无法发送：
             // 禁用邮箱确认，隐藏项目页“请确认您的主要电子邮件地址”横幅。
             "-e EMAIL_CONFIRMATION_DISABLED=true " +
+            $"{envArgs}" +
             $"-e OVERLEAF_SITE_URL={siteUrl} " +
-            // 界面语言注册（镜像内置 en / zh-CN 双语资源）：
-            // 英文=主端口，简体中文=主端口+1，页脚语言选择器可互相切换。
+            // 界面语言注册（镜像内置 18 语资源，按 EnabledLanguages 启用）：
+            // en=主端口，其余语言依次 +1，页脚语言选择器可互相切换。
             // JSON 含引号，经 --env-file 传递以避开命令行转义问题。
             $"--env-file \"{WriteOverleafLanguageEnvFile(lanIp)}\" " +
-            OverleafImage,
+            EffectiveOverleafImage,
             progress);
         if (created) Config.Ayakaleaf.ContainerProfile = profile;
         await EnsureNginxPatchesAsync(progress);
@@ -660,6 +998,41 @@ public static class AyakaleafService
     }
 
     /// <summary>
+    /// 将指定邮箱的 Ayakaleaf 服务端账号开通为管理员（幂等）：
+    /// 在 mongo 容器内执行 mongosh，对 sharelatex.users 执行
+    /// <c>updateOne({email},{$set:{isAdmin:true}})</c>（字段名对照 ayakaleaf-pro User 模型）。
+    /// </summary>
+    /// <param name="email">目标账号邮箱。</param>
+    /// <returns>是否开通成功（mongo 容器不可达、mongosh 失败或未匹配到账号时返回 false，不抛异常）。</returns>
+    public static async Task<bool> TryGrantServerAdminAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+
+        // 引号在 C# 侧直接传给 wslc.exe，无 shell 中间层；JS 内层用单引号。
+        // 邮箱由账号服务生成（[a-z0-9._-]），仍转义单引号/反斜杠防御异常数据
+        var safeEmail = email.Replace("\\", "\\\\").Replace("'", "\\'");
+        var js = $"db.getSiblingDB('sharelatex').users" +
+                 $".updateOne({{email:'{safeEmail}'}},{{$set:{{isAdmin:true}}}})";
+
+        var r = await WslcInterop.RunAsync(
+            $"exec {MongoContainer} mongosh --quiet --eval \"{js}\"", 30000);
+        if (!r.IsSuccess)
+        {
+            LogWrapper.Warn($"[Ayakaleaf] 开通服务端管理员失败（{email}）：{r.ErrorText.Trim()}");
+            return false;
+        }
+
+        // mongosh 会输出 updateOne 结果（matchedCount 等）：未匹配到账号视为开通失败
+        if (!Regex.IsMatch(r.Stdout, @"matchedCount\s*:\s*1"))
+        {
+            LogWrapper.Warn($"[Ayakaleaf] 开通服务端管理员失败（{email}）：服务端不存在该账号（{r.Stdout.Trim()}）");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 停止服务栈（容器保留，数据卷不受影响；重新启动时复用容器）。
     /// </summary>
     public static async Task StopAsync(Action<string> progress, CancellationToken ct = default)
@@ -667,7 +1040,7 @@ public static class AyakaleafService
         progress("正在停止 Ayakaleaf 服务栈…");
         try
         {
-            foreach (var name in new[] { OverleafContainer, RedisContainer, MongoContainer })
+            foreach (var name in new[] { OverleafContainer, GitBridgeContainer, RedisContainer, MongoContainer })
             {
                 ct.ThrowIfCancellationRequested();
                 if (!await ContainerExistsAsync(name)) continue;
@@ -754,9 +1127,9 @@ public static class AyakaleafService
     /// </summary>
     public static async Task RestoreVolumeAsync(string volume, string vhdxPath, CancellationToken ct = default)
     {
-        if (!DataVolumes.Contains(volume))
+        if (!DataVolumes.Contains(volume) && volume != GitBridgeVolume)
             throw new Exception($"未知的数据卷 {volume}");
-        foreach (var name in new[] { MongoContainer, RedisContainer, OverleafContainer })
+        foreach (var name in new[] { MongoContainer, RedisContainer, OverleafContainer, GitBridgeContainer })
         {
             if (await IsContainerRunningAsync(name))
                 throw new Exception($"恢复前请先停止服务栈（容器 {name} 仍在运行）");
@@ -774,5 +1147,221 @@ public static class AyakaleafService
     public static void OpenSite()
     {
         Process.Start(new ProcessStartInfo(BaseUrl) { UseShellExecute = true });
+    }
+
+    // ---------------- 功能速览 ----------------
+
+    /// <summary>
+    /// 列出当前配置下实际生效的功能名（与 <see cref="BuildFeatureEnvironment"/> 的
+    /// 门控条件一致：开关开启且必要凭据非空），供服务台状态速览展示。
+    /// </summary>
+    public static List<string> GetEnabledFeatureNames()
+    {
+        var names = new List<string>();
+        var cfg = Config.Ayakaleaf;
+
+        if (cfg.EnableGitBridge) names.Add("Git-Bridge / MCP");
+        if (cfg.EnableAi && !string.IsNullOrWhiteSpace(cfg.AiBaseUrl) &&
+            !string.IsNullOrWhiteSpace(cfg.AiApiKey) && !string.IsNullOrWhiteSpace(cfg.AiModel))
+            names.Add("AI 助手");
+        if (cfg.EnableTemplateGallery) names.Add("模板画廊");
+        if (cfg.EnableGithubSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GithubClientId) && !string.IsNullOrWhiteSpace(cfg.GithubClientSecret))
+            names.Add("GitHub 同步");
+        if (cfg.EnableGitlabSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GitlabClientId) && !string.IsNullOrWhiteSpace(cfg.GitlabClientSecret))
+            names.Add("GitLab 同步");
+        if (cfg.EnableGiteaSync && cfg.EnableGitBridge &&
+            !string.IsNullOrWhiteSpace(cfg.GiteaClientId) && !string.IsNullOrWhiteSpace(cfg.GiteaClientSecret))
+            names.Add("Gitea 同步");
+        if (cfg.EnableZotero && !string.IsNullOrWhiteSpace(cfg.ZoteroClientId) &&
+            !string.IsNullOrWhiteSpace(cfg.ZoteroClientSecret))
+            names.Add("Zotero");
+        if (cfg.EnableMendeley && !string.IsNullOrWhiteSpace(cfg.MendeleyClientId) &&
+            !string.IsNullOrWhiteSpace(cfg.MendeleyClientSecret))
+            names.Add("Mendeley");
+        if (cfg.EnableRecaptcha && !string.IsNullOrWhiteSpace(cfg.RecaptchaSiteKey) &&
+            !string.IsNullOrWhiteSpace(cfg.RecaptchaSecretKey))
+            names.Add("reCAPTCHA");
+        if (cfg.EnableHibp) names.Add("泄露密码检查");
+        if (!string.IsNullOrWhiteSpace(cfg.AppName) || !string.IsNullOrWhiteSpace(cfg.NavTitle) ||
+            !string.IsNullOrWhiteSpace(cfg.HeaderImageUrl) || !string.IsNullOrWhiteSpace(cfg.HeaderImageUrlLight) ||
+            !string.IsNullOrWhiteSpace(cfg.HeaderImageUrlDark))
+            names.Add("品牌化");
+        var langs = GetEnabledLanguages();
+        if (langs.Count > 2) names.Add($"界面语言 ×{langs.Count}");
+        return names;
+    }
+
+    // ---------------- 全量备份/恢复 ----------------
+
+    /// <summary>
+    /// 全量备份：4(+1) 数据卷 VHD + Ayakaleaf 账号凭据 + 本地用户库（users.db，含 WAL 边车）
+    /// + 启动器配置（共享加密配置 + 本地配置），打包为单个带时间戳的 zip。
+    /// 服务运行中也可备份，但建议先停止服务栈以保证数据一致性。
+    /// </summary>
+    /// <returns>生成的 zip 文件路径。</returns>
+    public static async Task<string> CreateFullBackupAsync(Action<string> progress, CancellationToken ct = default)
+    {
+        var destFile = Path.Combine(BackupDirectory, $"ayakaleaf-full-backup-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
+        Directory.CreateDirectory(BackupDirectory);
+        var staging = Path.Combine(Path.GetTempPath(), $"ayakaleaf-full-backup-{DateTime.Now:yyyyMMdd-HHmmss-fff}");
+        try
+        {
+            Directory.CreateDirectory(staging);
+
+            // 1. 数据卷 VHD（运行中备份可用，一致性以停止服务栈为宜）
+            var volumesDir = Path.Combine(staging, "volumes");
+            Directory.CreateDirectory(volumesDir);
+            foreach (var volume in ActiveDataVolumes)
+            {
+                ct.ThrowIfCancellationRequested();
+                progress($"正在备份数据卷 {volume}…");
+                var hostPath = await GetVolumeHostPathAsync(volume);
+                await Task.Run(() => File.Copy(hostPath, Path.Combine(volumesDir, $"{volume}.vhdx"), overwrite: false), ct);
+            }
+
+            // 2. Ayakaleaf 账号凭据
+            if (Directory.Exists(AyakaleafAccountService.AccountsDirectory))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress("正在备份账号凭据…");
+                var accountsDir = Path.Combine(staging, "accounts");
+                await Task.Run(() => CopyDirectoryRecursive(AyakaleafAccountService.AccountsDirectory, accountsDir), ct);
+            }
+
+            // 3. 本地用户库（users.db 为 WAL 模式，-wal/-shm 边车一并打包）
+            var usersDb = Path.Combine(Paths.Data, "users.db");
+            if (File.Exists(usersDb))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress("正在备份本地用户库…");
+                await Task.Run(() =>
+                {
+                    File.Copy(usersDb, Path.Combine(staging, "users.db"), overwrite: true);
+                    foreach (var suffix in new[] { "-wal", "-shm" })
+                    {
+                        var sidecar = usersDb + suffix;
+                        if (File.Exists(sidecar))
+                            File.Copy(sidecar, Path.Combine(staging, "users.db" + suffix), overwrite: true);
+                    }
+                }, ct);
+            }
+
+            // 4. 启动器配置（共享加密配置含全部 Ayakaleaf 功能开关与密钥）
+            progress("正在备份启动器配置…");
+            var configDir = Path.Combine(staging, "config");
+            Directory.CreateDirectory(configDir);
+            if (File.Exists(ConfigService.SharedConfigPath))
+                File.Copy(ConfigService.SharedConfigPath, Path.Combine(configDir, "config.v1.json"), overwrite: true);
+            if (File.Exists(ConfigService.LocalConfigPath))
+                File.Copy(ConfigService.LocalConfigPath, Path.Combine(configDir, "config.v1.yml"), overwrite: true);
+
+            // 5. 打包为单 zip（VHD 内多为不可压缩数据，Fastest 避免长时间 CPU 压缩）
+            progress("正在打包全量备份…");
+            await Task.Run(() => ZipFile.CreateFromDirectory(staging, destFile, CompressionLevel.Fastest, includeBaseDirectory: false), ct);
+        }
+        finally
+        {
+            try { Directory.Delete(staging, recursive: true); } catch { /* 临时目录清理失败可忽略 */ }
+        }
+        return destFile;
+    }
+
+    /// <summary>
+    /// 全量恢复：解包 <see cref="CreateFullBackupAsync"/> 生成的 zip，将数据卷、账号凭据、
+    /// 本地用户库与启动器配置还原到对应位置。要求服务栈处于停止状态；
+    /// 恢复配置与用户数据后建议立即重启启动器使内存状态与新文件一致。
+    /// </summary>
+    public static async Task RestoreFullBackupAsync(string zipPath, Action<string> progress, CancellationToken ct = default)
+    {
+        if (!File.Exists(zipPath)) throw new FileNotFoundException("备份文件不存在：" + zipPath);
+        foreach (var name in new[] { MongoContainer, RedisContainer, OverleafContainer, GitBridgeContainer })
+        {
+            if (await IsContainerRunningAsync(name))
+                throw new Exception($"恢复前请先停止服务栈（容器 {name} 仍在运行）");
+        }
+
+        var staging = Path.Combine(Path.GetTempPath(), $"ayakaleaf-full-restore-{DateTime.Now:yyyyMMdd-HHmmss-fff}");
+        try
+        {
+            progress("正在解包备份…");
+            await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, staging), ct);
+
+            // 1. 数据卷 VHD（卷名白名单校验，防止恢复未知卷覆盖其他数据）
+            var volumesDir = Path.Combine(staging, "volumes");
+            if (Directory.Exists(volumesDir))
+            {
+                foreach (var vhdx in Directory.GetFiles(volumesDir, "*.vhdx"))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var volume = Path.GetFileNameWithoutExtension(vhdx);
+                    if (!DataVolumes.Contains(volume) && volume != GitBridgeVolume)
+                        throw new Exception($"备份中包含未知的数据卷 {volume}，已中止恢复");
+                    progress($"正在恢复数据卷 {volume}…");
+                    var hostPath = await GetVolumeHostPathAsync(volume);
+                    await Task.Run(() => File.Copy(vhdx, hostPath, overwrite: true), ct);
+                }
+            }
+
+            // 2. 账号凭据（整体替换：先清空现有凭据目录再复制）
+            var accountsDir = Path.Combine(staging, "accounts");
+            if (Directory.Exists(accountsDir))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress("正在恢复账号凭据…");
+                await Task.Run(() =>
+                {
+                    var target = AyakaleafAccountService.AccountsDirectory;
+                    if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+                    CopyDirectoryRecursive(accountsDir, target);
+                }, ct);
+            }
+
+            // 3. 本地用户库（连接池可能持有文件句柄，先清池；WAL 边车一并还原）
+            var usersDb = Path.Combine(staging, "users.db");
+            if (File.Exists(usersDb))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress("正在恢复本地用户库…");
+                await Task.Run(() =>
+                {
+                    SqliteConnection.ClearAllPools();
+                    var target = Path.Combine(Paths.Data, "users.db");
+                    File.Copy(usersDb, target, overwrite: true);
+                    foreach (var suffix in new[] { "-wal", "-shm" })
+                    {
+                        var sourceSidecar = usersDb + suffix;
+                        var targetSidecar = target + suffix;
+                        if (File.Exists(sourceSidecar)) File.Copy(sourceSidecar, targetSidecar, overwrite: true);
+                        else if (File.Exists(targetSidecar)) File.Delete(targetSidecar);
+                    }
+                }, ct);
+            }
+
+            // 4. 启动器配置
+            progress("正在恢复启动器配置…");
+            var configDir = Path.Combine(staging, "config");
+            var sharedConfig = Path.Combine(configDir, "config.v1.json");
+            var localConfig = Path.Combine(configDir, "config.v1.yml");
+            if (File.Exists(sharedConfig))
+                File.Copy(sharedConfig, ConfigService.SharedConfigPath, overwrite: true);
+            if (File.Exists(localConfig))
+                File.Copy(localConfig, ConfigService.LocalConfigPath, overwrite: true);
+        }
+        finally
+        {
+            try { Directory.Delete(staging, recursive: true); } catch { /* 临时目录清理失败可忽略 */ }
+        }
+    }
+
+    /// <summary>递归复制目录（含所有子目录与文件，覆盖同名目标）。</summary>
+    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+            File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), overwrite: true);
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+            CopyDirectoryRecursive(dir, Path.Combine(destDir, Path.GetFileName(dir)));
     }
 }

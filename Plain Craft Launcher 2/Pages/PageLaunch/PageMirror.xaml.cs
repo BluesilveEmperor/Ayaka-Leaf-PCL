@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -33,11 +36,14 @@ public partial class PageMirror
                 Opacity = 0.6,
                 FontSize = 12.5,
             });
+            LabCurrentImage.Text = "";
+            LabImageHint.Visibility = Visibility.Collapsed;
             return;
         }
         PanImages.Children.Clear();
         PanImages.Children.Add(new TextBlock { Text = "正在获取镜像列表…", Opacity = 0.6, FontSize = 12.5 });
         var images = await AyakaleafService.ListImagesAsync();
+        await RefreshImageSummary(images);
         PanImages.Children.Clear();
         if (images.Count == 0)
         {
@@ -112,6 +118,36 @@ public partial class PageMirror
     }
 
     private void BtnRefreshImages_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => RefreshImages();
+
+    /// <summary>
+    /// 刷新「当前镜像」摘要与升级提示（Phase 9 镜像版本管理）：
+    /// 1. 显示启动配置实际使用的 Overleaf 镜像（含配置覆盖）；
+    /// 2. 该镜像不在本地镜像列表 → 警告启动会失败，需先导入镜像包；
+    /// 3. 运行中的 overleaf 容器镜像与配置不一致 → 提示重启服务将用新镜像重建容器。
+    /// </summary>
+    private async Task RefreshImageSummary(List<AyakaleafImage> images)
+    {
+        var effective = AyakaleafService.EffectiveOverleafImage;
+        LabCurrentImage.Text = $"当前使用的 Overleaf 镜像：{effective}";
+
+        var hasEffective = images.Any(i => $"{i.Repository}:{i.Tag}" == effective);
+        var hint = hasEffective
+            ? ""
+            : "警告：配置的镜像不在本地镜像列表中，启动服务将失败。请先导入对应镜像包，或在「设置 → Ayakaleaf → 高级」中修正镜像配置。";
+
+        var containers = await AyakaleafService.GetContainersAsync();
+        var overleaf = containers.FirstOrDefault(c => c.Name == AyakaleafService.OverleafContainer);
+        if (hasEffective && overleaf != null && overleaf.Image != effective)
+            hint = $"提示：运行中的容器仍在使用镜像 {overleaf.Image}，与当前配置（{effective}）不一致。重启服务将使用新镜像重建容器，数据卷不受影响。";
+
+        if (hint.Length == 0)
+        {
+            LabImageHint.Visibility = Visibility.Collapsed;
+            return;
+        }
+        LabImageHint.Text = hint;
+        LabImageHint.Visibility = Visibility.Visible;
+    }
 
     private void BtnImport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {

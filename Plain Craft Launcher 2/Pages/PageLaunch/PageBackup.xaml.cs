@@ -148,6 +148,97 @@ public partial class PageBackup
 
     private void BtnRefreshVolumes_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => RefreshVolumes();
 
+    /// <summary>
+    /// 全量备份：数据卷 + 账号凭据 + 本地用户库 + 启动器配置 → 单个带时间戳的 zip。
+    /// 服务运行中也可备份（提示建议停止以保证一致性），与单卷备份语义一致。
+    /// </summary>
+    private void BtnFullBackup_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!Config.Ayakaleaf.Deployed)
+        {
+            HintService.Hint("请先在「服务」页完成内嵌运行时部署", HintType.Info);
+            return;
+        }
+        if (!TryLock()) return;
+        LabFullProgress.Visibility = Visibility.Visible;
+        LabFullProgress.Text = "正在准备全量备份…";
+        ModBase.RunInNewThread(() =>
+        {
+            try
+            {
+                var file = AyakaleafService.CreateFullBackupAsync(
+                    msg => ModBase.RunInUi(() => LabFullProgress.Text = msg)).GetAwaiter().GetResult();
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("全量备份完成：" + file, HintType.Success);
+                    LabFullProgress.Text = "最近全量备份：" + file;
+                });
+            }
+            catch (Exception ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 全量备份失败");
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("全量备份失败：" + ex.Message, HintType.Error);
+                    LabFullProgress.Text = ex.Message;
+                });
+            }
+            finally
+            {
+                Unlock();
+            }
+        }, "Ayakaleaf FullBackup");
+    }
+
+    /// <summary>
+    /// 全量恢复：选择全量备份 zip，将数据卷、账号凭据、本地用户库与配置还原到对应位置。
+    /// 恢复要求服务栈停止；恢复完成后建议立即重启启动器使配置与用户数据生效。
+    /// </summary>
+    private void BtnFullRestore_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!Config.Ayakaleaf.Deployed)
+        {
+            HintService.Hint("请先在「服务」页完成内嵌运行时部署", HintType.Info);
+            return;
+        }
+        if (ModMain.MyMsgBox(
+                "全量恢复将覆盖全部数据卷、账号凭据、本地用户库与启动器配置的现有数据，且要求服务栈处于停止状态。\n恢复完成后建议立即重启启动器。\n\n是否继续？",
+                "全量恢复", "选择备份文件", "取消", isWarn: true) != 1)
+            return;
+        var zip = SystemDialogs.SelectFile("Ayakaleaf 全量备份|*.zip|全部文件|*.*", "选择全量备份文件",
+            AyakaleafService.BackupDirectory);
+        if (string.IsNullOrEmpty(zip)) return;
+        if (!TryLock()) return;
+        LabFullProgress.Visibility = Visibility.Visible;
+        LabFullProgress.Text = "正在准备全量恢复…";
+        ModBase.RunInNewThread(() =>
+        {
+            try
+            {
+                AyakaleafService.RestoreFullBackupAsync(zip,
+                    msg => ModBase.RunInUi(() => LabFullProgress.Text = msg)).GetAwaiter().GetResult();
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("全量恢复完成，建议立即重启启动器使配置与用户数据生效", HintType.Success);
+                    LabFullProgress.Text = "已从 " + Path.GetFileName(zip) + " 全量恢复，建议立即重启启动器";
+                });
+            }
+            catch (Exception ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 全量恢复失败");
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("全量恢复失败：" + ex.Message, HintType.Error);
+                    LabFullProgress.Text = ex.Message;
+                });
+            }
+            finally
+            {
+                Unlock();
+            }
+        }, "Ayakaleaf FullRestore");
+    }
+
     private void BtnRestore_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (!Config.Ayakaleaf.Deployed)

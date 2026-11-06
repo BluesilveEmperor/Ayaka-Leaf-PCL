@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -30,6 +31,9 @@ public partial class WorkbenchWindow
     private string _sid;
     private int _retryCount;
 
+    /// <summary>初始访问路径（默认 /project；管理面板入口传 /admin）。</summary>
+    private readonly string _initialPath;
+
     /// <summary>是否需要在窗口顶部保留“界面语言切换不可用”提示。</summary>
     private bool _languageUnavailableNotice;
 
@@ -49,14 +53,17 @@ public partial class WorkbenchWindow
 
     private static string UserDataFolder => Path.Combine(AppContext.BaseDirectory, "data", "ayakaleaf", "webview");
 
-    /// <summary>按用户语言偏好返回的工作台入口地址。</summary>
-    private static string WorkbenchUrl => AyakaleafService.BaseUrlForLanguage(Config.Ayakaleaf.InterfaceLanguage) + "/project";
+    /// <summary>按 <see cref="_initialPath"/> 与用户语言偏好生成的初始访问地址。</summary>
+    private string InitialUrl => AyakaleafService.BaseUrlForLanguage(Config.Ayakaleaf.InterfaceLanguage) + _initialPath;
 
-    public WorkbenchWindow(AyakaleafAccount account, string sessionId)
+    public WorkbenchWindow(AyakaleafAccount account, string sessionId, string initialPath = "/project")
     {
         InitializeComponent();
         _account = account;
         _sid = sessionId;
+        // 路径规范化：空白回退默认 /project；确保以 / 开头
+        var path = string.IsNullOrWhiteSpace(initialPath) ? "/project" : initialPath.Trim();
+        _initialPath = path.StartsWith('/') ? path : "/" + path;
         Loaded += WorkbenchWindow_Loaded;
     }
 
@@ -110,7 +117,7 @@ public partial class WorkbenchWindow
         // 语言切换不可用时保留顶部提示；否则按正常流程隐藏加载提示
         if (!_languageUnavailableNotice)
             LabLoading.Visibility = System.Windows.Visibility.Collapsed;
-        Web.Source = new Uri(WorkbenchUrl);
+        Web.Source = new Uri(InitialUrl);
     }
 
     /// <summary>
@@ -208,15 +215,14 @@ public partial class WorkbenchWindow
     /// 注入界面语言切换脚本：在编辑器 文件 → 设置 → 拼写和语言 面板中
     /// 添加“界面语言”选项，切换后跳转到对应语言端口的同一路径，
     /// 并通过 postMessage 通知宿主持久化语言偏好。
+    /// 语言列表按 <c>EnabledLanguages</c> 配置生成（仅含已启用语言）。
     /// </summary>
     private async Task InjectInterfaceLanguageAsync()
     {
         var raw = GetInterfaceLanguageScript();
         if (string.IsNullOrEmpty(raw)) return;
 
-        var script = raw
-            .Replace("__AYAKA_MAIN_PORT__", Config.Ayakaleaf.Port.ToString())
-            .Replace("__AYAKA_ZH_PORT__", AyakaleafService.ChinesePort.ToString());
+        var script = raw.Replace("__AYAKA_LANGUAGES_JSON__", BuildLanguagesJson());
 
         try
         {
@@ -226,6 +232,32 @@ public partial class WorkbenchWindow
         {
             LogWrapper.Warn(ex, "[Ayakaleaf] 界面语言脚本注入失败");
         }
+    }
+
+    /// <summary>
+    /// 构造注入脚本使用的语言列表 JSON：
+    /// <c>[{"code":"en","name":"English","port":8080},…]</c>，
+    /// name 取各语言自称，port 按启用顺序分配（en=主端口，其后 +1）。
+    /// </summary>
+    private static string BuildLanguagesJson()
+    {
+        var sb = new StringBuilder("[");
+        var langs = AyakaleafService.GetEnabledLanguages();
+        for (var i = 0; i < langs.Count; i++)
+        {
+            if (i > 0) sb.Append(',');
+            var code = langs[i];
+            var native = AyakaleafService.SupportedLanguages
+                .Where(l => l.Code == code)
+                .Select(l => l.NativeName)
+                .FirstOrDefault() ?? code;
+            // name/port 均为启动器生成的受控值（语言代码/自称/端口），无引号注入风险
+            sb.Append("{\"code\":\"").Append(code)
+                .Append("\",\"name\":\"").Append(native)
+                .Append("\",\"port\":").Append(Config.Ayakaleaf.Port + i)
+                .Append('}');
+        }
+        return sb.Append(']').ToString();
     }
 
     private static string? GetInterfaceLanguageScript()
@@ -292,7 +324,8 @@ public partial class WorkbenchWindow
         var lang = root.TryGetProperty("lang", out var langElement) && langElement.ValueKind == JsonValueKind.String
             ? langElement.GetString()
             : null;
-        var normalized = lang == "zh" ? "zh" : "en";
+        // 归一化为镜像内置语言代码：旧脚本值 "zh" 兼容映射 "zh-CN"，未知回落 "en"
+        var normalized = AyakaleafService.NormalizeLanguageCode(lang);
 
         var ok = true;
         try
@@ -320,7 +353,7 @@ public partial class WorkbenchWindow
     /// </summary>
     private void TrackPendingLanguageSwitch(string lang)
     {
-        var targetPort = lang == "zh" ? AyakaleafService.ChinesePort : Config.Ayakaleaf.Port;
+        var targetPort = AyakaleafService.PortForLanguage(lang);
         // CoreWebView2.Source 会跟随页面内导航，比控件的 Source 属性更可靠
         string? currentUrl = null;
         try
@@ -430,7 +463,7 @@ public partial class WorkbenchWindow
             _retryCount++;
             _sid = await AyakaleafAccountService.LoginAsync(_account);
             InjectSession();
-            Web.Source = new Uri(WorkbenchUrl);
+            Web.Source = new Uri(InitialUrl);
         }
         catch (Exception ex)
         {

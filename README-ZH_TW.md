@@ -17,12 +17,14 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## ✨ 功能特性
 
 - **本機使用者系統** —— 註冊 / 登入 / 多使用者切換（SQLite + PBKDF2），每使用者獨立資料目錄，啟動登入門禁
-- **服務台** —— 一鍵部署 / 啟動 / 停止內建 Overleaf 服務（MongoDB 8.0 + Redis 7 + Overleaf），自動初始化 MongoDB 副本集，服務就緒自動探測
+- **服務台** —— 一鍵部署 / 啟動 / 停止內建 Overleaf 服務（MongoDB 8.0 + Redis 7 + Overleaf；啟用 Git-Bridge 時另含 git-bridge 容器），自動初始化 MongoDB 副本集，服務就緒自動探測
 - **容器執行時** —— 基於 Windows WSL 3.0+ 內建容器能力（WSLC），**無需 Docker Desktop**，資料卷為獨立 vhd 檔案
 - **工作台** —— 內嵌 WebView2 開啟 Overleaf，自動開戶 + 自動登入，免手動輸入
 - **公式聯動** —— 左側選取 LaTeX 公式程式碼，右側 PDF 自動高亮對應位置並捲動定位（重用 Overleaf 內建 SyncTeX）
 - **映像檔管理** —— 內建映像檔 tar.gz（`runtime/images`），部署時自動載入，重複載入冪等
 - **備份還原** —— 資料卷即 vhd 檔案，頁面內一鍵快照 / 還原
+- **區域網路共享** —— 服務台即時顯示「隊友存取位址」，同一區域網路的隊友可直接存取你的 Overleaf；網路切換後位址自動重新整理，並自動排除 VPN / TUN 虛擬網卡（Mihomo / Clash 等）
+- **帳號資料隔離** —— 帳號庫、憑證與使用者資料全部隨啟動器目錄存放，整個目錄複製即成可攜版，多個副本互不串號
 
 ## 📐 編輯器聯動
 
@@ -37,7 +39,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 | 作業系統 | 支援情況 | 環境需求 |
 |---|---|---|
-| Windows 10 21H2+ / Windows 11 (x64) | ✅ 完整支援 | [.NET 10 Desktop Runtime](https://get.dot.net/10) + WSL 3.0+ |
+| Windows 10 21H2+ / Windows 11 (x64 / ARM64) | ✅ 完整支援 | [.NET 10 Desktop Runtime](https://get.dot.net/10)（架構與主程式一致）+ WSL 3.0+ |
 | Windows 10 1809 - 21H2 | ⚠️ 需手動升級 WSL 至 3.0+ | 同上 |
 | Windows 7 / 8 / 8.1 | ❌ 不支援 | / |
 | macOS / Linux | ❌ 不支援 | WPF、WebView2 與 WSLC 容器皆為 Windows 專屬 |
@@ -45,7 +47,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## 🚀 快速開始
 
 1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）與執行環境包 `runtime.zip`
-2. 將 exe 與 `runtime.zip` 放在同一目錄，解壓縮 `runtime.zip` 得到 `runtime\images\`（約 1.6GB，詳見下文「發佈與分發」）
+2. 將 exe 與 `runtime.zip` 放在同一目錄，解壓縮 `runtime.zip` 得到 `runtime\images\`（約 1.8GB，詳見下文「發佈與分發」）
 3. 安裝 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架構與主程式一致）
 4. 啟用 WSL：以系統管理員 PowerShell 執行 `wsl --install --no-distribution`，完成後執行 `wsl --update`
 5. 啟動 `AyakaLauncher_Release_<平台>.exe` → 註冊本機使用者並登入
@@ -53,15 +55,38 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 > ⚠️ `runtime\` 是容器映像檔執行環境，必須與 exe 保持**同級、不可拆分或改名**。exe 本身不含映像檔，缺少 `runtime\images\` 時無法部署服務。
 
-## 🔨 建置
+## 🛠️ 本機開發
 
-需要 [.NET 10 SDK](https://get.dot.net/10)：
+### 前置要求
+
+| 相依套件 | 版本 | 安裝方式 |
+|---|---|---|
+| .NET SDK | 10 | [get.dot.net/10](https://get.dot.net/10) |
+| WSL | 3.0+ | 系統管理員 PowerShell：`wsl --install --no-distribution`，再 `wsl --update` |
+| 容器執行環境 | WSLC | 隨 WSL 3.0+ 內建，**無需 Docker Desktop** |
+
+### 建置步驟
 
 ```powershell
-dotnet publish "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c Release -p:Platform=x64 --no-self-contained -o artifact
+# 1. 複製倉庫
+git clone https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL.git
+cd Ayaka-Leaf-PCL
+
+# 2. 擺放 runtime：把上節取得的四個映像檔包放到倉庫根目錄
+#    runtime\images\sharelatex-server-pro.tar.gz
+#    runtime\images\git-bridge.tar.gz
+#    runtime\images\mongo-8.0.tar.gz
+#    runtime\images\redis-7.tar.gz
+
+# 3. 建置並執行
+dotnet run --project "Plain Craft Launcher 2"
 ```
 
-產物為單一檔案 `AyakaLauncher.exe`（Framework-dependent）。
+也可以用 Visual Studio / Rider / VS Code 開啟方案直接 F5。
+
+**runtime junction 機制**：倉庫根目錄的 `runtime\` 是映像檔包的真實存放處；每次建置後，csproj 中的 `LinkAyakaleafRuntime` Target 會把輸出目錄 `bin\<設定>\net10.0-windows\runtime` 以目錄聯結（junction）指向它（`dotnet publish` 輸出目錄由 `LinkAyakaleafRuntimeOnPublish` 同樣處理）——避免每次建置複製 1.9GB，應用程式執行時從 exe 旁的 `runtime\images` 讀取。對倉庫根目錄 `runtime\` 的修改會在下次執行時生效。
+
+**首次執行流程**：註冊本機使用者並登入 → 服務台點擊 **開始部署**（自動載入映像檔、初始化 MongoDB 副本集）→ **啟動服務** → **開啟工作台**。可用 `wslc images` 確認四個映像檔、`wslc list` 確認三個容器（mongo / redis / overleaf；啟用 Git-Bridge 時另見 git-bridge 容器）均已就緒。
 
 ## 📦 發佈與分發
 
@@ -71,12 +96,12 @@ dotnet publish "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c Release
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程式，Framework-dependent 單一檔案，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程式，Framework-dependent 單一檔案，需求同上 |
-| `runtime.zip` | 內嵌容器映像檔執行環境包，約 1.6GB |
+| `runtime.zip` | 內嵌容器映像檔執行環境包，約 1.8GB |
 
 ### 部署步驟
 
 1. 將 `AyakaLauncher_Release_<平台>.exe` 與 `runtime.zip` 放在同一目錄
-2. 在該目錄解壓縮 `runtime.zip`，得到 `runtime\images\`（內含 `sharelatex-server-pro`、`mongo-8.0`、`redis-7` 三個映像檔包）
+2. 在該目錄解壓縮 `runtime.zip`，得到 `runtime\images\`（內含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四個映像檔包）
 3. 執行 exe
 
 `runtime\` 必須與 exe **同級、不可拆分或改名**。
@@ -95,20 +120,23 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 ### 本機打包
 
 ```powershell
-# 預設：產出 exe 與 runtime.zip
+# x64（預設）
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+
+# ARM64：再跑一次腳本（runtime.zip 與平台無關，重跑僅重新打包覆蓋，內容不變）
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
 
 # 可選：同時產出整合包
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
-打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 三個映像檔是否齊備，缺少時直接報錯，並提示先從 Release 附件 `runtime.zip` 解壓縮還原。
+打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時直接報錯，並提示先從 Release 附件 `runtime.zip` 解壓縮還原。
 
 | 產物 | 產生條件 | 說明 |
 |---|---|---|
-| `release\AyakaLauncher_<設定>_<平台>.exe` | 預設 | 主程式，命名與 Release 附件一致（不含版本號） |
-| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 1.6GB，即隨 Release 分發的 `runtime.zip` |
-| `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 1.7GB，適合離線分發 |
+| `release\AyakaLauncher_<設定>_<平台>.exe` | 預設 | 主程式（x64 / ARM64 分別建置），命名與 Release 附件一致（不含版本號） |
+| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 1.8GB，即隨 Release 分發的 `runtime.zip` |
+| `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 1.8GB，適合離線分發 |
 
 腳本使用 Windows 內建的 `C:\Windows\System32\tar.exe` 打包 zip，不依賴 PATH 中的 tar。本機日常執行無需打包——建置輸出目錄已透過 junction 掛好 runtime。
 

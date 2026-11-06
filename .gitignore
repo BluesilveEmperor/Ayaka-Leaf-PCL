@@ -360,3 +360,7 @@ Plain Craft Launcher 2/runtime/
 
 # claude-code 本地推送配置（不入库）
 .claude/
+
+# DevEco Code 会话目录
+.deveco/
+.resultverify/

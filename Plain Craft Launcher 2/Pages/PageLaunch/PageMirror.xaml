@@ -18,6 +18,10 @@
                         <local:MyButton Grid.Column="1" x:Name="BtnRefreshImages" Height="30" Width="80"
                                         Text="刷新" Click="BtnRefreshImages_Click" />
                     </Grid>
+                    <TextBlock x:Name="LabCurrentImage" Margin="0,10,0,0" FontSize="12.5" Opacity="0.8"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="LabImageHint" Margin="0,8,0,0" FontSize="12" Opacity="0.75"
+                               TextWrapping="Wrap" Visibility="Collapsed" />
                     <StackPanel x:Name="PanImages" Margin="0,10,0,0" />
                 </StackPanel>
             </local:MyCard>

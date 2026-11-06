@@ -1081,7 +1081,8 @@ public partial class FormMain
         SetupFeedback = 6,
         SetupUpdate = 8,
         SetupLauncherMisc = 10,
-        SetupLauncherLanguage = 11
+        SetupLauncherLanguage = 11,
+        SetupAyakaleaf = 12
     }
 
     /// <summary>

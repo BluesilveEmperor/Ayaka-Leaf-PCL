@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using PCL.Core.App;
 using PCL.Core.Logging;
 
 namespace PCL.Core.Ayakaleaf;
@@ -40,6 +41,12 @@ public enum AyakaleafAccountErrorKind
 
     /// <summary>凭据文件读写或 DPAPI 解密失败。</summary>
     CredentialStorageFailed,
+
+    /// <summary>重置 Ayakaleaf 账号密码被服务端拒绝（旧密码不符、密码策略不满足或触发限流）。</summary>
+    PasswordResetRejected,
+
+    /// <summary>删除 Ayakaleaf 服务端账号被拒绝（缺少管理员凭据 / 管理端点拒绝等）。</summary>
+    AccountDeleteRejected,
 }
 
 /// <summary>
@@ -191,21 +198,9 @@ public static class AyakaleafAccountService
     private static AyakaleafAccount _GetOrCreateAccountCore(string localUserName)
     {
         using var mutex = new Mutex(false, MutexName);
-        var mutexAcquired = false;
+        var mutexAcquired = _AcquireAccountsMutex(mutex);
         try
         {
-            try
-            {
-                mutexAcquired = mutex.WaitOne(MutexTimeout);
-            }
-            catch (AbandonedMutexException)
-            {
-                // 上一个持有者异常退出：互斥量所有权已转移给当前线程
-                mutexAcquired = true;
-            }
-
-            if (!mutexAcquired)
-                throw _StorageFailed(AccountsDirectory, "同一启动器目录下另一个实例正在处理账号凭据");
 
             try
             {
@@ -235,22 +230,18 @@ public static class AyakaleafAccountService
             RegisterAsync(account).GetAwaiter().GetResult();
 
             _WriteAccountFileAtomic(file, account);
+
+            // 管理员开通（幂等）：首个开户的本地用户自动认领 Ayakaleaf 管理员（AdminLocalUserName），
+            // 此后仅配置指定的本地用户可获管理员。开通失败不影响开户本身：只记日志，
+            // 打开管理面板时会经 EnsureServerAdminAsync 重试
+            _ = _EnsureServerAdminCore(userName);
+
             return account;
         }
         finally
         {
             // 所有退出路径（含异常）都必须释放互斥量
-            if (mutexAcquired)
-            {
-                try
-                {
-                    mutex.ReleaseMutex();
-                }
-                catch (ApplicationException ex)
-                {
-                    LogWrapper.Warn(ex, "[Ayakaleaf] 释放账号凭据互斥量失败");
-                }
-            }
+            _ReleaseAccountsMutex(mutex, mutexAcquired);
         }
     }
 
@@ -340,6 +331,392 @@ public static class AyakaleafAccountService
                 throw _CredentialInvalid(account.Email, code);
 
             return sid;
+        }
+    }
+
+    // ---------------- 管理员开通与账号生命周期 ----------------
+
+    /// <summary>
+    /// 确保指定本地用户具备 Ayakaleaf 服务端管理员身份（幂等）：
+    /// <see cref="Config.Ayakaleaf.AdminLocalUserName" /> 为空时由该用户认领管理员；
+    /// 已配置为其它用户时本用户不获管理员。随后通过 mongosh 把其服务端账号标记为 isAdmin。
+    /// </summary>
+    /// <param name="localUserName">启动器本地用户名。</param>
+    /// <returns>该用户最终是否具备服务端管理员身份。</returns>
+    /// <exception cref="AyakaleafAccountException">本地用户缺失。</exception>
+    public static Task<bool> EnsureServerAdminAsync(string localUserName)
+    {
+        if (string.IsNullOrWhiteSpace(localUserName))
+            throw _LocalUserMissing();
+        return Task.Run(() => _EnsureServerAdminCore(localUserName));
+    }
+
+    /// <summary>认领 + mongosh 开通的同步核心（运行在独立工作线程上）。</summary>
+    private static bool _EnsureServerAdminCore(string localUserName)
+    {
+        var userName = localUserName.Trim();
+
+        var configured = Config.Ayakaleaf.AdminLocalUserName?.Trim();
+        if (!string.IsNullOrEmpty(configured) &&
+            !string.Equals(userName, configured, StringComparison.OrdinalIgnoreCase))
+            return false; // 管理员已由其它本地用户担任
+
+        if (string.IsNullOrEmpty(configured))
+        {
+            Config.Ayakaleaf.AdminLocalUserName = userName;
+            LogWrapper.Info($"[Ayakaleaf] 本地用户 {userName} 已认领 Ayakaleaf 管理员（AdminLocalUserName）");
+        }
+
+        // 服务端邮箱：优先读本机凭据文件（含既有账号的原邮箱），缺失时按开户规则推算
+        var file = Path.Combine(AccountsDirectory, userName + ".json");
+        string email;
+        if (_TryReadAccountFile(file, out var saved) && saved is not null)
+            email = saved.Email;
+        else
+            email = _BuildAccountEmail(userName);
+
+        var granted = AyakaleafService.TryGrantServerAdminAsync(email).GetAwaiter().GetResult();
+        if (granted)
+            LogWrapper.Info($"[Ayakaleaf] 已开通服务端管理员：{email}");
+
+        return granted;
+    }
+
+    /// <summary>
+    /// 重置本地用户对应的 Ayakaleaf 账号密码：
+    /// 用本机 DPAPI 存储的旧凭据登录该账号 → 取登录态 CSRF →
+    /// 提交 <c>/user/password/update</c> 改密表单（字段对照 ayakaleaf-pro UserController.changePassword）→
+    /// 成功后以新随机密码原子重写本机凭据文件。
+    /// </summary>
+    /// <param name="localUserName">启动器本地用户名。</param>
+    /// <returns>重置后的账号（新密码仅存在于内存，不会写日志）。</returns>
+    /// <exception cref="AyakaleafAccountException">
+    /// 本地用户缺失 / 无本机凭据 / 旧凭据登录失败 / 服务端拒绝（<see cref="AyakaleafAccountErrorKind.PasswordResetRejected"/>）等。
+    /// </exception>
+    public static Task<AyakaleafAccount> ResetPasswordAsync(string localUserName)
+    {
+        if (string.IsNullOrWhiteSpace(localUserName))
+            throw _LocalUserMissing();
+        return Task.Run(() => _ResetPasswordCore(localUserName));
+    }
+
+    /// <summary>重置密码的互斥核心：登录 → CSRF → 改密 → 原子重写凭据文件。</summary>
+    private static AyakaleafAccount _ResetPasswordCore(string localUserName)
+    {
+        using var mutex = new Mutex(false, MutexName);
+        var mutexAcquired = _AcquireAccountsMutex(mutex);
+
+        var userName = localUserName.Trim();
+        var file = Path.Combine(AccountsDirectory, userName + ".json");
+        if (!_TryReadAccountFile(file, out var saved) || saved is null)
+            throw _NoStoredCredential(userName);
+
+        try
+        {
+            // 1) 旧凭据登录（密码不符 / 账号已删除会抛 CredentialInvalid）
+            LoginAsync(saved).GetAwaiter().GetResult();
+
+            // 2) 登录态取 CSRF（登录会重建会话，匿名页令牌不可复用）
+            var csrf = _GetSessionCsrfTokenAsync().GetAwaiter().GetResult();
+
+            // 3) 生成新随机密码并提交改密表单
+            var newPassword = _GeneratePassword();
+            _SubmitPasswordChangeAsync(saved, newPassword, csrf).GetAwaiter().GetResult();
+
+            // 4) 以新密码原子重写本机凭据文件
+            var updated = new AyakaleafAccount(saved.Email, newPassword);
+            _WriteAccountFileAtomic(file, updated);
+            LogWrapper.Info($"[Ayakaleaf] 已重置账号密码并更新本机凭据：{saved.Email}");
+            return updated;
+        }
+        finally
+        {
+            _ReleaseAccountsMutex(mutex, mutexAcquired);
+        }
+    }
+
+    /// <summary>向 <c>/user/password/update</c> 提交改密表单（currentPassword/newPassword1/newPassword2，对照 ayakaleaf-pro 路由与 zod 校验）。</summary>
+    private static async Task _SubmitPasswordChangeAsync(AyakaleafAccount account, string newPassword, string csrf)
+    {
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["_csrf"] = csrf,
+            ["currentPassword"] = account.Password,
+            ["newPassword1"] = newPassword,
+            ["newPassword2"] = newPassword,
+        });
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await Http.PostAsync(AyakaleafService.BaseUrl + "/user/password/update", form)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (_IsConnectionFailure(ex))
+        {
+            throw _ServiceUnavailable(ex);
+        }
+
+        using (response)
+        {
+            var code = (int)response.StatusCode;
+            if (code == 200) return; // 成功：{message:{type:'success',…}}
+
+            var body = await _ReadBodyAsync(response).ConfigureAwait(false);
+            if (code == 400)
+                throw _PasswordResetRejected(account.Email, _TruncateDetail(body));
+            if (code == 429)
+                throw _PasswordResetRejected(account.Email, "尝试过于频繁，请稍后再试");
+
+            throw _ServiceNotReady(code);
+        }
+    }
+
+    /// <summary>
+    /// 以管理员身份删除指定本地用户的 Ayakaleaf 服务端账号，并同步删除其本机凭据文件：
+    /// 管理员登录 → 登录态 CSRF → <c>/admin/users/search</c> 按邮箱查 userId →
+    /// <c>/admin/user/:userId/delete</c> 删除（端点与参数对照 ayakaleaf-pro admin-tools UserListController）。
+    /// 目标账号在服务端不存在时仅清理本机凭据。
+    /// </summary>
+    /// <param name="targetLocalUserName">要删除服务端账号的本地用户名。</param>
+    /// <exception cref="AyakaleafAccountException">
+    /// 管理员凭据缺失 / 管理员登录失败 / 管理端点拒绝（<see cref="AyakaleafAccountErrorKind.AccountDeleteRejected"/>）等。
+    /// </exception>
+    public static Task DeleteServerAccountAsync(string targetLocalUserName)
+    {
+        if (string.IsNullOrWhiteSpace(targetLocalUserName))
+            throw _LocalUserMissing();
+        return Task.Run(() => _DeleteServerAccountCore(targetLocalUserName));
+    }
+
+    /// <summary>删除服务端账号的互斥核心（删除本机凭据文件前须与开户流程互斥）。</summary>
+    private static void _DeleteServerAccountCore(string targetLocalUserName)
+    {
+        using var mutex = new Mutex(false, MutexName);
+        var mutexAcquired = _AcquireAccountsMutex(mutex);
+
+        var userName = targetLocalUserName.Trim();
+
+        // 1) 管理员账号与凭据（AdminLocalUserName 对应本机凭据文件）
+        var adminName = Config.Ayakaleaf.AdminLocalUserName?.Trim();
+        if (string.IsNullOrEmpty(adminName))
+            throw _AccountDeleteRejected(null,
+                "尚未开通 Ayakaleaf 管理员账号。请先用管理员本地用户打开一次 Ayakaleaf 工作台或管理面板后再试。");
+
+        var adminFile = Path.Combine(AccountsDirectory, adminName + ".json");
+        if (!_TryReadAccountFile(adminFile, out var admin) || admin is null)
+            throw _AccountDeleteRejected(null,
+                $"本机没有 Ayakaleaf 管理员（{adminName}）的账号凭据。请先用该本地用户打开一次工作台后再试。");
+
+        // 2) 目标邮箱：优先读目标本机凭据文件（保留既有账号原邮箱），缺失时按开户规则推算
+        var targetFile = Path.Combine(AccountsDirectory, userName + ".json");
+        string email;
+        if (_TryReadAccountFile(targetFile, out var target) && target is not null)
+            email = target.Email;
+        else
+            email = _BuildAccountEmail(userName);
+
+        try
+        {
+            // 3) 管理员登录 → 登录态 CSRF
+            LoginAsync(admin).GetAwaiter().GetResult();
+            var csrf = _GetSessionCsrfTokenAsync().GetAwaiter().GetResult();
+
+            // 4) 管理端按邮箱查 userId（找不到视为服务端账号已不存在）
+            var userId = _AdminFindUserIdAsync(csrf, email).GetAwaiter().GetResult();
+            if (userId is not null)
+            {
+                // 5) 管理端删除服务端账号
+                _AdminDeleteUserAsync(csrf, userId).GetAwaiter().GetResult();
+            }
+            else
+            {
+                LogWrapper.Info($"[Ayakaleaf] 服务端不存在账号 {email}，跳过管理端删除，仅清理本机凭据");
+            }
+
+            // 6) 同步删除本机凭据文件
+            _TryDeleteAccountFile(targetFile);
+            LogWrapper.Info($"[Ayakaleaf] 已删除 Ayakaleaf 账号（服务端 + 本机凭据）：{email}");
+        }
+        finally
+        {
+            _ReleaseAccountsMutex(mutex, mutexAcquired);
+        }
+    }
+
+    /// <summary>
+    /// 取登录态页面的 CSRF 令牌（GET <c>/user/settings</c> 解析 <c>ol-csrfToken</c>）。
+    /// 登录会重建会话，匿名页令牌不可复用；非 200（含跳转登录页的 302）按服务未就绪处理。
+    /// </summary>
+    private static async Task<string> _GetSessionCsrfTokenAsync()
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await Http.GetAsync(AyakaleafService.BaseUrl + "/user/settings").ConfigureAwait(false);
+        }
+        catch (Exception ex) when (_IsConnectionFailure(ex))
+        {
+            throw _ServiceUnavailable(ex);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+                throw _ServiceNotReady((int)response.StatusCode);
+
+            var body = await _ReadBodyAsync(response).ConfigureAwait(false);
+            var match = Regex.Match(body, "ol-csrfToken\" content=\"([^\"]+)\"");
+            if (!match.Success)
+                throw _ServiceNotReady(null);
+
+            return match.Groups[1].Value;
+        }
+    }
+
+    /// <summary>管理端按邮箱搜索用户 id：<c>POST /admin/users/search</c>（JSON + X-Csrf-Token，响应 users[].id/email/deleted）。</summary>
+    /// <returns>匹配的用户 id；服务端不存在该账号时返回 null。</returns>
+    private static async Task<string?> _AdminFindUserIdAsync(string csrf, string email)
+    {
+        var payload = JsonSerializer.Serialize(new AdminSearchRequest { Search = email });
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            AyakaleafService.BaseUrl + "/admin/users/search")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("X-Csrf-Token", csrf);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await Http.SendAsync(request).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (_IsConnectionFailure(ex))
+        {
+            throw _ServiceUnavailable(ex);
+        }
+
+        using (response)
+        {
+            var code = (int)response.StatusCode;
+            var body = await _ReadBodyAsync(response).ConfigureAwait(false);
+
+            if (code == 403)
+                throw _AccountDeleteRejected(email, "当前管理员账号没有 Ayakaleaf 站点管理权限。");
+            if (!response.IsSuccessStatusCode)
+                throw _ServiceNotReady(code);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (!doc.RootElement.TryGetProperty("users", out var users) ||
+                    users.ValueKind != JsonValueKind.Array)
+                    return null;
+
+                // 优先返回未删除的匹配项；仅剩已删除（待清理）记录时返回其 id（删除端点会拒绝，但不至于误报“不存在”）
+                string? fallback = null;
+                foreach (var user in users.EnumerateArray())
+                {
+                    if (!user.TryGetProperty("email", out var emailElement) ||
+                        emailElement.ValueKind != JsonValueKind.String ||
+                        !string.Equals(emailElement.GetString(), email, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (!user.TryGetProperty("id", out var idElement) ||
+                        idElement.ValueKind != JsonValueKind.String)
+                        continue;
+
+                    var deleted = user.TryGetProperty("deleted", out var deletedElement) &&
+                                  deletedElement.ValueKind == JsonValueKind.True;
+                    if (!deleted)
+                        return idElement.GetString();
+                    fallback ??= idElement.GetString();
+                }
+
+                return fallback;
+            }
+            catch (JsonException)
+            {
+                throw _ServiceNotReady(null);
+            }
+        }
+    }
+
+    /// <summary>管理端删除用户：<c>POST /admin/user/:userId/delete</c>（JSON + X-Csrf-Token，响应 {deletedAt}）。</summary>
+    private static async Task _AdminDeleteUserAsync(string csrf, string userId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"{AyakaleafService.BaseUrl}/admin/user/{Uri.EscapeDataString(userId)}/delete")
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("X-Csrf-Token", csrf);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await Http.SendAsync(request).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (_IsConnectionFailure(ex))
+        {
+            throw _ServiceUnavailable(ex);
+        }
+
+        using (response)
+        {
+            var code = (int)response.StatusCode;
+            if (code == 200) return; // 成功：{deletedAt:…}
+
+            var body = await _ReadBodyAsync(response).ConfigureAwait(false);
+            if (code == 403)
+                throw _AccountDeleteRejected(null, "当前管理员账号没有 Ayakaleaf 站点管理权限。");
+            if (code == 422)
+                throw _AccountDeleteRejected(null, _TruncateDetail(body));
+
+            throw _ServiceNotReady(code);
+        }
+    }
+
+    /// <summary>删除本机凭据文件（不存在时为空操作；删除失败按存储失败抛出）。</summary>
+    private static void _TryDeleteAccountFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception ex) when (_IsStorageFailure(ex))
+        {
+            throw _StorageFailed(path, ex);
+        }
+    }
+
+    /// <summary>获取跨进程账号互斥量（10 秒超时；被弃置的互斥量直接接管）。</summary>
+    private static bool _AcquireAccountsMutex(Mutex mutex)
+    {
+        try
+        {
+            if (mutex.WaitOne(MutexTimeout)) return true;
+        }
+        catch (AbandonedMutexException)
+        {
+            return true; // 上一个持有者异常退出：所有权已转移给当前线程
+        }
+
+        throw _StorageFailed(AccountsDirectory, "同一启动器目录下另一个实例正在处理账号凭据");
+    }
+
+    /// <summary>释放跨进程账号互斥量（所有退出路径含异常都必须调用）。</summary>
+    private static void _ReleaseAccountsMutex(Mutex mutex, bool acquired)
+    {
+        if (!acquired) return;
+        try
+        {
+            mutex.ReleaseMutex();
+        }
+        catch (ApplicationException ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 释放账号凭据互斥量失败");
         }
     }
 
@@ -698,6 +1075,26 @@ public static class AyakaleafAccountService
             localUserName,
             inner);
 
+    /// <summary>本机没有该本地用户的 Ayakaleaf 账号凭据，无法执行对应账号流程。</summary>
+    private static AyakaleafAccountException _NoStoredCredential(string localUserName) =>
+        new(AyakaleafAccountErrorKind.CredentialStorageFailed,
+            $"本机没有本地用户 {localUserName} 的 Ayakaleaf 账号凭据。请先用该用户打开一次 Ayakaleaf 工作台完成自动开户，然后再重试。",
+            localUserName: localUserName);
+
+    /// <summary>重置密码被服务端拒绝（旧密码不符 / 密码策略不满足 / 限流）。</summary>
+    private static AyakaleafAccountException _PasswordResetRejected(string? email, string reason) =>
+        new(AyakaleafAccountErrorKind.PasswordResetRejected,
+            $"重置 Ayakaleaf 账号密码失败：{_TruncateDetail(reason)}。",
+            email,
+            _TryGetLocalUserNameFromEmail(email));
+
+    /// <summary>删除服务端账号被拒绝（缺少管理员凭据 / 无站点管理权限 / 端点拒绝）。</summary>
+    private static AyakaleafAccountException _AccountDeleteRejected(string? email, string reason) =>
+        new(AyakaleafAccountErrorKind.AccountDeleteRejected,
+            $"删除 Ayakaleaf 服务端账号失败：{reason}",
+            email,
+            _TryGetLocalUserNameFromEmail(email));
+
     // ---------------- 内部数据类型 ----------------
 
     /// <summary>凭据文件结构（PascalCase 属性名即 JSON 字段名，兼容既有文件）。</summary>
@@ -708,5 +1105,12 @@ public static class AyakaleafAccountService
 
         /// <summary>DPAPI（CurrentUser）保护后的 Base64 密码。</summary>
         public string? Password { get; set; }
+    }
+
+    /// <summary>管理端用户搜索请求体（POST /admin/users/search）。</summary>
+    private sealed class AdminSearchRequest
+    {
+        /// <summary>搜索关键词（本服务内为完整邮箱）。</summary>
+        public string? Search { get; set; }
     }
 }

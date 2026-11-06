@@ -25,6 +25,27 @@
             </local:MyCard>
             <local:MyCard Margin="0,0,0,15">
                 <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="全量备份" FontWeight="Bold" FontSize="15" />
+                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                               Text="将 Ayakaleaf 的全部数据打包为单个 zip：全部数据卷（项目、用户、编译产物等）、账号凭据、本地用户库与启动器配置。备份建议先停止服务栈以保证数据一致性。" />
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <local:MyButton x:Name="BtnFullBackup" Height="35" Width="130" Margin="0,0,15,0"
+                                        HorizontalAlignment="Left" Text="全量备份" ColorType="Highlight"
+                                        Click="BtnFullBackup_Click" />
+                        <local:MyButton Grid.Column="1" x:Name="BtnFullRestore" Height="35" Width="130"
+                                        HorizontalAlignment="Left" Text="全量恢复"
+                                        Click="BtnFullRestore_Click" />
+                    </Grid>
+                    <TextBlock x:Name="LabFullProgress" Margin="0,8,0,0" FontSize="12" Opacity="0.7"
+                               TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
                     <TextBlock Text="从备份恢复" FontWeight="Bold" FontSize="15" />
                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Opacity="0.8"
                                Text="选择本程序导出的备份文件（文件名格式：卷名.时间.tar.gz），恢复会覆盖该数据卷的全部现有数据。" />

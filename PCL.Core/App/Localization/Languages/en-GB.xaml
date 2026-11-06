@@ -2540,6 +2540,73 @@
     <sys:String x:Key="Setup.About.SpecialThanks.SponsorMirror">Sponsor mirror</sys:String>
     <sys:String x:Key="Setup.About.SpecialThanks.Title">Special thanks</sys:String>
 
+    <!-- Setup.Ayakaleaf -->
+
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Env">Custom environment variables (for SSO and other options without a dedicated UI)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Env.Hint">One entry per line, in the form KEY=VALUE</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Image">Overleaf image</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Image.ToolTip">Leave empty to use the built-in default image. After a restart, the container is recreated with the new image (data volumes are preserved).</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Title">Advanced</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.ApiKey">API key</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.BaseUrl">API base URL</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.BaseUrl.Hint">e.g. https://api.openai.com/v1</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Description">Requires the API base URL, key and model to be filled in before it takes effect. The key is stored only in the local encrypted configuration.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Enable">Enable AI chat / error assistant</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.ImageModel">Image model (optional)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Model">Text model</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.PdfModel">PDF model (optional)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Quota">Monthly token quota (0 = unlimited)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Title">AI assistant</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.AppName">Application name</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImage">Header image URL</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImageDark">Header image URL (dark)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImageLight">Header image URL (light)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.NavTitle">Sidebar title</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.Title">Branding</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Description">When enabled, the Git menu is available in projects, projects can be cloned via git, and the MCP endpoint is exposed. Requires the git-bridge image package to be imported on the images page.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Enable">Enable Git-Bridge (Git access and MCP server)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Title">Git-Bridge &amp; MCP</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.ClientId">Client ID</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.ClientSecret">Client Secret</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Enable">Enable sync</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Gitea">Gitea</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Github">GitHub</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Gitlab">GitLab</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.LanWarning">Note: OAuth callbacks require the site address to be reachable. In LAN mode the local IP is used; authorisation may fail when the host is not reachable from the public internet.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.RequireBridge">Requires Git-Bridge to be enabled, an OAuth app created on the platform, and the Client ID / Secret to be filled in before it takes effect.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Title">Git two-way sync</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Url">Platform URL</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Description">The image ships 18 interface languages, each bound to its own port in list order: English is fixed to the main port and each additional language takes the next port (default: English + Simplified Chinese). Restart the service to apply changes.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Hint">English is always enabled and cannot be unchecked (bound to the main port as the fallback language).</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Title">Interface languages</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.ClientId">Client ID</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.ClientSecret">Client Secret</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Enable">Enable</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Mendeley">Mendeley</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Title">References</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Zotero">Zotero</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.DomainListWarning">The domain-list mode relies on an SMTP mail service to deliver activation emails; no mail service is configured, so activation emails cannot be delivered.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Domains">Allowed email domains (one per line)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Hibp">Enable compromised password check (Have I Been Pwned)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode">Registration policy</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.Closed">Closed</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.DomainList">Domain list</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.Open">Open registration</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Recaptcha">Enable reCAPTCHA verification</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.SecretKey">Secret Key</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.SiteKey">Site Key</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Title">Registration &amp; security</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.RestartHint">Restart the Ayakaleaf service to apply changes made below</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Compiles">Sandboxed compiles (dedicated TeX Live container)</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Description">The current WSL container runtime does not support launching sibling containers from within the service container, so these two features are unavailable. Compilation still happens inside the Ayakaleaf container; LaTeX compiling is unaffected.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Pandoc">Pandoc document conversion</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Title">Sandboxed compiles &amp; Pandoc</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Categories">Template categories</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Description">When enabled, the templates page appears in the site sidebar; admins can publish projects as templates from the admin panel.</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Enable">Enable template gallery</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Title">Template gallery</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.UserId">Template user ID (optional)</sys:String>
+
     <!-- Setup.Feedback -->
 
     <sys:String x:Key="Setup.Feedback.ErrorPrompt.Submit.Action">Send feedback</sys:String>
@@ -2862,6 +2929,7 @@
     <!-- Setup.Left.Item -->
 
     <sys:String x:Key="Setup.Left.Item.About">About</sys:String>
+    <sys:String x:Key="Setup.Left.Item.Ayakaleaf">Ayakaleaf features</sys:String>
     <sys:String x:Key="Setup.Left.Item.Feedback">Feedback</sys:String>
     <sys:String x:Key="Setup.Left.Item.GameLink">Multiplayer</sys:String>
     <sys:String x:Key="Setup.Left.Item.GameManage">Management</sys:String>

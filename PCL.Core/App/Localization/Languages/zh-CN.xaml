@@ -2587,6 +2587,73 @@
     <sys:String x:Key="Setup.About.SpecialThanks.SponsorMirror">赞助镜像源</sys:String>
     <sys:String x:Key="Setup.About.SpecialThanks.Title">特别鸣谢</sys:String>
 
+    <!-- Setup.Ayakaleaf -->
+
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Env">自定义环境变量（用于 SSO 等未提供专用界面的配置）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Env.Hint">每行一条，格式 KEY=VALUE</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Image">Overleaf 镜像</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Image.ToolTip">留空使用内置默认镜像。修改后重启服务，将以新镜像重建容器（数据卷不受影响）。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Advanced.Title">高级</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.ApiKey">API 密钥</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.BaseUrl">API 地址</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.BaseUrl.Hint">如 https://api.openai.com/v1</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Description">需同时填写 API 地址、密钥与模型后才会启用。密钥仅保存在本机加密配置中。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Enable">启用 AI Chat / 错误分析助手</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.ImageModel">图像模型（可选）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Model">文本模型</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.PdfModel">PDF 模型（可选）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Quota">每月 Token 配额（0 为不限）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Ai.Title">AI 助手</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.AppName">应用名称</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImage">顶部图片 URL</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImageDark">顶部图片 URL（深色）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.HeaderImageLight">顶部图片 URL（浅色）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.NavTitle">侧栏标题</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Branding.Title">品牌化</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Description">启用后站点内可使用 Git 菜单、通过 git clone 拉取项目，并提供 MCP 端点。需要已在镜像页导入 git-bridge 镜像包。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Enable">启用 Git-Bridge（Git 访问与 MCP Server）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitBridge.Title">Git-Bridge 与 MCP</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.ClientId">Client ID</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.ClientSecret">Client Secret</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Enable">启用同步</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Gitea">Gitea</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Github">GitHub</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Gitlab">GitLab</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.LanWarning">注意：OAuth 回调要求访问者能访问站点地址；局域网模式下使用本机局域网 IP，公网不可达时授权可能失败。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.RequireBridge">需先启用 Git-Bridge，并在对应平台创建 OAuth 应用、填入 Client ID 与 Secret 后才会生效。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Title">Git 双向同步</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.GitSync.Url">平台地址</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Description">镜像内置 18 种界面语言，按列表顺序分配端口：英语固定主端口，其后每语言 +1（默认英语 + 简体中文）。修改后重启服务生效。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Hint">English 固定启用且不可取消（绑定主端口，作为默认回落语言）。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Languages.Title">界面语言</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.ClientId">Client ID</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.ClientSecret">Client Secret</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Enable">启用</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Mendeley">Mendeley</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Title">文献引用</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Reference.Zotero">Zotero</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.DomainListWarning">域名列表模式的激活邮件依赖 SMTP 邮件服务，当前未配置邮件，激活邮件无法送达。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Domains">允许的邮箱域名（每行一个）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Hibp">启用泄露密码检查（Have I Been Pwned）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode">注册策略</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.Closed">关闭注册</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.DomainList">域名列表</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Mode.Open">开放注册</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Recaptcha">启用 reCAPTCHA 人机验证</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.SecretKey">Secret Key</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.SiteKey">Site Key</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Registration.Title">注册与安全</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.RestartHint">修改以下设置后，需要重启 Ayakaleaf 服务才会生效</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Compiles">沙箱编译（TeX Live 独立容器）</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Description">当前 WSL 容器运行环境不支持在服务容器内启动同级容器，这两项功能暂不可用。编译仍在 Ayakaleaf 容器内进行，LaTeX 编译功能不受影响。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Pandoc">Pandoc 文档转换</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Sandbox.Title">沙箱编译与 Pandoc</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Categories">模板分类</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Description">启用后站点侧栏出现模板页；管理员可在管理面板中将项目发布为模板。</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Enable">启用模板画廊</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.Title">模板画廊</sys:String>
+    <sys:String x:Key="Setup.Ayakaleaf.Template.UserId">模板用户 ID（可选）</sys:String>
+
     <!-- Setup.Feedback -->
 
     <sys:String x:Key="Setup.Feedback.ErrorPrompt.Submit.Action">反馈</sys:String>
@@ -2918,6 +2985,7 @@
     <!-- Setup.Left.Item -->
 
     <sys:String x:Key="Setup.Left.Item.About">软件信息</sys:String>
+    <sys:String x:Key="Setup.Left.Item.Ayakaleaf">Ayakaleaf 功能</sys:String>
     <sys:String x:Key="Setup.Left.Item.Feedback">反馈</sys:String>
     <sys:String x:Key="Setup.Left.Item.GameLink">联机</sys:String>
     <sys:String x:Key="Setup.Left.Item.GameManage">管理</sys:String>

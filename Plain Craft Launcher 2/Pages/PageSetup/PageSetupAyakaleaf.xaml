@@ -1,0 +1,428 @@
+<local:MyPageRight
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" x:Class="PCL.PageSetupAyakaleaf"
+    PanScroll="{Binding ElementName=PanBack}">
+    <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
+        <StackPanel x:Name="PanMain" Margin="25,10">
+            <local:MyHint Text="{DynamicResource Setup.Ayakaleaf.RestartHint}" Theme="Yellow" Margin="0,15,0,0" />
+
+            <!-- Git-Bridge -->
+            <local:MyCard Margin="0,15" Title="{DynamicResource Setup.Ayakaleaf.GitBridge.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyCheckBox x:Name="CheckGitBridge" Tag="AyakaleafEnableGitBridge" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.GitBridge.Enable}"
+                                      Change="CheckBoxChange" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.GitBridge.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 沙箱编译 / Pandoc（WSL 容器环境暂不可用） -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Sandbox.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyCheckBox x:Name="CheckSandboxedCompiles" IsEnabled="False" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Compiles}" />
+                    <local:MyCheckBox x:Name="CheckPandoc" IsEnabled="False" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Pandoc}" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- AI -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Ai.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyCheckBox x:Name="CheckAi" Tag="AyakaleafEnableAi" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Ai.Enable}"
+                                      Change="CheckBoxChange" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Ai.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,6,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.BaseUrl}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiBaseUrl" Tag="AyakaleafAiBaseUrl"
+                                         HintText="{DynamicResource Setup.Ayakaleaf.Ai.BaseUrl.Hint}"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.ApiKey}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiApiKey" Tag="AyakaleafAiApiKey"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.Model}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiModel" Tag="AyakaleafAiModel"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.ImageModel}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiImageModel" Tag="AyakaleafAiImageModel"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.PdfModel}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiPdfModel" Tag="AyakaleafAiPdfModel"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Ai.Quota}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAiQuota" Tag="AyakaleafAiTokenQuota"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 模板画廊 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Template.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyCheckBox x:Name="CheckTemplate" Tag="AyakaleafEnableTemplateGallery" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Template.Enable}"
+                                      Change="CheckBoxChange" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Template.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,6,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Template.Categories}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextTemplateCategories" Tag="AyakaleafTemplateCategories"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Template.UserId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextTemplateUserId" Tag="AyakaleafTemplatesUserId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- Git 双向同步 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.GitSync.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyHint Text="{DynamicResource Setup.Ayakaleaf.GitSync.RequireBridge}" Theme="Yellow" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.GitSync.LanWarning}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,8,0,10" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.GitSync.Github}" FontWeight="Bold" Margin="0,0,0,6" />
+                    <local:MyCheckBox x:Name="CheckGithub" Tag="AyakaleafEnableGithubSync" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.GitSync.Enable}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.Url}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGithubUrl" Tag="AyakaleafGithubSyncUrl"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGithubClientId" Tag="AyakaleafGithubClientId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientSecret}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGithubClientSecret" Tag="AyakaleafGithubClientSecret"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.GitSync.Gitlab}" FontWeight="Bold" Margin="0,0,0,6" />
+                    <local:MyCheckBox x:Name="CheckGitlab" Tag="AyakaleafEnableGitlabSync" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.GitSync.Enable}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.Url}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGitlabUrl" Tag="AyakaleafGitlabSyncUrl"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGitlabClientId" Tag="AyakaleafGitlabClientId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientSecret}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGitlabClientSecret" Tag="AyakaleafGitlabClientSecret"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.GitSync.Gitea}" FontWeight="Bold" Margin="0,0,0,6" />
+                    <local:MyCheckBox x:Name="CheckGitea" Tag="AyakaleafEnableGiteaSync" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.GitSync.Enable}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.Url}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGiteaUrl" Tag="AyakaleafGiteaSyncUrl"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGiteaClientId" Tag="AyakaleafGiteaClientId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.GitSync.ClientSecret}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextGiteaClientSecret" Tag="AyakaleafGiteaClientSecret"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 文献引用 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Reference.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Reference.Zotero}" FontWeight="Bold" Margin="0,0,0,6" />
+                    <local:MyCheckBox x:Name="CheckZotero" Tag="AyakaleafEnableZotero" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Reference.Enable}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Reference.ClientId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextZoteroClientId" Tag="AyakaleafZoteroClientId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Reference.ClientSecret}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextZoteroClientSecret" Tag="AyakaleafZoteroClientSecret"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Reference.Mendeley}" FontWeight="Bold" Margin="0,0,0,6" />
+                    <local:MyCheckBox x:Name="CheckMendeley" Tag="AyakaleafEnableMendeley" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Reference.Enable}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Reference.ClientId}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextMendeleyClientId" Tag="AyakaleafMendeleyClientId"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Reference.ClientSecret}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextMendeleyClientSecret" Tag="AyakaleafMendeleyClientSecret"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 注册与安全 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Registration.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Registration.Mode}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <local:MyRadioBox x:Name="RadioRegOpen" Tag="AyakaleafRegistrationMode/0" Height="22"
+                                          Text="{DynamicResource Setup.Ayakaleaf.Registration.Mode.Open}"
+                                          Check="RadioBoxChange" Margin="0,0,25,0" />
+                        <local:MyRadioBox Grid.Column="1" x:Name="RadioRegDomainList" Tag="AyakaleafRegistrationMode/1" Height="22"
+                                          Text="{DynamicResource Setup.Ayakaleaf.Registration.Mode.DomainList}"
+                                          Check="RadioBoxChange" Margin="0,0,25,0" />
+                        <local:MyRadioBox Grid.Column="2" x:Name="RadioRegClosed" Tag="AyakaleafRegistrationMode/2" Height="22"
+                                          Text="{DynamicResource Setup.Ayakaleaf.Registration.Mode.Closed}"
+                                          Check="RadioBoxChange" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Registration.Domains}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextRegistrationDomains" Tag="AyakaleafRegistrationDomains"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="60"
+                                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <local:MyHint Text="{DynamicResource Setup.Ayakaleaf.Registration.DomainListWarning}" Theme="Yellow"
+                                  Margin="0,0,0,12" />
+                    <local:MyCheckBox x:Name="CheckRecaptcha" Tag="AyakaleafEnableRecaptcha" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Registration.Recaptcha}"
+                                      Change="CheckBoxChange" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Registration.SiteKey}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextRecaptchaSiteKey" Tag="AyakaleafRecaptchaSiteKey"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Registration.SecretKey}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextRecaptchaSecretKey" Tag="AyakaleafRecaptchaSecretKey"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <local:MyCheckBox x:Name="CheckHibp" Tag="AyakaleafEnableHibp" Height="22"
+                                      Text="{DynamicResource Setup.Ayakaleaf.Registration.Hibp}"
+                                      Change="CheckBoxChange" />
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 品牌化 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Branding.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Branding.AppName}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextAppName" Tag="AyakaleafAppName"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Branding.NavTitle}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextNavTitle" Tag="AyakaleafNavTitle"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Branding.HeaderImage}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextHeaderImageUrl" Tag="AyakaleafHeaderImageUrl"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Branding.HeaderImageLight}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextHeaderImageUrlLight" Tag="AyakaleafHeaderImageUrlLight"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Branding.HeaderImageDark}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextHeaderImageUrlDark" Tag="AyakaleafHeaderImageUrlDark"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 界面语言 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Languages.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Languages.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <StackPanel x:Name="PanLanguages" />
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Languages.Hint}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,10,0,0" />
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 高级 -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Advanced.Title}" CanSwap="True" IsSwapped="True">
+                <StackPanel Margin="25,40,25,15">
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Advanced.Image}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextOverleafImage" Tag="AyakaleafOverleafImage"
+                                         HintText="sharelatex/sharelatex:server-pro"
+                                         ToolTip="{DynamicResource Setup.Ayakaleaf.Advanced.Image.ToolTip}"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Advanced.Env}" Margin="0,0,0,6" />
+                    <local:MyTextBox x:Name="TextAdvancedEnv" Tag="AyakaleafAdvancedEnv"
+                                     AcceptsReturn="True" TextWrapping="Wrap" Height="140"
+                                     VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                     HintText="{DynamicResource Setup.Ayakaleaf.Advanced.Env.Hint}"
+                                     LostFocus="TextLostFocus" />
+                </StackPanel>
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</local:MyPageRight>

@@ -398,9 +398,182 @@ public static partial class Config
         [ConfigItem<string>("AyakaleafInviteTokenSecret", "", ConfigSource.Local)] public partial string InviteTokenSecret { get; set; }
 
         /// <summary>
-        /// 最近一次创建 overleaf 容器使用的配置签名（端口绑定、站点地址、语言映射、邀请密钥）。
+        /// 最近一次创建 overleaf 容器使用的配置签名（端口绑定、站点地址、语言映射、邀请密钥、功能指纹）。
         /// 启动时与期望签名比对，不一致则自动重建容器（数据卷不受影响）。
         /// </summary>
         [ConfigItem<string>("AyakaleafContainerProfile", "", ConfigSource.Local)] public partial string ContainerProfile { get; set; }
+
+        // ---------------- 镜像 ----------------
+
+        /// <summary>
+        /// Overleaf 服务端镜像（repo:tag）。留空使用内置默认值。
+        /// 修改后重启服务生效（容器按新镜像重建，数据卷保留）。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafOverleafImage", "", ConfigSource.Local)] public partial string OverleafImage { get; set; }
+
+        // ---------------- Git-Bridge / MCP ----------------
+
+        /// <summary>
+        /// 是否启用 Git-Bridge（git clone/pull/push 项目）与 MCP Server。
+        /// 需要部署 git-bridge 容器（runtime 镜像包）；修改后重启服务生效。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafEnableGitBridge", false, ConfigSource.Local)] public partial bool EnableGitBridge { get; set; }
+
+        // ---------------- AI ----------------
+
+        /// <summary>
+        /// 是否启用 AI Chat 与 Error Assistant。需要配置 AI 网关地址、密钥与模型。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafEnableAi", false, ConfigSource.Local)] public partial bool EnableAi { get; set; }
+
+        /// <summary>AI 网关地址（OpenAI 兼容）。</summary>
+        [ConfigItem<string>("AyakaleafAiBaseUrl", "", ConfigSource.Local)] public partial string AiBaseUrl { get; set; }
+
+        /// <summary>AI 网关 API 密钥。</summary>
+        [ConfigItem<string>("AyakaleafAiApiKey", "", ConfigSource.SharedEncrypt)] public partial string AiApiKey { get; set; }
+
+        /// <summary>默认对话模型。</summary>
+        [ConfigItem<string>("AyakaleafAiModel", "", ConfigSource.Local)] public partial string AiModel { get; set; }
+
+        /// <summary>图片对话模型（留空回落默认模型）。</summary>
+        [ConfigItem<string>("AyakaleafAiImageModel", "", ConfigSource.Local)] public partial string AiImageModel { get; set; }
+
+        /// <summary>PDF 附件对话模型（留空回落默认模型）。</summary>
+        [ConfigItem<string>("AyakaleafAiPdfModel", "", ConfigSource.Local)] public partial string AiPdfModel { get; set; }
+
+        /// <summary>每用户 AI Token 配额（0 = 不限制）。</summary>
+        [ConfigItem<int>("AyakaleafAiTokenQuota", 0, ConfigSource.Local)] public partial int AiTokenQuota { get; set; }
+
+        // ---------------- 模板画廊 ----------------
+
+        /// <summary>是否启用模板画廊（/templates 导航入口）。</summary>
+        [ConfigItem<bool>("AyakaleafEnableTemplateGallery", false, ConfigSource.Local)] public partial bool EnableTemplateGallery { get; set; }
+
+        /// <summary>模板归属用户 ID（ayakaleaf 服务端用户 ObjectId；留空使用镜像默认值）。</summary>
+        [ConfigItem<string>("AyakaleafTemplatesUserId", "", ConfigSource.Local)] public partial string TemplatesUserId { get; set; }
+
+        /// <summary>模板画廊分类（空格分隔 key，如 "academic-journal book presentation"；默认 all）。</summary>
+        [ConfigItem<string>("AyakaleafTemplateCategories", "", ConfigSource.Local)] public partial string TemplateCategories { get; set; }
+
+        // ---------------- GitHub / GitLab / Gitea 同步 ----------------
+
+        /// <summary>是否启用 GitHub 双向同步（需先启用 Git-Bridge 并填写 OAuth 应用凭据）。</summary>
+        [ConfigItem<bool>("AyakaleafEnableGithubSync", false, ConfigSource.Local)] public partial bool EnableGithubSync { get; set; }
+
+        /// <summary>GitHub 站点地址（GitHub.com 或 GitHub Enterprise）。</summary>
+        [ConfigItem<string>("AyakaleafGithubSyncUrl", "https://github.com", ConfigSource.Local)] public partial string GithubSyncUrl { get; set; }
+
+        /// <summary>GitHub OAuth 应用 Client ID。</summary>
+        [ConfigItem<string>("AyakaleafGithubClientId", "", ConfigSource.Local)] public partial string GithubClientId { get; set; }
+
+        /// <summary>GitHub OAuth 应用 Client Secret。</summary>
+        [ConfigItem<string>("AyakaleafGithubClientSecret", "", ConfigSource.SharedEncrypt)] public partial string GithubClientSecret { get; set; }
+
+        /// <summary>GitHub 用户 token 加密密钥（留空自动生成并持久化）。</summary>
+        [ConfigItem<string>("AyakaleafGithubTokenCipherPassword", "", ConfigSource.SharedEncrypt)] public partial string GithubTokenCipherPassword { get; set; }
+
+        /// <summary>是否启用 GitLab 双向同步。</summary>
+        [ConfigItem<bool>("AyakaleafEnableGitlabSync", false, ConfigSource.Local)] public partial bool EnableGitlabSync { get; set; }
+
+        /// <summary>GitLab 站点地址（GitLab.com 或自建）。</summary>
+        [ConfigItem<string>("AyakaleafGitlabSyncUrl", "https://gitlab.com", ConfigSource.Local)] public partial string GitlabSyncUrl { get; set; }
+
+        /// <summary>GitLab OAuth 应用 Client ID。</summary>
+        [ConfigItem<string>("AyakaleafGitlabClientId", "", ConfigSource.Local)] public partial string GitlabClientId { get; set; }
+
+        /// <summary>GitLab OAuth 应用 Client Secret。</summary>
+        [ConfigItem<string>("AyakaleafGitlabClientSecret", "", ConfigSource.SharedEncrypt)] public partial string GitlabClientSecret { get; set; }
+
+        /// <summary>GitLab 用户 token 加密密钥（留空自动生成并持久化）。</summary>
+        [ConfigItem<string>("AyakaleafGitlabTokenCipherPassword", "", ConfigSource.SharedEncrypt)] public partial string GitlabTokenCipherPassword { get; set; }
+
+        /// <summary>是否启用 Gitea 双向同步。</summary>
+        [ConfigItem<bool>("AyakaleafEnableGiteaSync", false, ConfigSource.Local)] public partial bool EnableGiteaSync { get; set; }
+
+        /// <summary>Gitea 站点地址（Gitea.com 或自建 ≥1.23）。</summary>
+        [ConfigItem<string>("AyakaleafGiteaSyncUrl", "https://gitea.com", ConfigSource.Local)] public partial string GiteaSyncUrl { get; set; }
+
+        /// <summary>Gitea OAuth 应用 Client ID。</summary>
+        [ConfigItem<string>("AyakaleafGiteaClientId", "", ConfigSource.Local)] public partial string GiteaClientId { get; set; }
+
+        /// <summary>Gitea OAuth 应用 Client Secret。</summary>
+        [ConfigItem<string>("AyakaleafGiteaClientSecret", "", ConfigSource.SharedEncrypt)] public partial string GiteaClientSecret { get; set; }
+
+        /// <summary>Gitea 用户 token 加密密钥（留空自动生成并持久化）。</summary>
+        [ConfigItem<string>("AyakaleafGiteaTokenCipherPassword", "", ConfigSource.SharedEncrypt)] public partial string GiteaTokenCipherPassword { get; set; }
+
+        // ---------------- Zotero / Mendeley ----------------
+
+        /// <summary>是否启用 Zotero 文献关联。</summary>
+        [ConfigItem<bool>("AyakaleafEnableZotero", false, ConfigSource.Local)] public partial bool EnableZotero { get; set; }
+
+        /// <summary>Zotero OAuth Client ID。</summary>
+        [ConfigItem<string>("AyakaleafZoteroClientId", "", ConfigSource.Local)] public partial string ZoteroClientId { get; set; }
+
+        /// <summary>Zotero OAuth Client Secret。</summary>
+        [ConfigItem<string>("AyakaleafZoteroClientSecret", "", ConfigSource.SharedEncrypt)] public partial string ZoteroClientSecret { get; set; }
+
+        /// <summary>是否启用 Mendeley 文献关联。</summary>
+        [ConfigItem<bool>("AyakaleafEnableMendeley", false, ConfigSource.Local)] public partial bool EnableMendeley { get; set; }
+
+        /// <summary>Mendeley OAuth Client ID。</summary>
+        [ConfigItem<string>("AyakaleafMendeleyClientId", "", ConfigSource.Local)] public partial string MendeleyClientId { get; set; }
+
+        /// <summary>Mendeley OAuth Client Secret。</summary>
+        [ConfigItem<string>("AyakaleafMendeleyClientSecret", "", ConfigSource.SharedEncrypt)] public partial string MendeleyClientSecret { get; set; }
+
+        // ---------------- 注册 / 验证码 / 安全 ----------------
+
+        /// <summary>公开注册策略（开放 / 域名限制 / 关闭）。</summary>
+        [ConfigItem<AyakaleafRegistrationMode>("AyakaleafRegistrationMode", AyakaleafRegistrationMode.Open, ConfigSource.Local)] public partial AyakaleafRegistrationMode RegistrationMode { get; set; }
+
+        /// <summary>域名限制模式允许的邮箱域列表（逗号分隔，如 "@example.com,@*.example.org"）。</summary>
+        [ConfigItem<string>("AyakaleafRegistrationDomains", "", ConfigSource.Local)] public partial string RegistrationDomains { get; set; }
+
+        /// <summary>是否启用 reCAPTCHA（登录/注册/找回密码）。</summary>
+        [ConfigItem<bool>("AyakaleafEnableRecaptcha", false, ConfigSource.Local)] public partial bool EnableRecaptcha { get; set; }
+
+        /// <summary>reCAPTCHA Site Key。</summary>
+        [ConfigItem<string>("AyakaleafRecaptchaSiteKey", "", ConfigSource.Local)] public partial string RecaptchaSiteKey { get; set; }
+
+        /// <summary>reCAPTCHA Secret Key。</summary>
+        [ConfigItem<string>("AyakaleafRecaptchaSecretKey", "", ConfigSource.SharedEncrypt)] public partial string RecaptchaSecretKey { get; set; }
+
+        /// <summary>是否启用泄露密码检查（注册时拒绝已泄露密码）。</summary>
+        [ConfigItem<bool>("AyakaleafEnableHibp", false, ConfigSource.Local)] public partial bool EnableHibp { get; set; }
+
+        // ---------------- 品牌化 ----------------
+
+        /// <summary>实例名称（OVERLEAF_APP_NAME，留空不覆盖）。</summary>
+        [ConfigItem<string>("AyakaleafAppName", "", ConfigSource.Local)] public partial string AppName { get; set; }
+
+        /// <summary>导航栏标题（OVERLEAF_NAV_TITLE，留空不覆盖）。</summary>
+        [ConfigItem<string>("AyakaleafNavTitle", "", ConfigSource.Local)] public partial string NavTitle { get; set; }
+
+        /// <summary>导航栏 Logo 图片 URL（留空不覆盖）。</summary>
+        [ConfigItem<string>("AyakaleafHeaderImageUrl", "", ConfigSource.Local)] public partial string HeaderImageUrl { get; set; }
+
+        /// <summary>导航栏 Logo（浅色主题）URL。</summary>
+        [ConfigItem<string>("AyakaleafHeaderImageUrlLight", "", ConfigSource.Local)] public partial string HeaderImageUrlLight { get; set; }
+
+        /// <summary>导航栏 Logo（深色主题）URL。</summary>
+        [ConfigItem<string>("AyakaleafHeaderImageUrlDark", "", ConfigSource.Local)] public partial string HeaderImageUrlDark { get; set; }
+
+        // ---------------- 高级 / 管理 ----------------
+
+        /// <summary>
+        /// 高级环境变量（每行一条 key=value，启动 overleaf 容器时原样注入；
+        /// 适用于 SSO（EXTERNAL_AUTH / OVERLEAF_LDAP_* / OVERLEAF_SAML_* / OVERLEAF_OIDC_*）等未提供专用 UI 的配置）。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafAdvancedEnv", "", ConfigSource.Local)] public partial string AdvancedEnv { get; set; }
+
+        /// <summary>管理员对应的本地用户名（用于开通 ayakaleaf 服务端管理员；留空取首个本地用户）。</summary>
+        [ConfigItem<string>("AyakaleafAdminLocalUserName", "", ConfigSource.Local)] public partial string AdminLocalUserName { get; set; }
+
+        /// <summary>
+        /// 工作台界面语言列表（逗号分隔 lngCode，如 "en,zh-CN,ja-JP"）。
+        /// 第一个语言绑定主端口，其余依次 +1；修改后重启服务生效。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafEnabledLanguages", "en,zh-CN", ConfigSource.Local)] public partial string EnabledLanguages { get; set; }
     }
 }

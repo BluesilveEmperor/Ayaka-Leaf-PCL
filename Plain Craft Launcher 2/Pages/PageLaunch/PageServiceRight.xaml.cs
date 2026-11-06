@@ -26,9 +26,49 @@ public partial class PageServiceRight
         CardDeploy.Visibility = Config.Ayakaleaf.Deployed ? Visibility.Collapsed : Visibility.Visible;
         CheckLanAccess.SetChecked(Config.Ayakaleaf.AllowLanAccess, false);
         RefreshLanAddress();
+        RefreshFeatureChips();
         RefreshContainers();
         RefreshLog();
     }
+
+    /// <summary>
+    /// 刷新功能状态速览：把当前配置下实际生效的功能渲染为 chips
+    /// （与 AyakaleafService.BuildFeatureEnvironment 的门控条件一致）。
+    /// </summary>
+    private void RefreshFeatureChips()
+    {
+        PanFeatureChips.Children.Clear();
+        var names = AyakaleafService.GetEnabledFeatureNames();
+        if (names.Count == 0)
+        {
+            PanFeatureChips.Children.Add(new TextBlock
+            {
+                Text = "（所有可选功能均未启用）",
+                Opacity = 0.6,
+                FontSize = 12.5,
+            });
+            return;
+        }
+        foreach (var name in names)
+        {
+            var chip = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x8a, 0x00)),
+                CornerRadius = new CornerRadius(9),
+                Padding = new Thickness(10, 3, 10, 3),
+                Margin = new Thickness(0, 0, 8, 8),
+            };
+            chip.Child = new TextBlock
+            {
+                Text = name,
+                FontSize = 12,
+                Foreground = Brushes.ForestGreen,
+            };
+            PanFeatureChips.Children.Add(chip);
+        }
+    }
+
+    private void BtnRefreshFeatures_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => RefreshFeatureChips();
 
     /// <summary>
     /// 更新局域网访问地址提示（跟随开关状态与本机当前 IP）。
@@ -43,7 +83,10 @@ public partial class PageServiceRight
         }
         LabLanAddress.Visibility = Visibility.Visible;
         var lanIp = AyakaleafService.ResolveLanAddress();
-        LabLanAddress.Text = $"队友访问地址：{url}（简体中文：http://{lanIp}:{AyakaleafService.ChinesePort}）";
+        // 简体中文端口提示仅在 zh-CN 语言启用时展示（未启用时该端口不映射）
+        LabLanAddress.Text = AyakaleafService.IsLanguageEnabled("zh-CN")
+            ? $"队友访问地址：{url}（简体中文：http://{lanIp}:{AyakaleafService.ChinesePort}）"
+            : $"队友访问地址：{url}";
     }
 
     private void CheckLanAccess_Change(object sender, bool user)
