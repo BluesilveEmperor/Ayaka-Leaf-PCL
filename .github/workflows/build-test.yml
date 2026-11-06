@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, pcl-ce]
     paths-ignore: &ignored
       - '**/.editorconfig'
       - '**/.gitignore'
