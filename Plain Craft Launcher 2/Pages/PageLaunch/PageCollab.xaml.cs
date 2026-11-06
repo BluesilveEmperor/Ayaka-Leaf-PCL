@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using PCL.Core.Ayakaleaf.Collab;
 using PCL.Core.UI;
 
@@ -159,7 +160,7 @@ public partial class PageCollab
                 : Visibility.Collapsed;
     }
 
-    private void BtnStartHost_Click(object sender, RoutedEventArgs e)
+    private void BtnStartHost_Click(object sender, MouseButtonEventArgs e)
     {
         try
         {
@@ -172,7 +173,7 @@ public partial class PageCollab
         Refresh();
     }
 
-    private void BtnJoin_Click(object sender, RoutedEventArgs e)
+    private void BtnJoin_Click(object sender, MouseButtonEventArgs e)
     {
         var code = TextInvite.Text;
         if (string.IsNullOrWhiteSpace(code))
@@ -191,13 +192,13 @@ public partial class PageCollab
         Refresh();
     }
 
-    private void BtnStop_Click(object sender, RoutedEventArgs e)
+    private void BtnStop_Click(object sender, MouseButtonEventArgs e)
     {
         _ = _session.StopAsync();
         Refresh();
     }
 
-    private void BtnCopyCode_Click(object sender, RoutedEventArgs e)
+    private void BtnCopyCode_Click(object sender, MouseButtonEventArgs e)
     {
         var code = _session.InviteCode;
         if (string.IsNullOrEmpty(code))
@@ -216,7 +217,7 @@ public partial class PageCollab
         }
     }
 
-    private void BtnOpenWorkbench_Click(object sender, RoutedEventArgs e)
+    private void BtnOpenWorkbench_Click(object sender, MouseButtonEventArgs e)
     {
         if (_session.MainLocalPort is null || _session.GuestLanguages.Count == 0)
         {
