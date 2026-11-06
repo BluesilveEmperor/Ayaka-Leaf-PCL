@@ -62,10 +62,10 @@ public partial class PageBackup
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(name, 0);
-            var btnBackup = new MyIconButton { SvgIcon = "lucide/hard-drive-download", LogoScale = 1.0, Opacity = 0.7 };
+            var btnBackup = new MyIconButton { SvgIcon = "lucide/download", LogoScale = 1.0, Opacity = 0.7 };
             btnBackup.Click += (_, _) => BackupVolume(volume);
             Grid.SetColumn(btnBackup, 1);
-            var btnRestore = new MyIconButton { SvgIcon = "lucide/history", LogoScale = 1.0, Opacity = 0.7 };
+            var btnRestore = new MyIconButton { SvgIcon = "lucide/rotate-ccw", LogoScale = 1.0, Opacity = 0.7 };
             btnRestore.Click += (_, _) => RestoreVolume(volume);
             Grid.SetColumn(btnRestore, 2);
             row.Children.Add(name);

@@ -167,11 +167,11 @@
                             <local:MyRadioButton x:Name="BtnTitleSelect3" Text="备份" Tag="3" Margin="5,0" Padding="2,0"
                                                  Check="BtnTitleSelect_Click"
                                                  LogoScale="1"
-                                                 SvgIcon="lucide/archive" />
+                                                 SvgIcon="lucide/file-archive" />
                             <local:MyRadioButton x:Name="BtnTitleSelect4" Text="协作" Tag="4" Margin="5,0" Padding="2,0"
                                                  Check="BtnTitleSelect_Click"
                                                  LogoScale="0.9"
-                                                 SvgIcon="lucide/users" />
+                                                 SvgIcon="lucide/share-2" />
                         </StackPanel>
                     </Grid>
                     <Grid x:Name="PanTitleInner" Visibility="Collapsed" Margin="-16,0,0,0" Opacity="0"

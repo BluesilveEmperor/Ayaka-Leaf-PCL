@@ -166,7 +166,7 @@ public static class LocalUserUi
             {
                 new MyListItem
                 {
-                    Title = "登录已有本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in",
+                    Title = "登录已有本地用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user",
                     Checked = true
                 },
                 new MyListItem
@@ -206,7 +206,7 @@ public static class LocalUserUi
                 {
                     new MyListItem
                     {
-                        Title = "切换/登录用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/log-in",
+                        Title = "切换/登录用户", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user",
                         Checked = true
                     },
                     new MyListItem
@@ -221,7 +221,7 @@ public static class LocalUserUi
                 // 非管理员点击后由 _ShowUserManagementEntryAsync 给出权限说明。
                 items.Add(new MyListItem
                 {
-                    Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/users-round"
+                    Title = "用户管理", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/layout-list"
                 });
                 actions.Add(_ShowUserManagementEntryAsync);
 
@@ -245,7 +245,7 @@ public static class LocalUserUi
                     items.Add(new MyListItem
                     {
                         Title = "重置 Ayakaleaf 账号密码", Type = MyListItem.CheckType.RadioBox,
-                        SvgIcon = "lucide/key-round"
+                        SvgIcon = "lucide/shield-check"
                     });
                     actions.Add(() =>
                     {
@@ -730,7 +730,7 @@ public static class LocalUserUi
             {
                 new MyListItem
                 {
-                    Title = "重置密码", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/key-round",
+                    Title = "重置密码", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/shield-check",
                     Checked = true
                 }
             };
@@ -739,7 +739,7 @@ public static class LocalUserUi
                 actions.Add(new MyListItem
                 {
                     Title = target.IsDisabled ? "启用该用户" : "停用该用户",
-                    Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/user-x"
+                    Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/circle-minus"
                 });
                 actions.Add(new MyListItem
                     { Title = "删除该用户（含数据目录）", Type = MyListItem.CheckType.RadioBox, SvgIcon = "lucide/trash-2" });
