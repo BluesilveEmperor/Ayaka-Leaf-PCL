@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  hello:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: checkout
+      - name: Verify
+        run: echo "GitCode Action OK: ${{ atomgit.repository }} @ ${{ atomgit.ref }}"
