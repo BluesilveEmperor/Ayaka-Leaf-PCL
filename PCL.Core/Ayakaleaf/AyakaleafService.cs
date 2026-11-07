@@ -853,18 +853,46 @@ public static class AyakaleafService
             return;
         }
 
-        // 脚本约 110KB，gzip + base64 后约 35KB，低于 Linux 单参数 128KB 上限
+        // 脚本约 110KB，gzip + base64 后约 40KB。Windows CreateProcess 单条命令行
+        // 上限 32K 字符（Linux 侧 128K 反而不受限），因此分块经多次 exec 追加写入，
+        // 每块 2 万字符，最后统一解码执行。
         var raw = Encoding.UTF8.GetBytes(script);
         using var compressed = new MemoryStream();
         using (var gzip = new GZipStream(compressed, CompressionLevel.Fastest))
             gzip.Write(raw, 0, raw.Length);
         var payload = Convert.ToBase64String(compressed.ToArray());
+        const int chunkSize = 20000;
 
+        progress("应用符号面板拓展补丁…");
         for (var attempt = 0; ; attempt++)
         {
-            progress("应用符号面板拓展补丁…");
+            var uploadFailed = false;
+            for (var i = 0; i < payload.Length; i += chunkSize)
+            {
+                var chunk = payload.Substring(i, Math.Min(chunkSize, payload.Length - i));
+                var op = i == 0 ? ">" : ">>";
+                var up = await WslcInterop.RunAsync(
+                    $"exec {OverleafContainer} sh -c \"echo {chunk} {op} /tmp/ayaka-symbol-patch.b64\"", 60000);
+                if (!up.IsSuccess)
+                {
+                    uploadFailed = true;
+                    break;
+                }
+            }
+            if (uploadFailed)
+            {
+                if (attempt >= 2)
+                {
+                    LogWrapper.Warn("[Ayakaleaf] 符号面板拓展补丁上传失败（符号面板保持原生状态）");
+                    progress("警告：符号面板拓展未生效（补丁上传失败，服务不受影响）");
+                    return;
+                }
+                await Task.Delay(2000);
+                continue;
+            }
+
             var r = await WslcInterop.RunAsync(
-                $"exec {OverleafContainer} sh -c \"echo {payload} | base64 -d | gunzip > /tmp/ayaka-symbol-patch.js" +
+                $"exec {OverleafContainer} sh -c \"base64 -d /tmp/ayaka-symbol-patch.b64 | gunzip > /tmp/ayaka-symbol-patch.js" +
                 " && node /tmp/ayaka-symbol-patch.js\"", 120000);
             if (r.IsSuccess)
             {

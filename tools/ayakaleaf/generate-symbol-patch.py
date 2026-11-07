@@ -35,7 +35,7 @@ DEFAULT_PANEL = Path(r"D:\Documents\02_Programming\LaTeX-Workshop\resources\snip
 DEFAULT_UNIMATH = Path(r"D:\Documents\02_Programming\LaTeX-Workshop\data\unimathsymbols.json")
 OUTPUT = REPO_ROOT / "PCL.Core" / "Ayakaleaf" / "Assets" / "symbol-patch.js"
 
-PATCH_VERSION = "v1"
+PATCH_VERSION = "v2"
 
 # 分类体系：保留 LaTeX-Workshop 的分类，界面以中文显示（顺序即标签顺序）
 CATEGORIES = [
@@ -187,7 +187,12 @@ def derive_codepoint(name: str, source: str, snippet: str, svg: str, unimath, ca
     if m:
         cp = int(m.group(1), 16)
         if usable_codepoint(cp):
-            return chr(cp), "svg"
+            ch = chr(cp)
+            # 数学结构（\frac、\lim 等）：字形常为字体局部码点（斜体 a、d 等），
+            # 显示成无关字母；ASCII 字母/数字一律回退为命令短名文本
+            if category == "Maths Constructs" and ch.isascii() and ch.isalnum():
+                return "", "text"
+            return ch, "svg"
     # 5. unimathsymbols 数据库
     key = name if not name.startswith("\\") else name[1:]
     entry = unimath.get(key) or unimath.get(key.strip("{}"))
@@ -256,7 +261,9 @@ PATCH_TEMPLATE = r'''#!/usr/bin/env node
  * 对 /overleaf/services/web/public/js/pages/ide-*.js 做三处替换：
  *   R1 符号数据载荷（exports=JSON.parse('…')）→ 合并后的符号数组；
  *   R2 分类函数（category_greek…5 项）→ 10 个中文分类；
- *   R3 codepoint 解析加固（无效 codepoint 回退显示命令文本，防面板崩溃）。
+ *   R3 codepoint 解析加固（无效 codepoint 回退显示命令短名，防面板崩溃）。
+ * 另对 /overleaf/services/web/public/stylesheets/*.css 追加自适应宽度规则
+ *   （R4）：文本标识符格子放宽到 min 42px / max 160px，不再溢出。
  *
  * 安全措施：原始文件备份为 *.ayaka-orig，重复执行从备份基线重放（幂等）；
  * 写回前用 vm.Script 做语法校验，失败不落盘；任一替换失败整体放弃并还原。
@@ -344,8 +351,36 @@ function hardenCodepointParse(source) {
   const re = /([A-Za-z$_][\w$]*)\.character=String\.fromCodePoint\(parseInt\(([A-Za-z$_][\w$]*)\.codepoint\.replace\(\/\^U\\\+0\*\/,""\),16\)\)/
   const m = source.match(re)
   if (!m) return { ok: false, source: source }
-  const replacement = m[1] + '.character=(function(n,c){try{return String.fromCodePoint(parseInt(n.replace(/^U\\+0*/,""),16))}catch(e){return String(c).replace(/^\\\\/,"").trim()}})(' + m[2] + '.codepoint,' + m[2] + '.command)'
+  const replacement = m[1] + '.character=(function(n,c){try{return String.fromCodePoint(parseInt(n.replace(/^U\\+0*/,""),16))}catch(e){return (String(c).replace(/^\\\\/,"").trim().match(/^[A-Za-z]+/)||[String(c).trim().slice(0,16)])[0]}})(' + m[2] + '.codepoint,' + m[2] + '.command)'
   return { ok: true, source: source.replace(m[0], replacement) }
+}
+
+// R4：符号面板 CSS 追加自适应宽度规则。文本标识符（命令短名）的宽度
+// 超出固定 42px 格子时会溢出；flex-wrap 布局下放开宽度即可自然换行。
+// 追加式写入 + 注释标记，幂等；CSS 未找到时仅告警，不影响 JS 补丁结果。
+const CSS_DIR = process.env.AYAKA_WEB_CSS || '/overleaf/services/web/public/stylesheets'
+const CSS_MARKER = '/* ayaka-symbol-patch-css __PATCH_VERSION__ */'
+const CSS_OVERRIDE = [
+  '/* Ayakaleaf: 文本标识符自适应宽度，避免溢出格子 */',
+  '.symbol-palette-items .symbol-palette-item{width:auto;min-width:42px;max-width:160px;padding:0 8px;overflow:hidden;white-space:nowrap}',
+].join('\n')
+
+function patchCss() {
+  let files
+  try {
+    files = fs.readdirSync(CSS_DIR).filter(function (f) { return /\.css$/i.test(f) })
+  } catch (e) {
+    return { ok: false, reason: 'css-dir-missing' }
+  }
+  for (const f of files) {
+    const p = path.join(CSS_DIR, f)
+    const css = fs.readFileSync(p, 'utf8')
+    if (css.indexOf('.symbol-palette-item') < 0) continue
+    if (css.indexOf('ayaka-symbol-patch-css') >= 0) return { ok: true, file: p, changed: false }
+    fs.appendFileSync(p, '\n' + CSS_OVERRIDE + '\n' + CSS_MARKER + '\n')
+    return { ok: true, file: p, changed: true }
+  }
+  return { ok: false, reason: 'symbol-palette-css-not-found' }
 }
 
 function patchFile(file) {
@@ -393,10 +428,13 @@ function main() {
     }
   }
   const failed = results.filter(function (r) { return !r.ok })
+  const css = patchCss()
   emit({
     ok: failed.length === 0,
-    changed: results.some(function (r) { return r.changed }),
+    cssOk: css.ok,
+    changed: results.some(function (r) { return r.changed }) || css.changed === true,
     results: results,
+    css: css,
   })
 }
 
