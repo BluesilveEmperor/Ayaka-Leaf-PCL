@@ -731,8 +731,10 @@ public static class AyakaleafService
             await Task.Delay(2000);
         }
 
-        // 语言链接主机保持补丁：写入 conf.d（nginx.conf 已 include），内容经
-        // base64 传递以避开多层引号转义问题
+        // 语言链接主机保持补丁 + 品牌替换：写入 conf.d（nginx.conf 已 include），内容经
+        // base64 传递以避开多层引号转义问题。品牌替换把上游写死、不走 i18n 的
+        // "Overleaf Community Edition"（页面标题）与 "DIGITAL SCIENCE"/"Digital Science"
+        //（页脚署名）统一替换为品牌名（品牌化未配置时用 Ayakaleaf）。
         var languagePorts = string.Join("\",\"", GetEnabledLanguages().Select((_, i) => Config.Ayakaleaf.Port + i));
         var js =
             "(function(){var ayakaPorts=[\"" + languagePorts + "\"];" +
@@ -743,7 +745,13 @@ public static class AyakaleafService
             "var q=false;function s(){if(q)return;q=true;" +
             "requestAnimationFrame(function(){q=false;run()})}" +
             "new MutationObserver(s).observe(document.documentElement,{childList:true,subtree:true});s()})()";
-        var conf = "sub_filter '</head>' '<script>" + js + "</script></head>';\n";
+        var brand = string.IsNullOrWhiteSpace(Config.Ayakaleaf.AppName) ? "Ayakaleaf" : Config.Ayakaleaf.AppName.Trim().Replace("'", "");
+        var conf =
+            "sub_filter '</head>' '<script>" + js + "</script></head>';\n" +
+            "sub_filter 'Overleaf Community Edition' '" + brand + "';\n" +
+            "sub_filter 'DIGITAL SCIENCE' '" + brand + "';\n" +
+            "sub_filter 'Digital Science' '" + brand + "';\n" +
+            "sub_filter_once off;\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(conf));
         var write = await WslcInterop.RunAsync(
             $"exec {OverleafContainer} sh -c \"echo {b64} | base64 -d > /etc/nginx/conf.d/ayaka-lang.conf\"", 30000);
@@ -754,15 +762,12 @@ public static class AyakaleafService
             LanguageSwitchAvailable = false;
         }
 
-        // 校验后重载：仅当 nginx -t 配置测试失败（真的写坏了配置）才回滚补丁文件，
-        // 保证站点不被坏配置卡死。nginx 未就绪导致的 reload 失败不能触发回滚——
-        // 大镜像首次启动时 nginx 晚于补丁写入，旧逻辑会误删刚写好的补丁文件
-        //（config test 不依赖运行中的 nginx，可先安全地判断配置对错）。
+        // 校验并重载。绝不回滚删除补丁文件：补丁内容为启动器生成的已知良好配置，
+        // 容器启动期间 nginx -t 可能瞬时失败（服务未就绪），若据此回滚会把刚写好的
+        // 补丁误删（历史缺陷）。reload 失败同样安全忽略——nginx 稍后启动时会读取
+        // 已补丁的配置。
         var check = await WslcInterop.RunAsync(
-            $"exec {OverleafContainer} sh -c " +
-            "\"if nginx -t; then nginx -s reload || true; " +
-            "else rm -f /etc/nginx/conf.d/ayaka-lang.conf; nginx -t; fi\"",
-            30000);
+            $"exec {OverleafContainer} sh -c \"nginx -t && nginx -s reload || true\"", 30000);
         if (!check.IsSuccess)
         {
             LogWrapper.Warn("[Ayakaleaf] nginx 配置重载失败（容器启动中属正常，稍后启动进程会读取新配置）");
