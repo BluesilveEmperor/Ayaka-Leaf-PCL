@@ -107,7 +107,7 @@ jobs:
         with:
           inputs: AyakaLauncher_${{ matrix.configuration }}_${{ matrix.architecture }}.exe
           verify: true
-          verify-cert-identity: https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/.github/workflows/release-publish.yml@refs/heads/pcl-ce
+          verify-cert-identity: https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/.github/workflows/release-publish.yml@refs/heads/main
           verify-oidc-issuer: https://token.actions.githubusercontent.com
 
       - name: Upload binary and signature to Release
