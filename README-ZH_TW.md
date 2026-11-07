@@ -167,6 +167,8 @@ dotnet run --project "Plain Craft Launcher 2"
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程式，Framework-dependent 單一檔案，需求同上 |
 | `runtime.zip` | 內嵌容器映像檔執行環境包，約 4.2GB；並非每個版本都提供，缺失時請從下方網盤主下載源取得 `runtime.7z` |
 
+> 📌 **v2.0.0 執行環境說明**：本版本配套的 `sharelatex-server-pro.tar.gz` 已**自包含 TeX Live 2026 收錄的全部巨集套件**（scheme-full 全量），部署後無需連網補裝任何套件；中文支援（ctex / xeCJK）與各期刊範本同樣已內建。
+
 ### 主下載源（網盤）
 
 執行環境包 `runtime.7z` 透過網盤分享分發，以下**全部為主下載源**，任選其一即可；後續會陸續補充其他網盤的分享連結。
@@ -195,7 +197,7 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 
 ### 為何 runtime 不進入程式碼倉庫
 
-單一映像檔包最大約 3.46GB（sharelatex-server-pro，內含 scheme-full 全量 TeX Live），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
+單一映像檔包最大約 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整巨集套件集／scheme-full 全量），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
 
 ### 本機打包
 

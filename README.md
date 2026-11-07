@@ -144,13 +144,13 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 AyakaLauncher.exe
 runtime\
 └─ images\
-   ├─ sharelatex-server-pro.tar.gz   # Overleaf 服务端定制镜像（约 3.46GB，内含 scheme-full 全量 TeX Live）
+   ├─ sharelatex-server-pro.tar.gz   # Overleaf 服务端定制镜像（约 3.46GB，自包含 TeX Live 2026 完整宏包集）
    ├─ git-bridge.tar.gz              # Git-Bridge / MCP 服务镜像（约 387MB，必选，Git 操作与三方同步依赖）
    ├─ mongo-8.0.tar.gz               # MongoDB 8.0（约 300MB）
    └─ redis-7.tar.gz                 # Redis 7（约 42MB）
 ```
 
-四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（部分版本另附 Release 附件 `runtime.zip`）。`sharelatex-server-pro` 内置 **scheme-full 全量 TeX Live**（5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板），开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
+四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（部分版本另附 Release 附件 `runtime.zip`）。**v2.0.0 版本**分发的 `sharelatex-server-pro.tar.gz` **自包含 TeX Live 2026 收录的完整宏包集**（scheme-full 全量安装，5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板）；镜像内已预装全部宏包，部署后无需联网用 `tlmgr` 补装，开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
@@ -204,6 +204,8 @@ dotnet run --project "Plain Craft Launcher 2"
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
 | `runtime.zip` | 内嵌容器运行时镜像包，约 4.2GB；并非每个版本都提供，缺失时请从下方网盘主下载源获取 `runtime.7z` |
 
+> 📌 **v2.0.0 运行时说明**：本版本配套的 `sharelatex-server-pro.tar.gz` 已**自包含 TeX Live 2026 收录的全部宏包**（scheme-full 全量），部署后无需联网补装任何宏包；中文支持（ctex / xeCJK）与各期刊模板同样已内置。
+
 ### 主下载源（网盘）
 
 运行时包 `runtime.7z` 通过网盘分享分发，以下**全部为主下载源**，任选其一即可；后续会陆续补充其他网盘的分享链接。
@@ -230,7 +232,7 @@ CI 无法凭空生成 `runtime.zip`——运行时镜像不入库，干净的构
 
 ### 为什么 runtime 不进入代码仓库
 
-单个镜像包最大约 3.46GB（sharelatex-server-pro，含全量 TeX Live），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由网盘主下载源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
+单个镜像包最大约 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整宏包集），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由网盘主下载源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
 
 ### 本地打包
 

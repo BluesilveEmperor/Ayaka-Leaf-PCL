@@ -167,6 +167,8 @@ The executable is published on [GitHub Releases](https://github.com/BluesilveEmp
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 single-file executable (framework-dependent); same runtime requirement |
 | `runtime.zip` | Bundled container runtime images, about 4.2GB; not shipped with every release — when missing, use the cloud-drive primary sources below |
 
+> 📌 **v2.0.0 runtime note**: the `sharelatex-server-pro.tar.gz` shipped with this release already contains the **complete macro package set of TeX Live 2026** (full `scheme-full`). No packages need to be downloaded or installed after deployment; Chinese typesetting support (ctex / xeCJK) and journal templates are built in as well.
+
 ### Primary download sources (cloud drives)
 
 The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every one of them is a primary download source** — pick whichever works best for you. More shares will be added over time.
@@ -195,7 +197,7 @@ CI cannot produce `runtime.zip` out of thin air: the runtime images are not in t
 
 ### Why the runtime is not in the repository
 
-The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which bundles the **full scheme-full TeX Live** — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
+The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **self-contains the complete TeX Live 2026 package set** via full `scheme-full` — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
 
 ### Local packaging
 
