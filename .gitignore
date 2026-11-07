@@ -355,8 +355,8 @@ dist/
 release/
 # Ayakaleaf 内嵌运行时（约 1.6GB，单个镜像包 1262.9MB 超过 GitHub 100MB 单文件限制，不入库；由 Release 附件 runtime.zip 分发）
 /runtime/
-# 阿里云盘分发的运行时压缩包（约 4GB，由 runtime/ 打包生成，不入库）
-/runtime.7z
+# 阿里云盘分发的运行时压缩包（约 4GB，由 runtime/ 打包生成，任意层级的同名文件均不入库）
+runtime.7z
 # 项目目录内的 runtime junction（指向仓库根 runtime，防 git 穿透入库）
 Plain Craft Launcher 2/runtime/
 
