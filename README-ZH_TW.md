@@ -159,13 +159,12 @@ dotnet run --project "Plain Craft Launcher 2"
 
 ## 📦 發佈與分發
 
-主程式統一從 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載，執行環境包 `runtime.7z` 從下方「主下載源（網盤）」取得。Release 附件可能包含：
+主程式統一從 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載，執行環境包 `runtime.7z` 從下方「主下載源（網盤）」取得。**Release 僅附帶主程式，不再附帶執行環境包**。附件如下：
 
 | 附件 | 說明 |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程式，Framework-dependent 單一檔案，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程式，Framework-dependent 單一檔案，需求同上 |
-| `runtime.zip` | 內嵌容器映像檔執行環境包，約 4.2GB；並非每個版本都提供，缺失時請從下方網盤主下載源取得 `runtime.7z` |
 
 > 📌 **v2.0.0 執行環境說明**：本版本配套的 `sharelatex-server-pro.tar.gz` 已**自包含 TeX Live 2026 收錄的全部巨集套件**（scheme-full 全量），部署後無需連網補裝任何套件；中文支援（ctex / xeCJK）與各期刊範本同樣已內建。
 
@@ -180,7 +179,7 @@ dotnet run --project "Plain Craft Launcher 2"
 
 > 📁 **按版本分資料夾**：網盤分享頁按啟動器版本建立資料夾，請先進入對應版本目錄（目前 `v2.0.0`）再下載 `runtime.7z`。主程式的備用網盤分享同樣按版本分資料夾，兩者必須取自**同一版本目錄**，切勿跨版本混用。
 
-若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具把 `runtime.7z` 解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
+若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具把 `runtime.7z` 解壓到 exe 同級目錄，得到 `runtime\images\`；接著依下方「部署步驟」繼續。
 
 ### 備用下載：主程式（阿里雲盤）
 
@@ -194,22 +193,19 @@ GitHub Releases 仍為主程式的**主要下載管道**；下載不便時，可
 
 ### 部署步驟
 
-1. 將 `AyakaLauncher_Release_<平台>.exe` 與執行環境包（`runtime.7z`，或該版本提供的 `runtime.zip`）放在同一目錄
+1. 將 `AyakaLauncher_Release_<平台>.exe` 與執行環境包 `runtime.7z` 放在同一目錄
 2. 在該目錄解壓執行環境包，得到 `runtime\images\`（內含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四個映像檔包）
 3. 執行 exe
 
 `runtime\` 必須與 exe **同級、不可拆分或改名**。
 
-### 首次發佈（runtime.zip 來源）
+### 執行環境包的分發方式
 
-CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，乾淨的建置機器上也沒有這些檔案。因此：
-
-- **首次發佈**（此前沒有任何包含 `runtime.zip` 的 Release）：先在本機執行 `pwsh release.ps1` 得到 `release\runtime.zip`，手動上傳到該 Release；或手動觸發工作流時，在 `runtime_source_tag` 輸入中指定已含 `runtime.zip` 的 Release 標籤。
-- **之後的發佈**：`package_runtime` job 會自動尋找最近一個包含 `runtime.zip` 的非草稿 Release，下載並重用其中的 `runtime.zip` 上傳到新 Release，無需再次手動上傳。
+執行環境映像檔不進入倉庫，乾淨的 CI 建置機器無法憑空產生執行環境包。因此**執行環境包統一由網盤主下載源 `runtime.7z` 分發，Release 不再附帶**。本機執行 `pwsh release.ps1` / `python release.py` 仍會在 `release\` 下產生 `runtime.zip`，供本機整合包與離線分發使用，但不會上傳到 Release。
 
 ### 為何 runtime 不進入程式碼倉庫
 
-單一映像檔包最大約 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整巨集套件集／scheme-full 全量約 4900 個套件），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
+單一映像檔包最大約 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整巨集套件集／scheme-full 全量約 4900 個套件），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z` 分發（Release 不再附帶執行環境包）。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
 
 ### 本機打包
 
@@ -233,12 +229,12 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
-打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時直接報錯，並提示先從 Release 附件 `runtime.zip` 解壓縮還原。
+打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時直接報錯，並提示先補齊映像檔（可從網盤 `runtime.7z` 解壓縮還原）。
 
 | 產物 | 產生條件 | 說明 |
 |---|---|---|
 | `release\AyakaLauncher_<設定>_<平台>.exe` | 預設 | 主程式（x64 / ARM64 分別建置），命名與 Release 附件一致（不含版本號） |
-| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 4.2GB，即隨 Release 分發的 `runtime.zip` |
+| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 4.2GB，僅供本機整合包使用，不再隨 Release 分發 |
 | `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 4.2GB，適合離線分發 |
 | `dist\AyakaLauncher.exe` | `dist\` 存在時自動同步 | 本機日常執行目錄（runtime 以 junction 掛載）隨發布重新整理；啟動器正在執行時僅警告跳過 |
 

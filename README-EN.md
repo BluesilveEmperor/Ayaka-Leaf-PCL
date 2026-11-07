@@ -159,13 +159,12 @@ You can also open the solution in Visual Studio / Rider / VS Code and press F5.
 
 ## 📦 Release & Distribution
 
-The executable is published on [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); the runtime archive `runtime.7z` comes from the "Primary download sources (cloud drives)" section below. Release attachments may include:
+The executable is published on [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); the runtime archive `runtime.7z` comes from the "Primary download sources (cloud drives)" section below. **Releases ship the executable only — the runtime is no longer attached.** Attachments:
 
 | Attachment | Description |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 single-file executable (framework-dependent); requires the [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 single-file executable (framework-dependent); same runtime requirement |
-| `runtime.zip` | Bundled container runtime images, about 4.2GB; not shipped with every release — when missing, use the cloud-drive primary sources below |
 
 > 📌 **v2.0.0 runtime note**: the `sharelatex-server-pro.tar.gz` shipped with this release already contains the **complete macro package set of TeX Live 2026** (full `scheme-full`). No packages need to be downloaded or installed after deployment; Chinese typesetting support (ctex / xeCJK) and journal templates are built in as well.
 
@@ -180,7 +179,7 @@ The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every 
 
 > 📁 **Organised by version**: the share is split into folders per launcher version — open the folder matching your executable (currently `v2.0.0`) before downloading `runtime.7z`. The launcher's fallback share uses the same per-version folder layout; take both files from the **same version folder** and never mix versions.
 
-If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
+If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; then follow the "Deployment" steps below.
 
 ### Alternative download: launcher executable (Aliyun Drive)
 
@@ -194,22 +193,19 @@ GitHub Releases remains the **primary channel** for the executable. If it is inc
 
 ### Deployment
 
-1. Put `AyakaLauncher_Release_<platform>.exe` and the runtime archive (`runtime.7z`, or `runtime.zip` if that release ships it) in the same folder
+1. Put `AyakaLauncher_Release_<platform>.exe` and the runtime archive `runtime.7z` in the same folder
 2. Extract the archive there to get `runtime\images\` (containing the `sharelatex-server-pro`, `git-bridge`, `mongo-8.0` and `redis-7` image tarballs)
 3. Run the exe
 
 `runtime\` must stay **next to the exe, with the same name**; do not split it up or rename it.
 
-### First release (where `runtime.zip` comes from)
+### How the runtime is distributed
 
-CI cannot produce `runtime.zip` out of thin air: the runtime images are not in the repository, so a clean build machine has nothing to pack. Therefore:
-
-- **First release** (when no earlier release contains `runtime.zip`): run `pwsh release.ps1` locally to get `release\runtime.zip`, then upload it to that release manually — or, when triggering the workflow by hand, put the tag of a release that already contains `runtime.zip` into the `runtime_source_tag` input.
-- **Subsequent releases**: the `package_runtime` job automatically finds the most recent non-draft release that contains `runtime.zip`, downloads it and reuses it for the new release, so no manual upload is needed again.
+The runtime images are not in the repository, so a clean CI machine cannot produce a runtime archive out of thin air. Therefore **the runtime is distributed only as `runtime.7z` through the cloud-drive primary sources; releases no longer ship it**. Running `pwsh release.ps1` / `python release.py` locally still produces `release\runtime.zip` for local bundles and offline distribution, but it is not uploaded to any release.
 
 ### Why the runtime is not in the repository
 
-The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **self-contains the complete TeX Live 2026 package set** via full `scheme-full` — about 4,900 packages, with texlive growing to ~7–8GB including documentation, covering ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle; sizes and build args follow `tools/runtime/texlive-full/Dockerfile`), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
+The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **self-contains the complete TeX Live 2026 package set** via full `scheme-full` — about 4,900 packages, with texlive growing to ~7–8GB including documentation, covering ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle; sizes and build args follow `tools/runtime/texlive-full/Dockerfile`), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives, and releases no longer ship a runtime attachment. The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
 
 ### Local packaging
 
@@ -233,12 +229,12 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
-Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-bridge.tar.gz`, `mongo-8.0.tar.gz` and `redis-7.tar.gz` all exist under `runtime\images\`; if any is missing it aborts with an error telling you to restore them by extracting the `runtime.zip` release attachment.
+Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-bridge.tar.gz`, `mongo-8.0.tar.gz` and `redis-7.tar.gz` all exist under `runtime\images\`; if any is missing it aborts with an error telling you to restore them (for example by extracting `runtime.7z` from a cloud drive).
 
 | Artifact | Produced when | Description |
 |---|---|---|
 | `release\AyakaLauncher_<configuration>_<platform>.exe` | by default | The executable (x64 / ARM64 built separately), named exactly like the release attachment (no version number) |
-| `release\runtime.zip` | by default | Bundled runtime image archive, about 4.2GB — the same file published as the `runtime.zip` release attachment |
+| `release\runtime.zip` | by default | Bundled runtime image archive, about 4.2GB, for local bundles only — no longer published as a release attachment |
 | `release\AyakaLauncher_<version>_<configuration>_<platform>.zip` | with `-WithBundle` | exe plus runtime bundle, about 4.2GB, for offline distribution |
 | `dist\AyakaLauncher.exe` | auto-synced when `dist\` exists | The day-to-day local run directory (runtime junction-mounted) gets refreshed on every release; skipped with a warning if the launcher is currently running |
 
