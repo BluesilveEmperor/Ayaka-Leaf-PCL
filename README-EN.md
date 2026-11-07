@@ -231,7 +231,7 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 
 > `runtime.zip` is platform-independent, so the ARM64 run only re-packs and overwrites it with identical content. Releases no longer ship the runtime; it is distributed as `runtime.7z` through the cloud-drive primary sources.
 
-Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-bridge.tar.gz`, `mongo-8.0.tar.gz` and `redis-7.tar.gz` all exist under `runtime\images\`; if any is missing it aborts with an error telling you to restore them (for example by extracting `runtime.7z` from a cloud drive).
+Before packing, the script first checks that a `runtime\` folder exists at the repository root. If it is missing, the script stops and asks you to download `runtime.7z` from a cloud drive, extract it there, and run the script again. If the folder exists, the script verifies that `sharelatex-server-pro.tar.gz`, `git-bridge.tar.gz`, `mongo-8.0.tar.gz` and `redis-7.tar.gz` are all present under `runtime\images\`; if any is missing it aborts with an error telling you to restore them (for example by extracting `runtime.7z` from a cloud drive).
 
 | Artifact | Produced when | Description |
 |---|---|---|

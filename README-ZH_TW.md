@@ -231,7 +231,7 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 
 > `runtime.zip` 與平台無關，ARM64 重跑僅重新打包覆蓋、內容不變；Release 不再附帶執行環境包，對外統一由網盤 `runtime.7z` 分發。
 
-打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時直接報錯，並提示先補齊映像檔（可從網盤 `runtime.7z` 解壓縮還原）。
+打包前腳本會先檢查專案根目錄是否存在 `runtime\` 資料夾：若不存在，直接提示先從網盤下載 `runtime.7z`、解壓縮到專案根目錄後再執行腳本；若存在，則繼續檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時報錯並提示補齊（可從網盤 `runtime.7z` 解壓縮還原）。
 
 | 產物 | 產生條件 | 說明 |
 |---|---|---|
