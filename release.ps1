@@ -10,6 +10,9 @@
 # 可选产出（-WithBundle）：
 #   release\AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 1.8GB）
 #
+# 本机运行目录：dist\ 存在时（本机日常运行布局），发布后自动同步新 exe 到
+# dist\AyakaLauncher.exe；exe 被占用（启动器正在运行）时只告警不失败。
+#
 # 本机日常运行请用 dist\（junction，不占额外空间）；
 # 对外发布用本脚本产出的 exe 与 runtime.zip。
 #
@@ -127,6 +130,19 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 $publishedExe = Join-Path $releaseDir "AyakaLauncher_${Configuration}_${Platform}.exe"
 Copy-Item $exe $publishedExe -Force
+
+# ---- 2.5 同步本机运行目录 dist\（本机日常运行布局：exe + runtime 联接 + 数据）----
+# dist 不存在时静默跳过（CI / 其他机器）；exe 被占用（启动器正在运行）时只告警不失败
+$distDir = Join-Path $root 'dist'
+if (Test-Path $distDir) {
+    $distExe = Join-Path $distDir 'AyakaLauncher.exe'
+    try {
+        Copy-Item $exe $distExe -Force
+        Write-Host "已同步本机运行目录：$distExe"
+    } catch {
+        Write-Host '警告：dist\AyakaLauncher.exe 被占用（启动器正在运行？），本次未同步；关闭启动器后重跑或手动复制 artifact\AyakaLauncher.exe。'
+    }
+}
 
 # ---- 3. 打包 runtime.zip（字节级进度条；条目结构与原 bsdtar 产物一致）----
 $zipRuntime = Join-Path $releaseDir 'runtime.zip'

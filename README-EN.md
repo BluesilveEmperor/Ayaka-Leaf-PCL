@@ -148,14 +148,23 @@ The largest single image tarball is 1262.9MB, far beyond GitHub's 100MB per-file
 
 ### Local packaging
 
-```powershell
-# x64 (default)
-pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+The packaging script has two equivalent implementations (`release.ps1` / `release.py`); pick either:
 
+```powershell
+# PowerShell version
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+```
+
+```bash
+# Python version (requires Python 3.9+, standard library only)
+python release.py --configuration Release --platform x64
+```
+
+```powershell
 # ARM64: run the script again (runtime.zip is platform-independent; re-packing just overwrites it with identical content)
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
 
-# Optional: also produce the all-in-one bundle
+# Optional: also produce the all-in-one bundle (use --with-bundle in the Python version)
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
@@ -166,8 +175,9 @@ Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-br
 | `release\AyakaLauncher_<configuration>_<platform>.exe` | by default | The executable (x64 / ARM64 built separately), named exactly like the release attachment (no version number) |
 | `release\runtime.zip` | by default | Bundled runtime image archive, about 1.8GB — the same file published as the `runtime.zip` release attachment |
 | `release\AyakaLauncher_<version>_<configuration>_<platform>.zip` | with `-WithBundle` | exe plus runtime bundle, about 1.8GB, for offline distribution |
+| `dist\AyakaLauncher.exe` | auto-synced when `dist\` exists | The day-to-day local run directory (runtime junction-mounted) gets refreshed on every release; skipped with a warning if the launcher is currently running |
 
-The script archives with the built-in `C:\Windows\System32\tar.exe`, so it does not depend on whichever `tar` is on `PATH`. Day-to-day local runs need no packaging: the build output directory already links `runtime` through a junction.
+Packaging uses only standard libraries (PowerShell's `System.IO.Compression` / Python's `zipfile`), no third-party dependencies. Day-to-day local runs need no packaging: `dist\` and the build output directory already link `runtime` through junctions.
 
 ## 🔒 License
 

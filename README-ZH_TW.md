@@ -148,14 +148,23 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 
 ### 本機打包
 
-```powershell
-# x64（預設）
-pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+打包腳本有 PowerShell 與 Python 兩個等價實作（`release.ps1` / `release.py`），任選其一：
 
+```powershell
+# PowerShell 版
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+```
+
+```bash
+# Python 版（需要 Python 3.9+，僅標準庫）
+python release.py --configuration Release --platform x64
+```
+
+```powershell
 # ARM64：再跑一次腳本（runtime.zip 與平台無關，重跑僅重新打包覆蓋，內容不變）
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
 
-# 可選：同時產出整合包
+# 可選：同時產出整合包（Python 版把 -WithBundle 換成 --with-bundle）
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
 ```
 
@@ -166,8 +175,9 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 | `release\AyakaLauncher_<設定>_<平台>.exe` | 預設 | 主程式（x64 / ARM64 分別建置），命名與 Release 附件一致（不含版本號） |
 | `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 1.8GB，即隨 Release 分發的 `runtime.zip` |
 | `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 1.8GB，適合離線分發 |
+| `dist\AyakaLauncher.exe` | `dist\` 存在時自動同步 | 本機日常執行目錄（runtime 以 junction 掛載）隨發布重新整理；啟動器正在執行時僅警告跳過 |
 
-腳本使用 Windows 內建的 `C:\Windows\System32\tar.exe` 打包 zip，不依賴 PATH 中的 tar。本機日常執行無需打包——建置輸出目錄已透過 junction 掛好 runtime。
+打包僅用各語言標準庫（PowerShell 的 `System.IO.Compression` / Python 的 `zipfile`），無第三方依賴。本機日常執行無需打包——`dist\` 與建置輸出目錄的 runtime 均已透過 junction 掛好。
 
 ## 🔒 授權條款
 
