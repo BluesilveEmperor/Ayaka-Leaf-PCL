@@ -21,6 +21,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - **容器執行時** —— 基於 Windows WSL 3.0+ 內建容器能力（WSLC），**無需 Docker Desktop**，資料卷為獨立 vhd 檔案
 - **工作台** —— 內嵌 WebView2 開啟 Overleaf，自動開戶 + 自動登入，免手動輸入
 - **公式聯動** —— 左側選取 LaTeX 公式程式碼，右側 PDF 自動高亮對應位置並捲動定位（重用 Overleaf 內建 SyncTeX）
+- **符號面板拓展** —— 內建符號面板拓展為 LaTeX-Workshop 全量符號集：10 個中文分類、760+ 符號（在 Overleaf 原生符號之上合併增量），支援按名稱 / 關鍵字 / Unicode 搜尋，服務啟動時自動生效，無需手動操作
 - **映像檔管理** —— 內建映像檔 tar.gz（`runtime/images`），部署時自動載入，重複載入冪等
 - **備份還原** —— 資料卷即 vhd 檔案，頁面內一鍵快照 / 還原
 - **區域網路共享** —— 服務台即時顯示「隊友存取位址」，同一區域網路的隊友可直接存取你的 Overleaf；網路切換後位址自動重新整理，並自動排除 VPN / TUN 虛擬網卡（Mihomo / Clash 等）
@@ -76,7 +77,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## 🚀 快速開始
 
 1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）與執行環境包 `runtime.zip`
-2. 將 exe 與 `runtime.zip` 放在同一目錄，解壓縮 `runtime.zip` 得到 `runtime\images\`（約 1.8GB，詳見下文「發佈與分發」）
+2. 將 exe 與 `runtime.zip` 放在同一目錄，解壓縮 `runtime.zip` 得到 `runtime\images\`（約 4.2GB，詳見下文「發佈與分發」）
 3. 安裝 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架構與主程式一致）
 4. 啟用 WSL：以系統管理員 PowerShell 執行 `wsl --install --no-distribution`，完成後執行 `wsl --update`
 5. 啟動 `AyakaLauncher_Release_<平台>.exe` → 註冊本機使用者並登入
@@ -113,7 +114,7 @@ dotnet run --project "Plain Craft Launcher 2"
 
 也可以用 Visual Studio / Rider / VS Code 開啟方案直接 F5。
 
-**runtime junction 機制**：倉庫根目錄的 `runtime\` 是映像檔包的真實存放處；每次建置後，csproj 中的 `LinkAyakaleafRuntime` Target 會把輸出目錄 `bin\<設定>\net10.0-windows\runtime` 以目錄聯結（junction）指向它（`dotnet publish` 輸出目錄由 `LinkAyakaleafRuntimeOnPublish` 同樣處理）——避免每次建置複製 1.9GB，應用程式執行時從 exe 旁的 `runtime\images` 讀取。對倉庫根目錄 `runtime\` 的修改會在下次執行時生效。
+**runtime junction 機制**：倉庫根目錄的 `runtime\` 是映像檔包的真實存放處；每次建置後，csproj 中的 `LinkAyakaleafRuntime` Target 會把輸出目錄 `bin\<設定>\net10.0-windows\runtime` 以目錄聯結（junction）指向它（`dotnet publish` 輸出目錄由 `LinkAyakaleafRuntimeOnPublish` 同樣處理）——避免每次建置複製 4.2GB，應用程式執行時從 exe 旁的 `runtime\images` 讀取。對倉庫根目錄 `runtime\` 的修改會在下次執行時生效。
 
 **首次執行流程**：註冊本機使用者並登入 → 服務台點擊 **開始部署**（自動載入映像檔、初始化 MongoDB 副本集）→ **啟動服務** → **開啟工作台**。可用 `wslc images` 確認四個映像檔、`wslc list` 確認三個容器（mongo / redis / overleaf；啟用 Git-Bridge 時另見 git-bridge 容器）均已就緒。
 
@@ -125,7 +126,7 @@ dotnet run --project "Plain Craft Launcher 2"
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程式，Framework-dependent 單一檔案，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程式，Framework-dependent 單一檔案，需求同上 |
-| `runtime.zip` | 內嵌容器映像檔執行環境包，約 1.8GB |
+| `runtime.zip` | 內嵌容器映像檔執行環境包，約 4.2GB |
 
 ### 部署步驟
 
@@ -144,7 +145,7 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 
 ### 為何 runtime 不進入程式碼倉庫
 
-單一映像檔包最大為 1262.9MB，遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由 Release 附件 `runtime.zip` 分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。
+單一映像檔包最大約 3.46GB（sharelatex-server-pro，內含 scheme-full 全量 TeX Live），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由 Release 附件 `runtime.zip` 分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
 
 ### 本機打包
 
@@ -173,8 +174,8 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 | 產物 | 產生條件 | 說明 |
 |---|---|---|
 | `release\AyakaLauncher_<設定>_<平台>.exe` | 預設 | 主程式（x64 / ARM64 分別建置），命名與 Release 附件一致（不含版本號） |
-| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 1.8GB，即隨 Release 分發的 `runtime.zip` |
-| `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 1.8GB，適合離線分發 |
+| `release\runtime.zip` | 預設 | 內嵌執行環境映像檔包，約 4.2GB，即隨 Release 分發的 `runtime.zip` |
+| `release\AyakaLauncher_<版本>_<設定>_<平台>.zip` | 加 `-WithBundle` | exe 加 runtime 整合包，約 4.2GB，適合離線分發 |
 | `dist\AyakaLauncher.exe` | `dist\` 存在時自動同步 | 本機日常執行目錄（runtime 以 junction 掛載）隨發布重新整理；啟動器正在執行時僅警告跳過 |
 
 打包僅用各語言標準庫（PowerShell 的 `System.IO.Compression` / Python 的 `zipfile`），無第三方依賴。本機日常執行無需打包——`dist\` 與建置輸出目錄的 runtime 均已透過 junction 掛好。

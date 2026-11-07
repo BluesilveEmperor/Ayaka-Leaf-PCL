@@ -21,6 +21,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - **容器运行时** —— 基于 Windows WSL 3.0+ 内置容器能力（WSLC），**无需 Docker Desktop**，数据卷为独立 vhd 文件
 - **工作台** —— 内嵌 WebView2 打开 Overleaf，自动开户 + 自动登录，免手动输入
 - **公式联动** —— 左侧选中 LaTeX 公式代码，右侧 PDF 自动高亮对应位置并滚动定位（复用 Overleaf 自带 SyncTeX）
+- **符号面板拓展** —— 内置符号面板拓展为 LaTeX-Workshop 全量符号集：10 个中文分类、760+ 符号（在 Overleaf 原生符号之上合并增量），支持按名称 / 关键字 / Unicode 搜索，服务启动时自动生效，无需手动操作
 - **镜像管理** —— 内置镜像 tar.gz（`runtime/images`），部署时自动加载，重复加载幂等
 - **备份恢复** —— 数据卷即 vhd 文件，页面内一键快照 / 恢复
 - **局域网共享** —— 服务台实时显示「队友访问地址」，同一局域网的队友可直接访问你的 Overleaf；网络切换后地址自动刷新，自动排除 VPN / TUN 虚拟网卡（Mihomo / Clash 等）
@@ -81,7 +82,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）与运行时包 `runtime.zip`
-2. 把 exe 与 `runtime.zip` 放到同一目录，解压 `runtime.zip` 得到 `runtime\images\`（约 1.8GB，详见下节）
+2. 把 exe 与 `runtime.zip` 放到同一目录，解压 `runtime.zip` 得到 `runtime\images\`（约 4.2GB，详见下节）
 3. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架构与主程序一致）
 4. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
 5. 启动 `AyakaLauncher_Release_<平台>.exe` → 注册本地用户并登录
@@ -104,13 +105,13 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 AyakaLauncher.exe
 runtime\
 └─ images\
-   ├─ sharelatex-server-pro.tar.gz   # Overleaf 服务端定制镜像（约 1.24GB）
+   ├─ sharelatex-server-pro.tar.gz   # Overleaf 服务端定制镜像（约 3.46GB，内含 scheme-full 全量 TeX Live）
    ├─ git-bridge.tar.gz              # Git-Bridge / MCP 服务镜像（约 387MB，必选，Git 操作与三方同步依赖）
    ├─ mongo-8.0.tar.gz               # MongoDB 8.0（约 300MB）
    └─ redis-7.tar.gz                 # Redis 7（约 42MB）
 ```
 
-四个包合计约 1.9GB，**不入 git 仓库**（`.gitignore` 已排除），分发走下文「发布与分发」中的 Release 附件 `runtime.zip`。获取方式任选其一：
+四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），分发走下文「发布与分发」中的 Release 附件 `runtime.zip`。`sharelatex-server-pro` 内置 **scheme-full 全量 TeX Live**（5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板），开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
@@ -149,7 +150,7 @@ dotnet run --project "Plain Craft Launcher 2"
 
 也可以用 Visual Studio / Rider / VS Code 打开解决方案直接 F5。
 
-**runtime junction 机制**：仓库根 `runtime\` 是镜像包的真实存放处；每次构建后，csproj 中的 `LinkAyakaleafRuntime` Target 会把输出目录 `bin\<配置>\net10.0-windows\runtime` 以目录联接（junction）指向它，`dotnet publish` 输出目录由 `LinkAyakaleafRuntimeOnPublish` 同样处理——避免每次构建复制 1.9GB，应用运行时从 exe 旁的 `runtime\images` 读取。对仓库根 `runtime\` 的改动在下次运行时即时生效。
+**runtime junction 机制**：仓库根 `runtime\` 是镜像包的真实存放处；每次构建后，csproj 中的 `LinkAyakaleafRuntime` Target 会把输出目录 `bin\<配置>\net10.0-windows\runtime` 以目录联接（junction）指向它，`dotnet publish` 输出目录由 `LinkAyakaleafRuntimeOnPublish` 同样处理——避免每次构建复制 4.2GB，应用运行时从 exe 旁的 `runtime\images` 读取。对仓库根 `runtime\` 的改动在下次运行时即时生效。
 
 **首次运行流程**：注册本地用户并登录 → 服务台点击 **开始部署**（自动加载镜像、初始化 MongoDB 副本集）→ **启动服务** → **打开工作台**。可用 `wslc images` 确认 4 个镜像、`wslc list` 确认 3 个容器（mongo / redis / overleaf；启用 Git-Bridge 时另见 git-bridge 容器）均已就绪。
 
@@ -161,7 +162,7 @@ dotnet run --project "Plain Craft Launcher 2"
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程序，Framework-dependent 单文件，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
-| `runtime.zip` | 内嵌容器运行时镜像包，约 1.8GB |
+| `runtime.zip` | 内嵌容器运行时镜像包，约 4.2GB |
 
 ### 部署步骤
 
@@ -178,7 +179,7 @@ CI 无法凭空生成 `runtime.zip`——运行时镜像不入库，干净的构
 
 ### 为什么 runtime 不进入代码仓库
 
-单个镜像包最大为 1262.9MB，远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由 Release 附件 `runtime.zip` 分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
+单个镜像包最大约 3.46GB（sharelatex-server-pro，含全量 TeX Live），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由 Release 附件 `runtime.zip` 分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
 
 ### 本地打包
 
@@ -207,8 +208,8 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 | 产物 | 触发条件 | 说明 |
 |---|---|---|
 | `release\AyakaLauncher_<配置>_<平台>.exe` | 默认 | 主程序（x64 / ARM64 分别构建），命名与 Release 附件一致（不含版本号） |
-| `release\runtime.zip` | 默认 | 内嵌运行时镜像包，约 1.8GB，即随 Release 分发的 `runtime.zip` |
-| `release\AyakaLauncher_<版本>_<配置>_<平台>.zip` | 加 `-WithBundle` | exe + runtime 整合包，约 1.8GB，适合离线分发 |
+| `release\runtime.zip` | 默认 | 内嵌运行时镜像包，约 4.2GB，即随 Release 分发的 `runtime.zip` |
+| `release\AyakaLauncher_<版本>_<配置>_<平台>.zip` | 加 `-WithBundle` | exe + runtime 整合包，约 4.2GB，适合离线分发 |
 | `dist\AyakaLauncher.exe` | `dist\` 存在时自动同步 | 本机日常运行目录（runtime 以 junction 挂载）随发布刷新；启动器正在运行时仅告警跳过 |
 
 打包仅用各语言标准库（PowerShell 的 `System.IO.Compression` / Python 的 `zipfile`），无第三方依赖。本机日常运行无需打包——`dist\` 与构建输出目录的 runtime 均已通过 junction 挂好。

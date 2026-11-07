@@ -21,6 +21,7 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 - **Container runtime** — Powered by the container capabilities built into Windows WSL 3.0+ (WSLC), **no Docker Desktop required**; data volumes are standalone vhd files
 - **Workbench** — Opens Overleaf in an embedded WebView2 with automatic account provisioning and sign-in, zero manual input
 - **Formula highlight sync** — Select formula code on the left and the PDF on the right highlights the rendered formula and scrolls to it (reuses Overleaf's built-in SyncTeX)
+- **Symbol palette extension** — The built-in symbol palette is expanded to the full LaTeX-Workshop symbol set: 10 Chinese categories, 760+ symbols (merged on top of Overleaf's native ones), searchable by name / keyword / Unicode. Applied automatically when the service starts, no manual steps needed
 - **Image management** — Bundled image tarballs (`runtime/images`) are loaded automatically during deployment; repeated loads are idempotent
 - **Backup & restore** — Each data volume is just a vhd file; one-click snapshots and restores from the backup page
 - **LAN sharing** — The service console shows a live "teammate access address" so peers on the same LAN can reach your Overleaf directly; the address refreshes automatically on network changes, and VPN / TUN virtual adapters (Mihomo / Clash, etc.) are excluded automatically
@@ -76,7 +77,7 @@ Five community relay nodes are connected automatically by default; custom nodes 
 ## 🚀 Quick Start
 
 1. Download `AyakaLauncher_Release_x64.exe` (or `AyakaLauncher_Release_ARM64.exe` on ARM64 devices) and `runtime.zip` from [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases)
-2. Put the exe and `runtime.zip` in the same folder and extract `runtime.zip` there to get `runtime\images\` (~1.8GB, see Release & Distribution below)
+2. Put the exe and `runtime.zip` in the same folder and extract `runtime.zip` there to get `runtime\images\` (~4.2GB, see Release & Distribution below)
 3. Install the [.NET 10 Desktop Runtime](https://get.dot.net/10) matching the executable's architecture
 4. Enable WSL: in an elevated PowerShell, run `wsl --install --no-distribution`, then run `wsl --update`
 5. Launch `AyakaLauncher_Release_<platform>.exe` → register a local user and sign in
@@ -113,7 +114,7 @@ dotnet run --project "Plain Craft Launcher 2"
 
 You can also open the solution in Visual Studio / Rider / VS Code and press F5.
 
-**runtime junction mechanism**: the repository-root `runtime\` folder is where the image tarballs actually live. After each build, the `LinkAyakaleafRuntime` target in the csproj links the output directory `bin\<Configuration>\net10.0-windows\runtime` to it via a directory junction (`dotnet publish` output directories get the same treatment from `LinkAyakaleafRuntimeOnPublish`) — avoiding copying 1.9GB on every build. The app reads `runtime\images` next to the exe at runtime, so changes to the repository-root `runtime\` take effect on the next launch.
+**runtime junction mechanism**: the repository-root `runtime\` folder is where the image tarballs actually live. After each build, the `LinkAyakaleafRuntime` target in the csproj links the output directory `bin\<Configuration>\net10.0-windows\runtime` to it via a directory junction (`dotnet publish` output directories get the same treatment from `LinkAyakaleafRuntimeOnPublish`) — avoiding copying 4.2GB on every build. The app reads `runtime\images` next to the exe at runtime, so changes to the repository-root `runtime\` take effect on the next launch.
 
 **First run**: register a local user and sign in → in the service console click **Deploy** (loads the images and initializes the MongoDB replica set automatically) → **Start Services** → **Open Workbench**. Use `wslc images` to confirm the 4 images and `wslc list` to confirm the 3 containers (mongo / redis / overleaf) are all up.
 
@@ -125,7 +126,7 @@ Official builds are published on [GitHub Releases](https://github.com/BluesilveE
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 single-file executable (framework-dependent); requires the [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 single-file executable (framework-dependent); same runtime requirement |
-| `runtime.zip` | Bundled container runtime images, about 1.8GB |
+| `runtime.zip` | Bundled container runtime images, about 4.2GB |
 
 ### Deployment
 
@@ -144,7 +145,7 @@ CI cannot produce `runtime.zip` out of thin air: the runtime images are not in t
 
 ### Why the runtime is not in the repository
 
-The largest single image tarball is 1262.9MB, far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed as the `runtime.zip` release attachment instead. The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`.
+The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which bundles the **full scheme-full TeX Live** — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed as the `runtime.zip` release attachment instead. The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
 
 ### Local packaging
 
@@ -173,8 +174,8 @@ Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-br
 | Artifact | Produced when | Description |
 |---|---|---|
 | `release\AyakaLauncher_<configuration>_<platform>.exe` | by default | The executable (x64 / ARM64 built separately), named exactly like the release attachment (no version number) |
-| `release\runtime.zip` | by default | Bundled runtime image archive, about 1.8GB — the same file published as the `runtime.zip` release attachment |
-| `release\AyakaLauncher_<version>_<configuration>_<platform>.zip` | with `-WithBundle` | exe plus runtime bundle, about 1.8GB, for offline distribution |
+| `release\runtime.zip` | by default | Bundled runtime image archive, about 4.2GB — the same file published as the `runtime.zip` release attachment |
+| `release\AyakaLauncher_<version>_<configuration>_<platform>.zip` | with `-WithBundle` | exe plus runtime bundle, about 4.2GB, for offline distribution |
 | `dist\AyakaLauncher.exe` | auto-synced when `dist\` exists | The day-to-day local run directory (runtime junction-mounted) gets refreshed on every release; skipped with a warning if the launcher is currently running |
 
 Packaging uses only standard libraries (PowerShell's `System.IO.Compression` / Python's `zipfile`), no third-party dependencies. Day-to-day local runs need no packaging: `dist\` and the build output directory already link `runtime` through junctions.
