@@ -4,13 +4,19 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      note:
+        description: 'Trigger note'
+        required: false
+        default: 'manual'
+        type: string
 
 jobs:
   hello:
     name: Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest, x64, small]
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: checkout
-      - name: Verify
-        run: echo "GitCode Action OK: ${{ atomgit.repository }} @ ${{ atomgit.ref }}"
+      - name: Run build
+        run: echo "build success: ${{ inputs.note }}"
