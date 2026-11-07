@@ -1,10 +1,10 @@
 {
   "name": "AyakaLauncher",
   "version": {
-    "base": "1.1.0",
+    "base": "2.0.0",
     "upstream": "2.12.1",
     "suffix": "",
-    "code": 1100
+    "code": 2000
   },
   "licenses": [
     {
