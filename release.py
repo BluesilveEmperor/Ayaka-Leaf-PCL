@@ -245,8 +245,12 @@ def main() -> None:
     args = parser.parse_args()
     configuration, platform = args.configuration, args.platform
 
-    # ---- 0. 前置校验：runtime/images 四个镜像必须齐备 ----
-    # 缺失时提示从网盘 runtime.7z 解压恢复，避免产出残缺的运行时包。
+    # ---- 0. 前置校验 ----
+    # 0.1 项目根必须存在 runtime/ 目录；缺失时提示先获取网盘分发的 runtime.7z。
+    if not RUNTIME_DIR.is_dir():
+        fail(f"未检测到项目根目录下的 runtime\\ 目录（{RUNTIME_DIR}）。请先从网盘下载 runtime.7z 并解压到项目根目录后，再运行 release.py。")
+
+    # 0.2 runtime/images 四个镜像必须齐备，避免产出残缺的运行时包。
     for image in REQUIRED_IMAGES:
         image_path = RUNTIME_IMAGES / image
         if not image_path.exists():

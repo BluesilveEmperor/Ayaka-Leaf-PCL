@@ -104,8 +104,13 @@ function Get-RuntimeEntries {
     }
 }
 
-# ---- 0. 前置校验：runtime/images 四个镜像必须齐备 ----
-# 缺失时提示从网盘 runtime.7z 解压恢复，避免产出残缺的运行时包。
+# ---- 0. 前置校验 ----
+# 0.1 项目根必须存在 runtime 目录；缺失时提示先获取网盘分发的 runtime.7z。
+if (-not (Test-Path -LiteralPath $runtimeDir -PathType Container)) {
+    throw "未检测到项目根目录下的 runtime\ 目录（$runtimeDir）。请先从网盘下载 runtime.7z 并解压到项目根目录后，再运行 release.ps1。"
+}
+
+# 0.2 runtime/images 四个镜像必须齐备，避免产出残缺的运行时包。
 foreach ($image in $requiredImages) {
     $imagePath = Join-Path $runtimeImages $image
     if (-not (Test-Path $imagePath)) {
