@@ -126,6 +126,8 @@ jobs:
   package_runtime:
     needs: [changelog]
     runs-on: ubuntu-latest
+    # runtime.zip 来源当前由外部渠道（阿里云盘 runtime.7z）分发，缺失时不应阻塞发布
+    continue-on-error: true
     permissions:
       contents: write
       actions: read
@@ -223,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish_draft:
-    needs: [rename_and_release, package_runtime]
+    needs: [rename_and_release]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Draft
