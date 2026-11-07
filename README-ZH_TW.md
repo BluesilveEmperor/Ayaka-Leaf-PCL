@@ -115,8 +115,8 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 🚀 快速開始
 
-1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）與執行環境包 `runtime.zip`
-2. 將 exe 與 `runtime.zip` 放在同一目錄，解壓縮 `runtime.zip` 得到 `runtime\images\`（約 4.2GB，詳見下文「發佈與分發」）
+1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）；執行環境包 `runtime.7z` 從下文「主下載源（網盤）」取得
+2. 將 exe 與執行環境包放在同一目錄，解壓縮得到 `runtime\images\`（約 4.2GB，詳見下文「發佈與分發」）
 3. 安裝 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架構與主程式一致）
 4. 啟用 WSL：以系統管理員 PowerShell 執行 `wsl --install --no-distribution`，完成後執行 `wsl --update`
 5. 啟動 `AyakaLauncher_Release_<平台>.exe` → 註冊本機使用者並登入
@@ -159,22 +159,29 @@ dotnet run --project "Plain Craft Launcher 2"
 
 ## 📦 發佈與分發
 
-正式版本統一從 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載，附件包含：
+主程式統一從 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載，執行環境包 `runtime.7z` 從下方「主下載源（網盤）」取得。Release 附件可能包含：
 
 | 附件 | 說明 |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程式，Framework-dependent 單一檔案，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程式，Framework-dependent 單一檔案，需求同上 |
-| `runtime.zip` | 內嵌容器映像檔執行環境包，約 4.2GB |
+| `runtime.zip` | 內嵌容器映像檔執行環境包，約 4.2GB；並非每個版本都提供，缺失時請從下方網盤主下載源取得 `runtime.7z` |
 
-### 備用下載源（阿里雲盤）
+### 主下載源（網盤）
 
-若 GitHub Releases 下載緩慢，可改用 [阿里雲盤分享連結](https://www.alipan.com/s/NYaZyrvbRmX) 取得 `runtime.7z`（由維護者後續上傳，以分享頁實際檔案為準）。若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
+執行環境包 `runtime.7z` 透過網盤分享分發，以下**全部為主下載源**，任選其一即可；後續會陸續補充其他網盤的分享連結。
+
+| 網盤 | 分享連結 | 說明 |
+|---|---|---|
+| 阿里雲盤 | [阿里雲盤分享連結](https://www.alipan.com/s/NYaZyrvbRmX) | 由維護者後續上傳 `runtime.7z`，以分享頁實際檔案為準 |
+| 其他網盤 | 待補充 | 後續會補上更多網盤分享連結 |
+
+若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具把 `runtime.7z` 解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
 
 ### 部署步驟
 
-1. 將 `AyakaLauncher_Release_<平台>.exe` 與 `runtime.zip` 放在同一目錄
-2. 在該目錄解壓縮 `runtime.zip`，得到 `runtime\images\`（內含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四個映像檔包）
+1. 將 `AyakaLauncher_Release_<平台>.exe` 與執行環境包（`runtime.7z`，或該版本提供的 `runtime.zip`）放在同一目錄
+2. 在該目錄解壓執行環境包，得到 `runtime\images\`（內含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四個映像檔包）
 3. 執行 exe
 
 `runtime\` 必須與 exe **同級、不可拆分或改名**。
@@ -188,7 +195,7 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 
 ### 為何 runtime 不進入程式碼倉庫
 
-單一映像檔包最大約 3.46GB（sharelatex-server-pro，內含 scheme-full 全量 TeX Live），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由 Release 附件 `runtime.zip` 分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
+單一映像檔包最大約 3.46GB（sharelatex-server-pro，內含 scheme-full 全量 TeX Live），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
 
 ### 本機打包
 

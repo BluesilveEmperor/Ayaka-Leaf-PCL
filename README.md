@@ -120,8 +120,8 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）与运行时包 `runtime.zip`
-2. 把 exe 与 `runtime.zip` 放到同一目录，解压 `runtime.zip` 得到 `runtime\images\`（约 4.2GB，详见下节）
+1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）；运行时包 `runtime.7z` 从下文「主下载源（网盘）」获取
+2. 把 exe 与运行时包放到同一目录，解压得到 `runtime\images\`（约 4.2GB，详见下节）
 3. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架构与主程序一致）
 4. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
 5. 启动 `AyakaLauncher_Release_<平台>.exe` → 注册本地用户并登录
@@ -150,16 +150,16 @@ runtime\
    └─ redis-7.tar.gz                 # Redis 7（约 42MB）
 ```
 
-四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），分发走下文「发布与分发」中的 Release 附件 `runtime.zip`。`sharelatex-server-pro` 内置 **scheme-full 全量 TeX Live**（5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板），开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
+四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（部分版本另附 Release 附件 `runtime.zip`）。`sharelatex-server-pro` 内置 **scheme-full 全量 TeX Live**（5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板），开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
-| Release 附件 `runtime.zip` 解压 | 全部 | 最省事，解压到 exe 同级即为 `runtime\images\` |
-| 阿里云盘备用源 `runtime.7z` | 全部 | [分享链接](https://www.alipan.com/s/NYaZyrvbRmX)，解压后同上，详见「备用下载源」 |
+| 网盘主下载源 `runtime.7z` | 全部 | 从下文「主下载源（网盘）」任选一个分享链接下载，解压到 exe 同级即为 `runtime\images\` |
+| Release 附件 `runtime.zip` 解压 | 全部 | 若该版本提供，解压后同上 |
 | `wslc` 自助导出 | mongo / redis | 标准镜像：`wslc pull mongo:8.0` 后 `wslc save -o runtime\images\mongo-8.0.tar.gz mongo:8.0`（redis 同理） |
 | ayakaleaf-pro 构建 | sharelatex / git-bridge 定制镜像 | 从 [ayakaleaf-pro](https://github.com/ayaka-notes/ayakaleaf-pro) 构建镜像后 `wslc save` 导出 |
 
-**放置位置**：解压后的 `runtime.zip` 或整合包内，均放在 exe 同级；源码开发放在**仓库根** `runtime\images\`（构建后自动挂到输出目录，见下节）。
+**放置位置**：解压后的 `runtime.7z` / `runtime.zip` 或整合包内，均放在 exe 同级；源码开发放在**仓库根** `runtime\images\`（构建后自动挂到输出目录，见下节）。
 
 ## 🛠️ 本地开发
 
@@ -196,22 +196,29 @@ dotnet run --project "Plain Craft Launcher 2"
 
 ## 📦 发布与分发（Release）
 
-正式版本统一从 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载，附件包含：
+主程序统一从 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载，运行时包 `runtime.7z` 从下方「主下载源（网盘）」获取。Release 附件可能包含：
 
 | 附件 | 说明 |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程序，Framework-dependent 单文件，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
-| `runtime.zip` | 内嵌容器运行时镜像包，约 4.2GB |
+| `runtime.zip` | 内嵌容器运行时镜像包，约 4.2GB；并非每个版本都提供，缺失时请从下方网盘主下载源获取 `runtime.7z` |
 
-### 备用下载源（阿里云盘）
+### 主下载源（网盘）
 
-GitHub Releases 下载缓慢时，可改用 [阿里云盘分享链接](https://www.alipan.com/s/NYaZyrvbRmX) 获取 `runtime.7z`（由维护者后续上传，以分享页实际文件为准）。若暂时没在网盘里找到，那多半是网络有点慢还没传完，或者作者有点懒还没上传——稍后再来看看。用支持 7z 的解压工具解压到 exe 同级目录，得到 `runtime\images\`；其余部署步骤与 `runtime.zip` 完全相同。
+运行时包 `runtime.7z` 通过网盘分享分发，以下**全部为主下载源**，任选其一即可；后续会陆续补充其他网盘的分享链接。
+
+| 网盘 | 分享链接 | 说明 |
+|---|---|---|
+| 阿里云盘 | [阿里云盘分享链接](https://www.alipan.com/s/NYaZyrvbRmX) | 由维护者后续上传 `runtime.7z`，以分享页实际文件为准 |
+| 其他网盘 | 待补充 | 后续会补上更多网盘分享链接 |
+
+若暂时没在网盘里找到，那多半是网络有点慢还没传完，或者作者有点懒还没上传——稍后再来看看。用支持 7z 的解压工具把 `runtime.7z` 解压到 exe 同级目录，得到 `runtime\images\`；其余部署步骤与 `runtime.zip` 完全相同。
 
 ### 部署步骤
 
-1. 把 `AyakaLauncher_Release_<平台>.exe` 与 `runtime.zip` 放到同一目录
-2. 解压 `runtime.zip` 到该目录，得到 `runtime\images\`（含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四个镜像包）
+1. 把 `AyakaLauncher_Release_<平台>.exe` 与运行时包（`runtime.7z`，或该版本提供的 `runtime.zip`）放到同一目录
+2. 在该目录解压运行时包，得到 `runtime\images\`（含 `sharelatex-server-pro`、`git-bridge`、`mongo-8.0`、`redis-7` 四个镜像包）
 3. 运行 exe，按「快速开始」完成首次部署
 
 ### 首次发布（runtime.zip 来源）
@@ -223,7 +230,7 @@ CI 无法凭空生成 `runtime.zip`——运行时镜像不入库，干净的构
 
 ### 为什么 runtime 不进入代码仓库
 
-单个镜像包最大约 3.46GB（sharelatex-server-pro，含全量 TeX Live），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由 Release 附件 `runtime.zip` 分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
+单个镜像包最大约 3.46GB（sharelatex-server-pro，含全量 TeX Live），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由网盘主下载源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分发。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
 
 ### 本地打包
 

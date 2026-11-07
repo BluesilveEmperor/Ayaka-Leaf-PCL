@@ -115,8 +115,8 @@ Five community relay nodes are connected automatically by default; custom nodes 
 
 ## 🚀 Quick Start
 
-1. Download `AyakaLauncher_Release_x64.exe` (or `AyakaLauncher_Release_ARM64.exe` on ARM64 devices) and `runtime.zip` from [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases)
-2. Put the exe and `runtime.zip` in the same folder and extract `runtime.zip` there to get `runtime\images\` (~4.2GB, see Release & Distribution below)
+1. Download `AyakaLauncher_Release_x64.exe` (or `AyakaLauncher_Release_ARM64.exe` on ARM64 devices) from [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); get the runtime archive `runtime.7z` from the "Primary download sources (cloud drives)" section below
+2. Put the exe and the runtime archive in the same folder and extract it there to get `runtime\images\` (~4.2GB, see Release & Distribution below)
 3. Install the [.NET 10 Desktop Runtime](https://get.dot.net/10) matching the executable's architecture
 4. Enable WSL: in an elevated PowerShell, run `wsl --install --no-distribution`, then run `wsl --update`
 5. Launch `AyakaLauncher_Release_<platform>.exe` → register a local user and sign in
@@ -159,22 +159,29 @@ You can also open the solution in Visual Studio / Rider / VS Code and press F5.
 
 ## 📦 Release & Distribution
 
-Official builds are published on [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases). Each release provides these attachments:
+The executable is published on [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); the runtime archive `runtime.7z` comes from the "Primary download sources (cloud drives)" section below. Release attachments may include:
 
 | Attachment | Description |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 single-file executable (framework-dependent); requires the [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 single-file executable (framework-dependent); same runtime requirement |
-| `runtime.zip` | Bundled container runtime images, about 4.2GB |
+| `runtime.zip` | Bundled container runtime images, about 4.2GB; not shipped with every release — when missing, use the cloud-drive primary sources below |
 
-### Alternative download (Aliyun Drive)
+### Primary download sources (cloud drives)
 
-If GitHub Releases is slow, `runtime.7z` is also shared via [Aliyun Drive](https://www.alipan.com/s/NYaZyrvbRmX) (to be uploaded by the maintainer later — check the share page for the actual file). If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract it with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
+The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every one of them is a primary download source** — pick whichever works best for you. More shares will be added over time.
+
+| Cloud drive | Share link | Notes |
+|---|---|---|
+| Aliyun Drive | [Aliyun Drive share](https://www.alipan.com/s/NYaZyrvbRmX) | `runtime.7z` to be uploaded by the maintainer; check the share page for the actual file |
+| Other cloud drives | To be added | More share links will be added later |
+
+If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
 
 ### Deployment
 
-1. Put `AyakaLauncher_Release_<platform>.exe` and `runtime.zip` in the same folder
-2. Extract `runtime.zip` in that folder to get `runtime\images\` (containing the `sharelatex-server-pro`, `git-bridge`, `mongo-8.0` and `redis-7` image tarballs)
+1. Put `AyakaLauncher_Release_<platform>.exe` and the runtime archive (`runtime.7z`, or `runtime.zip` if that release ships it) in the same folder
+2. Extract the archive there to get `runtime\images\` (containing the `sharelatex-server-pro`, `git-bridge`, `mongo-8.0` and `redis-7` image tarballs)
 3. Run the exe
 
 `runtime\` must stay **next to the exe, with the same name**; do not split it up or rename it.
@@ -188,7 +195,7 @@ CI cannot produce `runtime.zip` out of thin air: the runtime images are not in t
 
 ### Why the runtime is not in the repository
 
-The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which bundles the **full scheme-full TeX Live** — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed as the `runtime.zip` release attachment instead. The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
+The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which bundles the **full scheme-full TeX Live** — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
 
 ### Local packaging
 
