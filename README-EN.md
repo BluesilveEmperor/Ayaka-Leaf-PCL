@@ -167,6 +167,10 @@ Official builds are published on [GitHub Releases](https://github.com/BluesilveE
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 single-file executable (framework-dependent); same runtime requirement |
 | `runtime.zip` | Bundled container runtime images, about 4.2GB |
 
+### Alternative download (Aliyun Drive)
+
+If GitHub Releases is slow, `runtime.7z` is also shared via [Aliyun Drive](https://www.alipan.com/s/NYaZyrvbRmX) (to be uploaded by the maintainer later — check the share page for the actual file). Extract it with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
+
 ### Deployment
 
 1. Put `AyakaLauncher_Release_<platform>.exe` and `runtime.zip` in the same folder

@@ -155,6 +155,7 @@ runtime\
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
 | Release 附件 `runtime.zip` 解压 | 全部 | 最省事，解压到 exe 同级即为 `runtime\images\` |
+| 阿里云盘备用源 `runtime.7z` | 全部 | [分享链接](https://www.alipan.com/s/NYaZyrvbRmX)，解压后同上，详见「备用下载源」 |
 | `wslc` 自助导出 | mongo / redis | 标准镜像：`wslc pull mongo:8.0` 后 `wslc save -o runtime\images\mongo-8.0.tar.gz mongo:8.0`（redis 同理） |
 | ayakaleaf-pro 构建 | sharelatex / git-bridge 定制镜像 | 从 [ayakaleaf-pro](https://github.com/ayaka-notes/ayakaleaf-pro) 构建镜像后 `wslc save` 导出 |
 
@@ -202,6 +203,10 @@ dotnet run --project "Plain Craft Launcher 2"
 | `AyakaLauncher_Release_x64.exe` | x64 主程序，Framework-dependent 单文件，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
 | `runtime.zip` | 内嵌容器运行时镜像包，约 4.2GB |
+
+### 备用下载源（阿里云盘）
+
+GitHub Releases 下载缓慢时，可改用 [阿里云盘分享链接](https://www.alipan.com/s/NYaZyrvbRmX) 获取 `runtime.7z`（由维护者后续上传，以分享页实际文件为准）。用支持 7z 的解压工具解压到 exe 同级目录，得到 `runtime\images\`；其余部署步骤与 `runtime.zip` 完全相同。
 
 ### 部署步骤
 
