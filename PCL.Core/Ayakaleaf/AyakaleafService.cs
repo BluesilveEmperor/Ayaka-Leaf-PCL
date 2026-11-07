@@ -754,11 +754,14 @@ public static class AyakaleafService
             LanguageSwitchAvailable = false;
         }
 
-        // 校验后重载：校验失败则回滚补丁文件再重载，保证站点不被坏配置卡死。
-        // nginx 可能尚未随容器启动完成，重载失败可忽略（启动时会读取已补丁的配置）
+        // 校验后重载：仅当 nginx -t 配置测试失败（真的写坏了配置）才回滚补丁文件，
+        // 保证站点不被坏配置卡死。nginx 未就绪导致的 reload 失败不能触发回滚——
+        // 大镜像首次启动时 nginx 晚于补丁写入，旧逻辑会误删刚写好的补丁文件
+        //（config test 不依赖运行中的 nginx，可先安全地判断配置对错）。
         var check = await WslcInterop.RunAsync(
             $"exec {OverleafContainer} sh -c " +
-            "\"nginx -t && nginx -s reload || (rm -f /etc/nginx/conf.d/ayaka-lang.conf; nginx -s reload)\"",
+            "\"if nginx -t; then nginx -s reload || true; " +
+            "else rm -f /etc/nginx/conf.d/ayaka-lang.conf; nginx -t; fi\"",
             30000);
         if (!check.IsSuccess)
         {
