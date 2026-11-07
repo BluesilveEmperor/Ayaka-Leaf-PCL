@@ -24,7 +24,7 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 - **Symbol palette extension** — The built-in symbol palette is expanded to the full LaTeX-Workshop symbol set: 10 Chinese categories, 760+ symbols (merged on top of Overleaf's native ones), searchable by name / keyword / Unicode. Applied automatically when the service starts, no manual steps needed
 - **Image management** — Bundled image tarballs (`runtime/images`) are loaded automatically during deployment; repeated loads are idempotent
 - **Backup & restore** — Each data volume is just a vhd file; one-click snapshots and restores from the backup page
-- **LAN sharing** — The service console shows a live "teammate access address" so peers on the same LAN can reach your Overleaf directly; the address refreshes automatically on network changes, and VPN / TUN virtual adapters (Mihomo / Clash, etc.) are excluded automatically
+- **LAN sharing (team collaboration)** — The service console shows a live "teammate access address" so peers on the same LAN can reach your Overleaf with just a browser, register accounts and co-edit in real time; the address refreshes automatically on network changes, and VPN / TUN virtual adapters (Mihomo / Clash, etc.) are excluded automatically. See the "Team Collaboration" chapter
 - **Remote collaboration** — EasyTier-based virtual networking: the host opens the local Overleaf service with a one-click invite code; remote peers join the virtual network and get port forwards automatically — no public IP or port mapping needed. See the "Remote Collaboration" chapter
 - **Portable account isolation** — Account database, credentials and user data all live next to the launcher exe; copy the folder for a fully portable install, and multiple copies never share or collide accounts
 - **Theme colors** — Four built-in theme colors to switch at will — Sky Blue, Totoro Blue, Crash Blue and Campfire Orange (Campfire's signature #E2680C) — adapted to both light and dark modes
@@ -38,28 +38,67 @@ Select a piece of formula code in the workbench and the PDF pane jumps to the re
 - Requires a successfully compiled PDF; it stays silent when no PDF exists (no error toasts)
 - Highlight boxes come from SyncTeX positions, so multi-line environments may only cover the first line of that spot
 
-## 🤝 Remote Collaboration
+## 🤝 Team Collaboration & Remote Collaboration
 
-Remote peers can join your Overleaf service with an invite code — no public IP or port mapping required. The virtual network is powered by [EasyTier](https://github.com/EasyTier/EasyTier) (Apache-2.0).
+Pick the collaboration mode based on how your peers connect to you:
+
+| Scenario | Feature | Requirements |
+|---|---|---|
+| Same LAN (dorm / lab / office network) | Team collaboration (LAN sharing) | Peers only need a browser — no software to install |
+| Remote / different networks | Remote collaboration (EasyTier virtual networking) | Both sides need internet access; peers must run this launcher |
+
+### 🏠 Team Collaboration (LAN Sharing)
+
+Peers on the same LAN can reach your Overleaf service with just a browser — register accounts and co-edit documents in real time.
+
+**Host (you)**
+
+1. Start the service on the "Service" page
+2. Check "Networking & Collaboration → Allow LAN access (team collaboration)"; the page then shows the "teammate access address" (e.g. `http://192.168.1.100:8080`; when the Simplified Chinese UI is enabled, the Chinese-port address is shown as well)
+3. Restart the service for the change to take effect (this toggle requires a service restart)
+4. Send the "teammate access address" to peers on the same LAN
+
+**Peers**
+
+1. Open the address shared by the host in a browser, on any device on the same LAN (PC / tablet / phone all work)
+2. On first visit, register an account (or sign in to an existing one)
+3. Then create / join projects and co-edit with the host and other peers in real time
+
+**Notes**
+
+- The address uses the host machine's LAN IP and refreshes automatically on network changes (Wi-Fi ↔ hotspot, etc.); VPN / TUN virtual adapters (Mihomo / Clash, etc.) are excluded automatically, so a proxy adapter IP never shows up by mistake
+- After turning the toggle off and restarting the service, the service goes back to localhost-only access
+- Peers share the host's service and project space; the practical peer limit is the host machine's performance
+
+### 🌐 Remote Collaboration
+
+Remote peers can join your Overleaf service with an invite code — no public IP or port mapping required. The virtual network is powered by [EasyTier](https://github.com/EasyTier/EasyTier) (Apache-2.0); on first use the collaboration component is downloaded automatically from the official release channels — nothing to install manually.
 
 **Host**
 
 1. Start the service, open the "Collab" page and click "Start Collaboration"
-2. Copy the generated invite code (format `A/XXXX-XXXX-XXXX-XXXX`) and send it to your teammates
-3. Wait for peers to join; the member list shows each peer's connection type (direct / relayed) and latency in real time
+2. Click "Copy Invite Code" and send the generated code (format `A/XXXX-XXXX-XXXX-XXXX`) to your teammates
+3. Wait for peers to join; the page shows the number of connected public relay nodes, and the member list refreshes every 2 seconds, showing each peer's connection type (direct / relayed) and latency
 
 **Guest**
 
-1. Open the "Collab" page, paste the invite code and click "Join Collaboration"
-2. Port forwards are established automatically on join; click "Open Workbench" to access the host's service
-3. On first visit, register or sign in on the host's service
+1. Open this launcher, go to the "Collab" page, paste the invite code (pasting a whole block of text containing the code is fine — the code inside is recognized automatically) and click "Join Collaboration"
+2. Joining is fully automatic: connect to public nodes → find the host → establish one local port forward per interface language enabled by the host (the host's port number is reused locally; if occupied, a free port is picked automatically)
+3. Once joined, the page lists the per-language access addresses (e.g. `简体中文: http://localhost:8081`); click "Open Workbench" to enter the host's service (switchable between the languages the host has enabled), or open the listed addresses directly in a browser
+4. On first visit, register or sign in on the host's service; then co-edit with the host in real time
+
+**Both sides**
+
+- The collab session survives page switches; "Stop Collaboration" disconnects at any time, and the network component is cleaned up automatically when the launcher exits
+- Once the host stops the collaboration, all peers lose access immediately
+- If it sits on "Connecting to public nodes…" for a long time, the built-in nodes are usually unreachable due to a restricted network — configure custom relay nodes (see below)
 
 **Privacy & security**
 
-- Traffic is end-to-end encrypted; public relay nodes only forward ciphertext and cannot decrypt contents
+- Traffic is end-to-end encrypted; public relay nodes only forward ciphertext and cannot decrypt contents; P2P direct connection is preferred whenever possible, with relay as fallback only
 - The host-side whitelist only exposes the Overleaf service ports — no other local port is reachable
-- The invite code is the network key, with a checksum digit against typos; do not share it publicly
-- Advanced options via the `AyakaleafCollab*` config entries: "hide IP" (peers cannot see each other's virtual IPs), "direct only" (no relay fallback), and custom relay nodes
+- The invite code is the network key (16 characters, with a checksum digit against typos); do not share it publicly. If it leaks, the host can stop the collaboration and click "Start Collaboration" again — a new code is generated and the old one becomes invalid
+- Advanced options via the `AyakaleafCollab*` config entries: "hide IP" (peers cannot see each other's virtual IPs), "direct only" (no relay fallback)
 
 **Network nodes**
 
