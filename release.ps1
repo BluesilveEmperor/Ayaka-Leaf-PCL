@@ -1,12 +1,15 @@
 ﻿# AyakaLauncher 发布打包脚本
 # ---------------------------------------------------------------------------
-# 默认产出（与 GitHub Release 附件命名对齐）：
-#   release\AyakaLauncher_<配置>_<平台>.exe   —— 可执行文件
+# 默认产出：
+#   release\AyakaLauncher_<配置>_<平台>.exe   —— 可执行文件（命名与 Release 附件对齐）
 #   release\runtime.zip                       —— 内嵌运行时（约 1.8GB，含 4 个镜像包：
 #                                                sharelatex-server-pro / git-bridge /
 #                                                mongo-8.0 / redis-7；主镜像 1262.9MB，
 #                                                超过 GitHub 普通仓库 100MB 单文件限制，
-#                                                故不入库，仅由 Release 附件分发）
+#                                                故不入库）
+# Release 不再附带运行时包；对外分发统一使用网盘提供的 runtime.7z，
+# 本机生成的 release\runtime.zip 仅供整合包与离线分发，不上传到 Release。
+#
 # 可选产出（-WithBundle）：
 #   release\AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 1.8GB）
 #
@@ -14,7 +17,7 @@
 # dist\AyakaLauncher.exe；exe 被占用（启动器正在运行）时只告警不失败。
 #
 # 本机日常运行请用 dist\（junction，不占额外空间）；
-# 对外发布用本脚本产出的 exe 与 runtime.zip。
+# 对外发布只用本脚本产出的 exe，运行时包由网盘 runtime.7z 分发。
 #
 # 输出行为：
 #   dotnet publish 仅在失败时输出 MSBuild 日志，成功时保持安静（不刷 warning）；
@@ -102,11 +105,11 @@ function Get-RuntimeEntries {
 }
 
 # ---- 0. 前置校验：runtime/images 四个镜像必须齐备 ----
-# 缺失时提示从 Release 附件 runtime.zip 解压恢复，避免产出残缺的运行时包。
+# 缺失时提示从网盘 runtime.7z 解压恢复，避免产出残缺的运行时包。
 foreach ($image in $requiredImages) {
     $imagePath = Join-Path $runtimeImages $image
     if (-not (Test-Path $imagePath)) {
-        throw "缺少运行时镜像：$imagePath。请先从 Release 附件 runtime.zip 解压到 runtime\ 目录后重试。"
+        throw "缺少运行时镜像：$imagePath。请先补齐镜像包（可从网盘 runtime.7z 解压到 runtime\ 目录）后重试。"
     }
 }
 
@@ -175,4 +178,4 @@ if ($WithBundle) {
 }
 
 Write-Host ''
-Write-Host '发布完成。runtime.zip 需随 Release 一同分发；如仅本地自用则无需上传。'
+Write-Host '发布完成。release\runtime.zip 仅供本机整合包与离线分发，不再随 Release 发布；运行时包统一由网盘 runtime.7z 分发。'

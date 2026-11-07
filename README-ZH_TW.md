@@ -212,22 +212,24 @@ GitHub Releases 仍為主程式的**主要下載管道**；下載不便時，可
 打包腳本有 PowerShell 與 Python 兩個等價實作（`release.ps1` / `release.py`），任選其一：
 
 ```powershell
-# PowerShell 版
+# PowerShell 版：x64 與 ARM64 分別建置
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
 ```
 
 ```bash
-# Python 版（需要 Python 3.9+，僅標準庫）
+# Python 版（需要 Python 3.9+，僅標準庫）：x64 與 ARM64
 python release.py --configuration Release --platform x64
+python release.py --configuration Release --platform ARM64
 ```
 
 ```powershell
-# ARM64：再跑一次腳本（runtime.zip 與平台無關，重跑僅重新打包覆蓋，內容不變）
-pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
-
 # 可選：同時產出整合包（Python 版把 -WithBundle 換成 --with-bundle）
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64 -WithBundle
 ```
+
+> `runtime.zip` 與平台無關，ARM64 重跑僅重新打包覆蓋、內容不變；Release 不再附帶執行環境包，對外統一由網盤 `runtime.7z` 分發。
 
 打包前腳本會檢查 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四個映像檔是否齊備，缺少時直接報錯，並提示先補齊映像檔（可從網盤 `runtime.7z` 解壓縮還原）。
 

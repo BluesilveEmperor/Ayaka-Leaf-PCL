@@ -212,22 +212,24 @@ The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **se
 The packaging script has two equivalent implementations (`release.ps1` / `release.py`); pick either:
 
 ```powershell
-# PowerShell version
+# PowerShell version: build x64 and ARM64 separately
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
 ```
 
 ```bash
-# Python version (requires Python 3.9+, standard library only)
+# Python version (requires Python 3.9+, standard library only): x64 and ARM64
 python release.py --configuration Release --platform x64
+python release.py --configuration Release --platform ARM64
 ```
 
 ```powershell
-# ARM64: run the script again (runtime.zip is platform-independent; re-packing just overwrites it with identical content)
-pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64
-
 # Optional: also produce the all-in-one bundle (use --with-bundle in the Python version)
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithBundle
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64 -WithBundle
 ```
+
+> `runtime.zip` is platform-independent, so the ARM64 run only re-packs and overwrites it with identical content. Releases no longer ship the runtime; it is distributed as `runtime.7z` through the cloud-drive primary sources.
 
 Before packing, the script verifies that `sharelatex-server-pro.tar.gz`, `git-bridge.tar.gz`, `mongo-8.0.tar.gz` and `redis-7.tar.gz` all exist under `runtime\images\`; if any is missing it aborts with an error telling you to restore them (for example by extracting `runtime.7z` from a cloud drive).
 

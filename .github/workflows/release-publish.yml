@@ -19,10 +19,6 @@ on:
         description: 'Version to release (e.g., 2.14.2)'
         required: true
         type: string
-      runtime_source_tag:
-        description: '提供 runtime.zip 的既有 Release tag（留空则自动查找最近含 runtime.zip 的 Release）'
-        required: false
-        type: string
 
 jobs:
   build:
@@ -118,109 +114,6 @@ jobs:
           files: |
             AyakaLauncher_${{ matrix.configuration }}_${{ matrix.architecture }}.exe
             AyakaLauncher_${{ matrix.configuration }}_${{ matrix.architecture }}.exe.sigstore.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # 打包内嵌运行时（runtime/images 约 1.6GB）为 runtime.zip 并上传到当前 draft release。
-  # 源优先级：工作区内 runtime/images > 既有 Release 的 runtime.zip > 报错退出。
-  package_runtime:
-    needs: [changelog]
-    runs-on: ubuntu-latest
-    # runtime.zip 来源当前由外部渠道（阿里云盘 runtime.7z）分发，缺失时不应阻塞发布
-    continue-on-error: true
-    permissions:
-      contents: write
-      actions: read
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 1
-
-      - name: Resolve runtime source
-        id: resolve
-        env:
-          RUNTIME_SOURCE_TAG: ${{ inputs.runtime_source_tag }}
-        run: |
-          set -euo pipefail
-          workdir="${RUNNER_TEMP}/runtime-src"
-          mkdir -p "${workdir}"
-
-          # 源优先级 A：工作区内已存在 runtime/images（本地缓存或自托管 runner 预先放置）
-          if [ -d runtime/images ] && [ -n "$(ls -A runtime/images 2>/dev/null)" ]; then
-            echo "使用工作区内 runtime/images 作为打包源。"
-            echo "source_dir=${GITHUB_WORKSPACE}" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-
-          # 源优先级 B：从既有 Release 下载 runtime.zip
-          tag="${RUNTIME_SOURCE_TAG}"
-          if [ -z "${tag}" ]; then
-            echo "未指定 runtime_source_tag，自动查找最近包含 runtime.zip 的 Release（排除 draft）…"
-            tag="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-              --jq '.[] | select(.draft == false) | select([.assets[].name] | index("runtime.zip") != null) | .tag_name' \
-              | sed -n '1p' || true)"
-          fi
-
-          if [ -z "${tag}" ]; then
-            echo "::error::未找到 runtime 来源：请先手动上传一次 runtime.zip，或在工作流输入 runtime_source_tag 指定来源版本"
-            exit 1
-          fi
-
-          echo "使用 Release ${tag} 的 runtime.zip 作为打包源。"
-          if ! has_runtime="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" \
-            --jq '[.assets[].name] | index("runtime.zip") != null')"; then
-            echo "::error::无法读取 Release ${tag}，请检查 runtime_source_tag 是否正确、是否有访问权限"
-            exit 1
-          fi
-          if [ "${has_runtime}" != "true" ]; then
-            echo "::error::Release ${tag} 未包含 runtime.zip 资产，请更换 runtime_source_tag 或先手动上传一次 runtime.zip"
-            exit 1
-          fi
-
-          if ! gh release download "${tag}" --pattern runtime.zip --dir "${workdir}"; then
-            echo "::error::下载 Release ${tag} 的 runtime.zip 失败，请检查网络或资产是否存在"
-            exit 1
-          fi
-          mkdir -p "${workdir}/extracted"
-          if ! unzip -q "${workdir}/runtime.zip" -d "${workdir}/extracted"; then
-            echo "::error::runtime.zip 解压失败，附件可能已损坏"
-            exit 1
-          fi
-
-          if [ ! -d "${workdir}/extracted/runtime/images" ]; then
-            echo "::error::runtime.zip 解压后未找到 runtime/images 目录，请确认附件结构为 runtime/images/..."
-            exit 1
-          fi
-
-          echo "source_dir=${workdir}/extracted" >> "${GITHUB_OUTPUT}"
-
-      - name: Package runtime.zip
-        env:
-          SOURCE_DIR: ${{ steps.resolve.outputs.source_dir }}
-        run: |
-          set -euo pipefail
-          cd "${SOURCE_DIR}"
-          if [ ! -d runtime/images ] || [ -z "$(ls -A runtime/images 2>/dev/null)" ]; then
-            echo "::error::打包源缺少 runtime/images 内容：${SOURCE_DIR}"
-            exit 1
-          fi
-          rm -f "${GITHUB_WORKSPACE}/runtime.zip"
-          # -1：最低压缩级别，1.6GB 镜像压缩耗时可接受，产物满足 Release 单文件 2GB 限制
-          if ! zip -r -1 "${GITHUB_WORKSPACE}/runtime.zip" runtime; then
-            echo "::error::打包 runtime.zip 失败，请检查 zip 命令与磁盘空间"
-            exit 1
-          fi
-          ls -lh "${GITHUB_WORKSPACE}/runtime.zip"
-
-      - name: Upload runtime.zip to Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          draft: true
-          tag_name: v${{ inputs.version }}
-          files: runtime.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

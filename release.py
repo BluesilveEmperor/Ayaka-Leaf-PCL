@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 r"""AyakaLauncher 发布打包脚本（release.ps1 的 Python 版，功能与参数对齐）。
 
-默认产出（与 GitHub Release 附件命名对齐）：
-  release/AyakaLauncher_<配置>_<平台>.exe   —— 可执行文件
+默认产出：
+  release/AyakaLauncher_<配置>_<平台>.exe   —— 可执行文件（命名与 Release 附件对齐）
   release/runtime.zip                       —— 内嵌运行时（约 1.8GB，含 4 个镜像包：
-                                               sharelatex-server-pro / git-bridge /
-                                               mongo-8.0 / redis-7；主镜像超过 GitHub
-                                               普通仓库 100MB 单文件限制，故不入库，
-                                               仅由 Release 附件分发）
+                                              sharelatex-server-pro / git-bridge /
+                                              mongo-8.0 / redis-7；主镜像超过 GitHub
+                                              普通仓库 100MB 单文件限制，故不入库）
+Release 不再附带运行时包；对外分发统一使用网盘提供的 runtime.7z，
+本机生成的 release/runtime.zip 仅供整合包与离线分发，不上传到 Release。
+
 可选产出（--with-bundle）：
   release/AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 1.8GB）
 
@@ -244,11 +246,11 @@ def main() -> None:
     configuration, platform = args.configuration, args.platform
 
     # ---- 0. 前置校验：runtime/images 四个镜像必须齐备 ----
-    # 缺失时提示从 Release 附件 runtime.zip 解压恢复，避免产出残缺的运行时包。
+    # 缺失时提示从网盘 runtime.7z 解压恢复，避免产出残缺的运行时包。
     for image in REQUIRED_IMAGES:
         image_path = RUNTIME_IMAGES / image
         if not image_path.exists():
-            fail(f"缺少运行时镜像：{image_path}。请先从 Release 附件 runtime.zip 解压到 runtime\\ 目录后重试。")
+            fail(f"缺少运行时镜像：{image_path}。请先补齐镜像包（可从网盘 runtime.7z 解压到 runtime\\ 目录）后重试。")
 
     # ---- 1. Release 发布 ----
     publish(configuration, platform)
@@ -298,7 +300,7 @@ def main() -> None:
     if bundle is not None:
         print(f"  {bundle}（{human_size(bundle)}）")
     print()
-    print("发布完成。runtime.zip 需随 Release 一同分发；如仅本地自用则无需上传。")
+    print("发布完成。release/runtime.zip 仅供本机整合包与离线分发，不再随 Release 发布；运行时包统一由网盘 runtime.7z 分发。")
 
 
 if __name__ == "__main__":
