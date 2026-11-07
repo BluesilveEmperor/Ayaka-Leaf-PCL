@@ -11,12 +11,15 @@ on:
         default: 'manual'
         type: string
 
-jobs:
-  hello:
-    name: Smoke Test
-    runs-on: [ubuntu-latest, x64, small]
-    steps:
-      - name: Checkout source code
-        uses: checkout
-      - name: Run build
-        run: echo "build success: ${{ inputs.note }}"
+stages:
+  build:
+    name: Build
+    jobs:
+      hello:
+        name: Smoke Test
+        runs-on: [ubuntu-latest, x64, small]
+        steps:
+          - name: Checkout source code
+            uses: checkout
+          - name: Run build
+            run: echo "build success: ${{ inputs.note }}"
