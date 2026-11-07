@@ -169,7 +169,7 @@ Official builds are published on [GitHub Releases](https://github.com/BluesilveE
 
 ### Alternative download (Aliyun Drive)
 
-If GitHub Releases is slow, `runtime.7z` is also shared via [Aliyun Drive](https://www.alipan.com/s/NYaZyrvbRmX) (to be uploaded by the maintainer later — check the share page for the actual file). Extract it with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
+If GitHub Releases is slow, `runtime.7z` is also shared via [Aliyun Drive](https://www.alipan.com/s/NYaZyrvbRmX) (to be uploaded by the maintainer later — check the share page for the actual file). If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract it with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
 
 ### Deployment
 

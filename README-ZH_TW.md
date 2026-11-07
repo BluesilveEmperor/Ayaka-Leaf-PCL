@@ -169,7 +169,7 @@ dotnet run --project "Plain Craft Launcher 2"
 
 ### 備用下載源（阿里雲盤）
 
-若 GitHub Releases 下載緩慢，可改用 [阿里雲盤分享連結](https://www.alipan.com/s/NYaZyrvbRmX) 取得 `runtime.7z`（由維護者後續上傳，以分享頁實際檔案為準）。以支援 7z 的解壓工具解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
+若 GitHub Releases 下載緩慢，可改用 [阿里雲盤分享連結](https://www.alipan.com/s/NYaZyrvbRmX) 取得 `runtime.7z`（由維護者後續上傳，以分享頁實際檔案為準）。若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
 
 ### 部署步驟
 
