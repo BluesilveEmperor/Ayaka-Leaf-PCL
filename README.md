@@ -215,6 +215,8 @@ dotnet run --project "Plain Craft Launcher 2"
 | 阿里云盘 | [阿里云盘分享链接](https://www.alipan.com/s/NYaZyrvbRmX) | 由维护者后续上传 `runtime.7z`，以分享页实际文件为准 |
 | 其他网盘 | 待补充 | 后续会补上更多网盘分享链接 |
 
+> 📁 **按版本分文件夹**：网盘分享页按启动器版本建立文件夹，请先进入对应版本目录（当前 `v2.0.0`）再下载 `runtime.7z`。主程序的备用网盘分享同样按版本分文件夹，两者必须取自**同一版本目录**，不要跨版本混用。
+
 若暂时没在网盘里找到，那多半是网络有点慢还没传完，或者作者有点懒还没上传——稍后再来看看。用支持 7z 的解压工具把 `runtime.7z` 解压到 exe 同级目录，得到 `runtime\images\`；其余部署步骤与 `runtime.zip` 完全相同。
 
 ### 备用下载：主程序（阿里云盘）
@@ -222,6 +224,8 @@ dotnet run --project "Plain Craft Launcher 2"
 GitHub Releases 是主程序的**主渠道**；下载不便时，可从以下备用分享获取 `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe`（以分享页实际文件为准）：
 
 - [阿里云盘分享链接](https://www.alipan.com/s/XBcaUK75hrU)
+
+> 📁 分享页**按启动器版本分文件夹**存放，请先进入对应版本目录（当前 `v2.0.0`）再取 exe，并与上文「主下载源（网盘）」的 `runtime.7z` 保持同一版本。
 
 > ⚠️ 这里只提供**主程序 exe**。运行时包 `runtime.7z` 是另一份资源，仍须从上文「主下载源（网盘）」获取；两个链接用途不同，不能互相替代。
 

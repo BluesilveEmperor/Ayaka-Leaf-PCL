@@ -178,6 +178,8 @@ The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every 
 | Aliyun Drive | [Aliyun Drive share](https://www.alipan.com/s/NYaZyrvbRmX) | `runtime.7z` to be uploaded by the maintainer; check the share page for the actual file |
 | Other cloud drives | To be added | More share links will be added later |
 
+> 📁 **Organised by version**: the share is split into folders per launcher version — open the folder matching your executable (currently `v2.0.0`) before downloading `runtime.7z`. The launcher's fallback share uses the same per-version folder layout; take both files from the **same version folder** and never mix versions.
+
 If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
 
 ### Alternative download: launcher executable (Aliyun Drive)
@@ -185,6 +187,8 @@ If the archive isn't there yet, it's either still crawling up on a slow connecti
 GitHub Releases remains the **primary channel** for the executable. If it is inconvenient, the same `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe` builds can also be fetched from this fallback share (check the share page for the actual files):
 
 - [Aliyun Drive share](https://www.alipan.com/s/XBcaUK75hrU)
+
+> 📁 The share is **organised into folders per launcher version** — open the folder for your release (currently `v2.0.0`) before downloading the exe, and keep it on the same version as `runtime.7z` from the section above.
 
 > ⚠️ This share contains **the launcher executable only**. The runtime archive `runtime.7z` is a separate resource — get it from the "Primary download sources (cloud drives)" section above. The two links are not interchangeable.
 
