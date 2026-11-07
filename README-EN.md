@@ -115,7 +115,7 @@ Five community relay nodes are connected automatically by default; custom nodes 
 
 ## 🚀 Quick Start
 
-1. Download `AyakaLauncher_Release_x64.exe` (or `AyakaLauncher_Release_ARM64.exe` on ARM64 devices) from [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); get the runtime archive `runtime.7z` from the "Primary download sources (cloud drives)" section below
+1. Download `AyakaLauncher_Release_x64.exe` (or `AyakaLauncher_Release_ARM64.exe` on ARM64 devices) from [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases); get the runtime archive `runtime.7z` from the "Primary download sources (cloud drives)" section; a fallback download for the executable is listed under "Alternative download: launcher executable" below
 2. Put the exe and the runtime archive in the same folder and extract it there to get `runtime\images\` (~4.2GB, see Release & Distribution below)
 3. Install the [.NET 10 Desktop Runtime](https://get.dot.net/10) matching the executable's architecture
 4. Enable WSL: in an elevated PowerShell, run `wsl --install --no-distribution`, then run `wsl --update`
@@ -180,6 +180,14 @@ The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every 
 
 If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; the remaining deployment steps are identical to `runtime.zip`.
 
+### Alternative download: launcher executable (Aliyun Drive)
+
+GitHub Releases remains the **primary channel** for the executable. If it is inconvenient, the same `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe` builds can also be fetched from this fallback share (check the share page for the actual files):
+
+- [Aliyun Drive share](https://www.alipan.com/s/XBcaUK75hrU)
+
+> ⚠️ This share contains **the launcher executable only**. The runtime archive `runtime.7z` is a separate resource — get it from the "Primary download sources (cloud drives)" section above. The two links are not interchangeable.
+
 ### Deployment
 
 1. Put `AyakaLauncher_Release_<platform>.exe` and the runtime archive (`runtime.7z`, or `runtime.zip` if that release ships it) in the same folder
@@ -197,7 +205,7 @@ CI cannot produce `runtime.zip` out of thin air: the runtime images are not in t
 
 ### Why the runtime is not in the repository
 
-The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **self-contains the complete TeX Live 2026 package set** via full `scheme-full` — 5,267 packages incl. ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
+The largest single image tarball is ~3.46GB (`sharelatex-server-pro`, which **self-contains the complete TeX Live 2026 package set** via full `scheme-full` — about 4,900 packages, with texlive growing to ~7–8GB including documentation, covering ctex/xeCJK and journal templates such as IEEEtran / revtex / elsarticle; sizes and build args follow `tools/runtime/texlive-full/Dockerfile`), far beyond GitHub's 100MB per-file limit for regular repositories, so the runtime images are distributed out-of-band as `runtime.7z` on cloud drives (and as a `runtime.zip` release attachment when available). The `runtime\` folder inside the repository is for local development only and is already ignored by `.gitignore`. To rebuild the image yourself, the repo ships two Dockerfiles: `tools/runtime/texlive-full/Dockerfile` (full scheme-full) and `tools/runtime/texlive-packages/Dockerfile` (curated collections, smaller) — build, then `wslc tag` + `wslc save` to export.
 
 ### Local packaging
 

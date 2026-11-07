@@ -120,7 +120,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）；运行时包 `runtime.7z` 从下文「主下载源（网盘）」获取
+1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）；运行时包 `runtime.7z` 从下文「主下载源（网盘）」获取；主程序另有备用下载，见下文「备用下载：主程序」
 2. 把 exe 与运行时包放到同一目录，解压得到 `runtime\images\`（约 4.2GB，详见下节）
 3. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架构与主程序一致）
 4. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
@@ -150,7 +150,7 @@ runtime\
    └─ redis-7.tar.gz                 # Redis 7（约 42MB）
 ```
 
-四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（部分版本另附 Release 附件 `runtime.zip`）。**v2.0.0 版本**分发的 `sharelatex-server-pro.tar.gz` **自包含 TeX Live 2026 收录的完整宏包集**（scheme-full 全量安装，5267 个宏包，约 4.8GB，含 ctex / xeCJK 中文与 IEEEtran / revtex / elsarticle 等期刊模板）；镜像内已预装全部宏包，部署后无需联网用 `tlmgr` 补装，开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
+四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（部分版本另附 Release 附件 `runtime.zip`）。**v2.0.0 版本**分发的 `sharelatex-server-pro.tar.gz` **自包含 TeX Live 2026 收录的完整宏包集**（scheme-full 全量安装，约 4900 个宏包，texlive 目录增至约 7–8GB、含文档，已覆盖 ctex / xeCJK 中文支持与 IEEEtran / revtex / elsarticle 等期刊模板；规模与构建参数以 `tools/runtime/texlive-full/Dockerfile` 为准）；镜像内已预装全部宏包，部署后无需联网用 `tlmgr` 补装，开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
@@ -216,6 +216,14 @@ dotnet run --project "Plain Craft Launcher 2"
 | 其他网盘 | 待补充 | 后续会补上更多网盘分享链接 |
 
 若暂时没在网盘里找到，那多半是网络有点慢还没传完，或者作者有点懒还没上传——稍后再来看看。用支持 7z 的解压工具把 `runtime.7z` 解压到 exe 同级目录，得到 `runtime\images\`；其余部署步骤与 `runtime.zip` 完全相同。
+
+### 备用下载：主程序（阿里云盘）
+
+GitHub Releases 是主程序的**主渠道**；下载不便时，可从以下备用分享获取 `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe`（以分享页实际文件为准）：
+
+- [阿里云盘分享链接](https://www.alipan.com/s/XBcaUK75hrU)
+
+> ⚠️ 这里只提供**主程序 exe**。运行时包 `runtime.7z` 是另一份资源，仍须从上文「主下载源（网盘）」获取；两个链接用途不同，不能互相替代。
 
 ### 部署步骤
 

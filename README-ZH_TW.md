@@ -115,7 +115,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 ## 🚀 快速開始
 
-1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）；執行環境包 `runtime.7z` 從下文「主下載源（網盤）」取得
+1. 從 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下載主程式 `AyakaLauncher_Release_x64.exe`（ARM64 裝置改用 `AyakaLauncher_Release_ARM64.exe`）；執行環境包 `runtime.7z` 從下文「主下載源（網盤）」取得；主程式另有備用下載，詳見下文「備用下載：主程式」
 2. 將 exe 與執行環境包放在同一目錄，解壓縮得到 `runtime\images\`（約 4.2GB，詳見下文「發佈與分發」）
 3. 安裝 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架構與主程式一致）
 4. 啟用 WSL：以系統管理員 PowerShell 執行 `wsl --install --no-distribution`，完成後執行 `wsl --update`
@@ -180,6 +180,14 @@ dotnet run --project "Plain Craft Launcher 2"
 
 若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具把 `runtime.7z` 解壓到 exe 同級目錄，得到 `runtime\images\`；其餘部署步驟與 `runtime.zip` 完全相同。
 
+### 備用下載：主程式（阿里雲盤）
+
+GitHub Releases 仍為主程式的**主要下載管道**；下載不便時，可從以下備用分享取得 `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe`（以分享頁實際檔案為準）：
+
+- [阿里雲盤分享連結](https://www.alipan.com/s/XBcaUK75hrU)
+
+> ⚠️ 此處僅提供**主程式 exe**。執行環境包 `runtime.7z` 屬另一份資源，仍須從上文「主下載源（網盤）」取得；兩個連結用途不同，不可互相替代。
+
 ### 部署步驟
 
 1. 將 `AyakaLauncher_Release_<平台>.exe` 與執行環境包（`runtime.7z`，或該版本提供的 `runtime.zip`）放在同一目錄
@@ -197,7 +205,7 @@ CI 無法憑空產生 `runtime.zip`——執行環境映像檔不進入倉庫，
 
 ### 為何 runtime 不進入程式碼倉庫
 
-單一映像檔包最大約 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整巨集套件集／scheme-full 全量），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
+單一映像檔包最大約 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整巨集套件集／scheme-full 全量約 4900 個套件），遠超 GitHub 一般倉庫 100MB 的單檔上限，因此執行環境映像檔不進入 git，改由網盤主下載源 `runtime.7z`（以及部分版本的 Release 附件 `runtime.zip`）分發。倉庫內的 `runtime\` 目錄僅供本機開發使用，已在 `.gitignore` 中忽略。需要自行重建該映像檔時，倉庫提供兩種 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）與 `tools/runtime/texlive-packages/Dockerfile`（精選集合，體積更小），建置後 `wslc tag` + `wslc save` 匯出覆蓋即可。
 
 ### 本機打包
 
