@@ -89,6 +89,8 @@
         <Resource Include="UI\Assets\*" />
         <Resource Include="UI\Assets\Shaders\*.ps" />
         <Resource Include="UI\Assets\IconPacks\**\*.svg" />
+        <!-- Ayakaleaf 容器补丁脚本（tools/ayakaleaf/generate-symbol-patch.py 生成） -->
+        <EmbeddedResource Include="Ayakaleaf\Assets\symbol-patch.js" />
     </ItemGroup>
     <!-- 项目自定义源生成器 -->
     <ItemGroup>

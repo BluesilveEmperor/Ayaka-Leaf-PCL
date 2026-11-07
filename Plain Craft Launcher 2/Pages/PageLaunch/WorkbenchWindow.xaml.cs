@@ -132,6 +132,10 @@ public partial class WorkbenchWindow
             Web.CoreWebView2.WebMessageReceived += Web_WebMessageReceived;
             // 不显示浏览器报错页细节，直接进入项目列表
             Web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+            // 符号面板补丁更新过则清理 HTTP 磁盘缓存：bundle 文件名带哈希但补丁只改内容，
+            // 不清缓存会因启发式缓存策略加载到旧版编辑器脚本
+            if (AyakaleafService.ConsumeSymbolPatchCacheRefresh())
+                await Web.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache);
             // 必须在首次导航之前注入，才能在编辑器页面加载时生效
             await InjectEditorBridgeAsync();
             await InjectInterfaceLanguageAsync();

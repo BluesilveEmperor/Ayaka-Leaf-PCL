@@ -816,6 +816,102 @@ public static class AyakaleafService
         }
     }
 
+    // ---------------- 符号面板拓展补丁 ----------------
+
+    /// <summary>符号面板补丁脚本资源名（PCL.Core 嵌入资源，由 tools/ayakaleaf/generate-symbol-patch.py 生成）。</summary>
+    private const string SymbolPatchResourceName = "PCL.Core.Ayakaleaf.Assets.symbol-patch.js";
+
+    /// <summary>补丁内容发生变化、编辑器 HTTP 磁盘缓存需要清理（bundle 文件名不变，防内容陈旧）。</summary>
+    private static volatile bool _symbolPatchChanged;
+
+    /// <summary>
+    /// 取走“符号面板补丁已更新，需清理编辑器缓存”标记（一次性；由工作台窗口在
+    /// 创建 WebView2 后消费，清理磁盘缓存保证下次加载到补丁后的 bundle 内容）。
+    /// </summary>
+    public static bool ConsumeSymbolPatchCacheRefresh()
+    {
+        var changed = _symbolPatchChanged;
+        _symbolPatchChanged = false;
+        return changed;
+    }
+
+    /// <summary>
+    /// 确保容器内符号面板拓展补丁生效（幂等，每次启动执行）：
+    /// 对 Overleaf 前端 ide bundle 打数据补丁，符号面板拓展为 LaTeX-Workshop 的
+    /// 10 个中文分类（合并原生 5 分类符号，共 763 个符号）。补丁脚本自带备份、
+    /// 语法校验与从基线重放，失败仅告警不阻断启动（面板保持原生 5 分类）。
+    /// </summary>
+    private static async Task EnsureSymbolPalettePatchAsync(Action<string> progress)
+    {
+        var script = ReadSymbolPatchScript();
+        if (string.IsNullOrEmpty(script))
+        {
+            LogWrapper.Warn("[Ayakaleaf] 未找到符号面板补丁脚本资源，符号面板保持原生状态");
+            return;
+        }
+
+        // 脚本约 110KB，gzip + base64 后约 35KB，低于 Linux 单参数 128KB 上限
+        var raw = Encoding.UTF8.GetBytes(script);
+        using var compressed = new MemoryStream();
+        using (var gzip = new GZipStream(compressed, CompressionLevel.Fastest))
+            gzip.Write(raw, 0, raw.Length);
+        var payload = Convert.ToBase64String(compressed.ToArray());
+
+        for (var attempt = 0; ; attempt++)
+        {
+            progress("应用符号面板拓展补丁…");
+            var r = await WslcInterop.RunAsync(
+                $"exec {OverleafContainer} sh -c \"echo {payload} | base64 -d | gunzip > /tmp/ayaka-symbol-patch.js" +
+                " && node /tmp/ayaka-symbol-patch.js\"", 120000);
+            if (r.IsSuccess)
+            {
+                LogWrapper.Info("[Ayakaleaf] 符号面板拓展补丁已应用：" + r.Stdout.Trim());
+                TryMarkSymbolPatchChanged(r.Stdout);
+                return;
+            }
+            if (attempt >= 2)
+            {
+                // 补丁失败不阻断启动：符号面板回退为原生 5 分类
+                LogWrapper.Warn($"[Ayakaleaf] 符号面板拓展补丁执行失败（符号面板保持原生状态）：{r.ErrorText?.Trim()}");
+                progress("警告：符号面板拓展未生效（补丁执行失败，服务不受影响）");
+                return;
+            }
+            await Task.Delay(2000);
+        }
+    }
+
+    private static string? ReadSymbolPatchScript()
+    {
+        try
+        {
+            using var stream = typeof(AyakaleafService).Assembly.GetManifestResourceStream(SymbolPatchResourceName);
+            if (stream is null) return null;
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 读取符号面板补丁脚本失败");
+            return null;
+        }
+    }
+
+    /// <summary>解析补丁脚本输出，内容变化时置位缓存清理标记（解析失败只影响缓存清理）。</summary>
+    private static void TryMarkSymbolPatchChanged(string stdout)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout.Trim());
+            if (doc.RootElement.TryGetProperty("changed", out var changed) &&
+                changed.ValueKind == JsonValueKind.True)
+                _symbolPatchChanged = true;
+        }
+        catch
+        {
+            // 输出非预期格式：仅跳过缓存清理标记
+        }
+    }
+
     // ---------------- 启停 ----------------
 
     /// <summary>
@@ -928,6 +1024,7 @@ public static class AyakaleafService
             progress);
         if (created) Config.Ayakaleaf.ContainerProfile = profile;
         await EnsureNginxPatchesAsync(progress);
+        await EnsureSymbolPalettePatchAsync(progress);
 
         progress("等待服务就绪…");
         for (var i = 0; i < StartProbeTimeoutSeconds / 2; i++)
