@@ -242,11 +242,24 @@
     window.dispatchEvent(new CustomEvent('cursor:editor:syncToPdf'))
   }
 
+  // 标记「这次同步由公式选区触发」，Part C（行内公式收窄）读取后清除；
+  // 工具栏/光标移动触发的同步不打标记，保持官方行为。
+  function markFormulaSync(line) {
+    try {
+      window.__ayakaFormulaSyncPending = { line: line ?? null, at: Date.now() }
+    } catch {
+      // 标记失败最多是不收窄，不能影响同步本身
+    }
+  }
+
   // 把光标位置挪到公式起点：官方 syncToPdf 读的是 useSynctex 里缓存的坐标，
   // 所以先派发一次 cursor:editor:update，等 React 写回 ref 再触发同步。
-  function dispatchSyncAt(row, column) {
+  function dispatchSyncAt(row, column, srcLine) {
     window.dispatchEvent(new CustomEvent('cursor:editor:update', { detail: { row, column } }))
-    window.setTimeout(dispatchSyncToPdf, AFTER_CURSOR_UPDATE_MS)
+    window.setTimeout(() => {
+      markFormulaSync(srcLine)
+      dispatchSyncToPdf()
+    }, AFTER_CURSOR_UPDATE_MS)
   }
 
   function run() {
@@ -261,6 +274,7 @@
       const text = selection.toString()
       if (!text || text.length > MAX_SELECTION_CHARS) return
       if (!looksLikeMathText(text)) return
+      markFormulaSync(null)
       dispatchSyncToPdf()
       return
     }
@@ -290,13 +304,14 @@
     const head = view.state.selection.main.head
 
     if (head >= hit.from && head <= hit.to) {
-      // 光标本来就在公式里，直接用官方记录的坐标同步
+      // 光标本来就在公式里，直接用官方记录的坐标同步（缓存的就是 head 位置）
+      markFormulaSync(view.state.doc.lineAt(head).number)
       dispatchSyncToPdf()
       return
     }
 
     const line = view.state.doc.lineAt(target)
-    dispatchSyncAt(line.number - 1, target - line.from)
+    dispatchSyncAt(line.number - 1, target - line.from, line.number)
   }
 
   function scheduleRun() {
@@ -323,7 +338,7 @@
 })();
 
 /* ===========================================================================
- * 高亮修正：/sync/code 响应消歧 + 高亮元素墨迹扫描扩框
+ * 高亮修正：/sync/code 响应消歧 + 行内公式 synctex 收窄 + 墨迹扫描扩框
  *
  * 实测依据（Overleaf Pro 服务端 + 前端 bundle 反解，2026-11）：
  *  - 前端请求层全部走原生 fetch；/sync/code 是 GET，响应形如
@@ -331,8 +346,10 @@
  *    响应的 pdf 数组被直接 setHighlights 渲染成绝对定位黄色 div
  *    （rgb(255,255,0)，opacity 0→0.5→0 淡入淡出，挂在 PDF 查看器容器上）。
  *  - 服务端只按源码行映射，column 参数不影响结果；
- *  - 同一矩形重复返回多次；多行环境会混入整栏宽行盒；
+ *    同一矩形重复返回多次；多行环境会混入整栏宽行盒；
  *    display/align 首行只返回 height=0 的整栏宽矩形（渲染不可见）。
+ *  - 行内公式的 /sync/code 响应只有整行行盒（column 也挖不出公式子盒），
+ *    需要客户端解析编译产物 output.synctex.gz 里的 math 记录自行收窄。
  * =========================================================================== */
 (() => {
   'use strict'
@@ -407,7 +424,219 @@
     return keep.length > 0 ? keep : rects
   }
 
+  /* ------------------------------------------------------------------ *
+   * C. 行内公式收窄：客户端解析 output.synctex.gz
+   *
+   * 原理（synctex 文本格式实测逆向，TeXLive 2026）：
+   *  - 坐标为 sp（1pt = 65536sp），PDF 矩形用 bp（1pt = 7200/7227 bp）；
+   *    /sync/code 的 h/v/height 与 synctex 盒子逐字段吻合（≤0.002bp）。
+   *  - `Input:<tag>:<path>` 源文件编号；`{<n>` 页开始；`$<tag>,<line>:<x>,<y>`
+   *    是 math 开始/结束锚点，交替配对，同一行内得到公式的水平区间。
+   *  - pmatrix 单元格（amsmath halign 的 `$##$` 模板）也会发 $ 记录，
+   *    由「响应里已有更细矩形就不收窄」条件保护，不会被误用。
+   *  - align/$$ 等要么没有 $ 记录、要么配对出零宽区间（按噪音丢弃）。
+   *
+   * 只在公式选区触发的同步（见 Part 1 的标记）且消歧后全为整行行盒时，
+   * 用 math 区间把行盒水平收窄到公式本身；任何一步拿不到数据都原样返回。
+   * ------------------------------------------------------------------ */
+
+  const SP_TO_BP = 7200 / (7227 * 65536) // sp → bp
+  const MIN_REGION_SP = 131072           // 2pt，窄于此的 math 区间按噪音丢弃
+  const FORMULA_FLAG_TTL_MS = 2500       // 公式选区标记的有效期
+  const SYNCTEX_FETCH_TIMEOUT_MS = 1200  // 收窄冷启动取 gz 的超时
+  const SYNCTEX_CACHE_MAX = 3            // 按 buildId 缓存解析结果的上限
+
+  const synctexUrlByBuild = new Map() // buildId → output.synctex.gz 下载 URL
+  const synctexCache = new Map()      // buildId → Promise<解析结果 | null>
+  const synctexCacheOrder = []        // LRU 顺序
+
+  function basename(p) {
+    const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+    return i < 0 ? p : p.slice(i + 1)
+  }
+
+  // 极简 synctex 解析：只取 Input / 页定界 / math 锚点三类记录
+  function parseSynctex(text) {
+    const fileTag = new Map() // basename → tag
+    const regions = new Map() // 'tag:line' → [{x0, x1, y, page}]（sp 单位）
+    const lines = text.split('\n')
+    let page = 0
+    let open = null
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i]
+      const c0 = ln.charCodeAt(0)
+      if (c0 === 73 /* 'I' */) {
+        if (ln.startsWith('Input:')) {
+          const m = /^Input:(\d+):(.+)$/.exec(ln)
+          if (m) fileTag.set(basename(m[2]), +m[1])
+        }
+        continue
+      }
+      if (c0 === 123 /* '{' */) {
+        const m = /^\{(\d+)\s*$/.exec(ln)
+        if (m) {
+          page = +m[1]
+          open = null
+        }
+        continue
+      }
+      if (c0 === 36 /* '$' */) {
+        const m = /^\$(\d+),(\d+):(-?\d+),(-?\d+)/.exec(ln)
+        if (!m) continue
+        const tag = +m[1]
+        const line = +m[2]
+        const x = +m[3]
+        const y = +m[4]
+        if (open && open.tag === tag && open.line === line) {
+          // 配对成功；宽度不足 2pt 的（含 $$ 空对、跨行负宽度）丢弃
+          if (x - open.x >= MIN_REGION_SP) {
+            const key = tag + ':' + line
+            let arr = regions.get(key)
+            if (!arr) {
+              arr = []
+              regions.set(key, arr)
+            }
+            arr.push({ x0: open.x, x1: x, y: open.y, page })
+          }
+          open = null
+        } else {
+          open = { tag, line, x, y }
+        }
+      }
+    }
+    return { fileTag, regions }
+  }
+
+  async function fetchSynctexParse(buildId) {
+    const url = synctexUrlByBuild.get(buildId)
+    if (!url || typeof DecompressionStream !== 'function') return null
+    const resp = await origFetch(url)
+    if (!resp || !resp.ok) return null
+    const buf = await resp.arrayBuffer()
+    const text = await new Response(
+      new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))
+    ).text()
+    return parseSynctex(text)
+  }
+
+  function getSynctexForBuild(buildId) {
+    let p = synctexCache.get(buildId)
+    if (!p) {
+      p = fetchSynctexParse(buildId).catch(() => null)
+      synctexCache.set(buildId, p)
+      synctexCacheOrder.push(buildId)
+      while (synctexCacheOrder.length > SYNCTEX_CACHE_MAX) {
+        synctexCache.delete(synctexCacheOrder.shift())
+      }
+    }
+    return p
+  }
+
+  // compile 响应里记录 synctex.gz 的下载 URL 并后台预取解析
+  function noteCompileResponse(resp) {
+    if (!resp || !resp.ok) return
+    const type = resp.headers.get('content-type') || ''
+    if (type.indexOf('json') < 0) return
+    resp.clone().json().then(data => {
+      if (!data || !Array.isArray(data.outputFiles)) return
+      for (const f of data.outputFiles) {
+        const url = f && f.url
+        if (!url || typeof url !== 'string') continue
+        if (String(f.path || url).indexOf('synctex.gz') < 0) continue
+        const build = String(f.build || data.buildId || '')
+        if (!build) continue
+        synctexUrlByBuild.set(build, url)
+        getSynctexForBuild(build)
+        break
+      }
+    }).catch(() => {})
+  }
+
+  function syncQueryParam(url, name) {
+    const m = new RegExp('[?&]' + name + '=([^&]*)').exec(url)
+    return m ? decodeURIComponent(m[1]) : ''
+  }
+
+  // 公式选区标记是否对本次 /sync/code 生效；生效则消费掉（一次性）
+  function consumeFormulaFlag(lineStr) {
+    const flag = window.__ayakaFormulaSyncPending
+    if (!flag) return false
+    if (Date.now() - (flag.at || 0) > FORMULA_FLAG_TTL_MS) {
+      try { delete window.__ayakaFormulaSyncPending } catch { }
+      return false
+    }
+    const line = +lineStr
+    if (!Number.isFinite(line)) return false
+    // 请求行号与标记行号需一致（±1 容忍官方前端行基差异）
+    if (flag.line != null && Math.abs(flag.line - line) > 1) return false
+    try { delete window.__ayakaFormulaSyncPending } catch { }
+    return true
+  }
+
+  // 行盒收窄主逻辑；不满足任何前提时原样返回输入
+  async function narrowWithSynctex(rects, syncUrl) {
+    if (!Array.isArray(rects) || rects.length === 0) return rects
+    const lineStr = syncQueryParam(syncUrl, 'line')
+    if (!consumeFormulaFlag(lineStr)) return rects
+
+    const buildId = syncQueryParam(syncUrl, 'buildId')
+    const file = syncQueryParam(syncUrl, 'file')
+    if (!buildId || !file) return rects
+    if (!synctexUrlByBuild.has(buildId)) return rects // 本页会话没见过这次编译
+
+    let parsed = null
+    let timerId = null
+    try {
+      parsed = await Promise.race([
+        getSynctexForBuild(buildId),
+        new Promise((resolve, reject) => {
+          timerId = setTimeout(() => reject(new Error('synctex timeout')), SYNCTEX_FETCH_TIMEOUT_MS)
+        })
+      ])
+    } catch {
+      return rects
+    } finally {
+      clearTimeout(timerId)
+    }
+    if (!parsed) return rects
+
+    const tag = parsed.fileTag.get(basename(file))
+    if (!tag) return rects
+    const regions = parsed.regions.get(tag + ':' + lineStr)
+    if (!regions || regions.length === 0) return rects
+
+    // 响应里已有更细矩形（多行环境/碎片盒）说明服务端本来就精确，不收窄
+    const maxW = rects.reduce((m, r) => Math.max(m, r.width || 0), 0)
+    if (rects.some(r => (r.width || 0) < 0.6 * maxW)) return rects
+
+    const narrowed = []
+    for (const row of rects) {
+      if (!row || typeof row.page !== 'number') continue
+      const rx0 = row.h || 0
+      const rx1 = rx0 + (row.width || 0)
+      for (const rg of regions) {
+        if (rg.page !== row.page) continue
+        const gx0 = rg.x0 * SP_TO_BP
+        const gx1 = rg.x1 * SP_TO_BP
+        const gy = rg.y * SP_TO_BP
+        // 公式基线落在行盒纵向范围内，且与行盒横向有交集
+        if (gy < (row.v || 0) - (row.height || 0) - EPS) continue
+        if (gy > (row.v || 0) + EPS) continue
+        if (gx1 < rx0 + EPS || gx0 > rx1 - EPS) continue
+        narrowed.push({
+          page: row.page,
+          h: gx0,
+          v: row.v,
+          width: gx1 - gx0,
+          height: row.height
+        })
+      }
+    }
+    return narrowed.length > 0 ? narrowed : rects
+  }
+
   const SYNC_CODE_URL_RE = /\/sync\/code\?/
+  const COMPILE_URL_RE = /\/project\/[^/?]+\/compile/
 
   function requestUrlOf(input) {
     if (typeof input === 'string') return input
@@ -415,12 +644,27 @@
     return ''
   }
 
-  // 包装 window.fetch：只在 /sync/code 命中时改写响应体，其余原样透传
+  // 包装 window.fetch：
+  //  - /sync/code 命中时消歧 + （公式选区触发的）行内公式收窄后改写响应体；
+  //  - compile 响应只旁路记录 synctex.gz URL，本身原样透传；
+  //  - 其余请求原样透传。
   const origFetch = window.fetch
   if (typeof origFetch === 'function') {
     window.fetch = function () {
+      const url = requestUrlOf(arguments[0])
+      const init = arguments[1]
+      const isSync = SYNC_CODE_URL_RE.test(url)
+      const isCompile =
+        !isSync &&
+        COMPILE_URL_RE.test(url) &&
+        init &&
+        String(init.method || '').toUpperCase() === 'POST'
+
       const promise = origFetch.apply(this, arguments)
-      if (!SYNC_CODE_URL_RE.test(requestUrlOf(arguments[0]))) return promise
+      if (isCompile) {
+        promise.then(noteCompileResponse).catch(() => {})
+      }
+      if (!isSync) return promise
 
       return promise.then(resp => {
         if (!resp || !resp.ok) return resp
@@ -429,9 +673,10 @@
 
         // clone 之后读，失败时仍能把原响应交还给应用
         const clone = resp.clone()
-        return clone.json().then(data => {
+        return clone.json().then(async data => {
           if (!data || !Array.isArray(data.pdf)) return resp
-          const filtered = disambiguatePdfRects(data.pdf)
+          let filtered = disambiguatePdfRects(data.pdf)
+          filtered = await narrowWithSynctex(filtered, url)
           if (filtered === data.pdf) return resp
 
           const headers = new Headers(resp.headers)
@@ -671,4 +916,8 @@
   }
   // 调试/自测用：暴露消歧函数
   window.__ayakaDisambiguate = disambiguatePdfRects
+  // 调试/自测用：暴露 synctex 解析、compile 响应记录与收窄函数
+  window.__ayakaParseSynctex = parseSynctex
+  window.__ayakaNoteCompile = noteCompileResponse
+  window.__ayakaNarrow = narrowWithSynctex
 })()
