@@ -1,0 +1,70 @@
+name: Release
+
+# 推送 v* 标签时触发：构建 x64/ARM64 → 生成 SHA256 伴生校验文件 → 自动创建 GitHub Release
+# 发布命名与 release.py --upload 保持一致（AyakaLauncher_Release_<平台>.exe[.sha256]），
+# 供启动器内 UpdatesGitHubModel 在线更新检查与校验使用。
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify tag matches metadata.json version
+        shell: pwsh
+        run: |
+          $meta = Get-Content "Plain Craft Launcher 2/metadata.json" -Raw | ConvertFrom-Json
+          $base = $meta.version.base
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          if ($base -ne $tag) {
+            throw "标签 v$tag 与 metadata.json version.base（$base）不一致；请先运行 python release.py --bump --version $tag 后再打标签"
+          }
+          Write-Host "版本一致性校验通过：$base"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish (x64)
+        run: dotnet publish "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -p:Configuration=Release -p:Platform=x64 -p:DeleteExistingFiles=true -o ./artifact/x64 --no-self-contained
+
+      - name: Publish (ARM64)
+        run: dotnet publish "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -p:Configuration=Release -p:Platform=ARM64 -p:DeleteExistingFiles=true -o ./artifact/arm64 --no-self-contained
+
+      - name: Collect assets and generate SHA256 checksums
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          foreach ($plat in @('x64', 'arm64')) {
+            $src = "artifact/$plat/AyakaLauncher.exe"
+            if (-not (Test-Path $src)) { throw "未找到构建产物：$src" }
+            $dst = "release/AyakaLauncher_Release_$plat.exe"
+            Copy-Item $src $dst -Force
+            $hash = (Get-FileHash $dst -Algorithm SHA256).Hash.ToLower()
+            Set-Content -Path "$dst.sha256" -Value $hash -Encoding ascii
+            Write-Host "$dst  sha256=$hash  $([math]::Round((Get-Item $dst).Length / 1MB, 1)) MB"
+          }
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            release/AyakaLauncher_Release_x64.exe
+            release/AyakaLauncher_Release_x64.exe.sha256
+            release/AyakaLauncher_Release_arm64.exe
+            release/AyakaLauncher_Release_arm64.exe.sha256
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
