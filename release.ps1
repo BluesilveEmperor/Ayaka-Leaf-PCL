@@ -19,14 +19,18 @@
 # 本机日常运行请用 dist\（junction，不占额外空间）；
 # 对外发布只用本脚本产出的 exe，运行时包由网盘 runtime.7z 分发。
 #
+# 目标平台默认 auto：自动探测本机处理器架构（x86_64/AMD64 → x64，
+# ARM64/AArch64 → arm64），显式指定 -Platform x64/arm64 可覆盖；
+# runtime.zip 与 CPU 架构无关，任意目标平台均会产出（通用运行时包）。
+#
 # 输出行为：
 #   dotnet publish 仅在失败时输出 MSBuild 日志，成功时保持安静（不刷 warning）；
 #   打包 runtime.zip / 整合包时显示字节级进度条（Write-Progress）。
 #
-# 用法：pwsh release.ps1 [-Configuration Release] [-Platform x64] [-WithBundle]
+# 用法：pwsh release.ps1 [-Configuration Release] [-Platform auto]
 param(
     [string]$Configuration = 'Release',
-    [string]$Platform = 'x64',
+    [string]$Platform = 'auto',
     [switch]$WithBundle
 )
 
@@ -102,6 +106,30 @@ function Get-RuntimeEntries {
         $rel = $_.FullName.Substring($runtimeDir.Length).TrimStart('\', '/').Replace('\', '/')
         @{ Src = $_.FullName; Name = ('runtime/' + $rel) }
     }
+}
+
+# ---- 平台自动探测：x86_64/AMD64 → x64；ARM64/AArch64 → arm64 ----
+# PROCESSOR_ARCHITEW6432 优先——WOW64 下它才是 OS 真实架构
+# （x64 进程跑在 ARM64 Windows 模拟层下时同样适用）。
+function Get-DetectedPlatform {
+    $raw = $env:PROCESSOR_ARCHITEW6432
+    if (-not $raw) { $raw = $env:PROCESSOR_ARCHITECTURE }
+    $arch = "$raw".Trim().ToUpperInvariant()
+    switch ($arch) {
+        'AMD64'   { return @{ Target = 'x64';   Raw = $raw } }
+        'X86_64'  { return @{ Target = 'x64';   Raw = $raw } }
+        'X64'     { return @{ Target = 'x64';   Raw = $raw } }
+        'ARM64'   { return @{ Target = 'arm64'; Raw = $raw } }
+        'AARCH64' { return @{ Target = 'arm64'; Raw = $raw } }
+        'X86'     { throw '检测到 32 位 x86 系统；AyakaLauncher 需要 64 位 Windows（x64 / ARM64）。' }
+        default   { throw "无法识别本机处理器架构：$raw；请用 -Platform 显式指定 x64 或 arm64。" }
+    }
+}
+
+if ($Platform -eq 'auto') {
+    $detected = Get-DetectedPlatform
+    $Platform = $detected.Target
+    Write-Host ("自动探测本机架构：{0} → 目标平台 {1}" -f $detected.Raw, $Platform)
 }
 
 # ---- 0. 前置校验 ----

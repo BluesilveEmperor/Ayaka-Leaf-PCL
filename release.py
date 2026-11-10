@@ -19,7 +19,11 @@ exe 被占用（启动器正在运行）时只告警不失败。
 输出行为：dotnet publish 仅在失败时输出 MSBuild 日志，成功时保持安静；
 打包 runtime.zip / 整合包时显示字节级进度条。
 
-用法：python release.py [--configuration Release] [--platform x64] [--with-bundle]
+目标平台默认 auto：自动探测本机处理器架构（x86_64/AMD64 → x64，
+ARM64/AArch64 → arm64），显式指定 --platform x64/arm64 可覆盖；
+runtime.zip 与 CPU 架构无关，任意目标平台均会产出（通用运行时包）。
+
+用法：python release.py [--configuration Release] [--platform auto] [--with-bundle]
       python release.py --bump [--version X.Y.Z] [--code N]     # 版本号同步升级
       python release.py --upload [--platform x64[,arm64]] [--tag vX.Y.Z]
                                [--release-title 标题] [--notes-file 文件] [--prerelease]
@@ -168,6 +172,25 @@ def get_file_version(path: Path) -> str:
     ls = int.from_bytes(fixed[12:16], "little")
     full = f"{ms >> 16}.{ms & 0xFFFF}.{ls >> 16}.{ls & 0xFFFF}"
     return re.sub(r"\.0$", "", full)
+
+
+def detect_platform() -> tuple[str, str]:
+    """探测本机处理器架构，返回 (目标平台, 原始架构名)。
+
+    x86_64 / AMD64 → x64；ARM64 / AArch64 → arm64；32 位 x86 直接报错
+    （WSL 3.0 要求 64 位 Windows）。PROCESSOR_ARCHITEW6432 优先——
+    WOW64 下它才是 OS 真实架构（x64 进程跑在 ARM64 Windows 模拟层下时同样适用）。
+    """
+    raw = (os.environ.get("PROCESSOR_ARCHITEW6432")
+           or os.environ.get("PROCESSOR_ARCHITECTURE") or "").strip()
+    arch = raw.upper()
+    if arch in ("AMD64", "X86_64", "X64"):
+        return "x64", raw
+    if arch in ("ARM64", "AARCH64"):
+        return "arm64", raw
+    if arch == "X86":
+        fail("检测到 32 位 x86 系统；AyakaLauncher 需要 64 位 Windows（x64 / ARM64）。")
+    fail(f"无法识别本机处理器架构：{raw or '未知'}；请用 --platform 显式指定 x64 或 arm64。")
 
 
 def publish(configuration: str, platform: str) -> None:
@@ -340,7 +363,7 @@ def main() -> None:
     setup_stdio()
     parser = argparse.ArgumentParser(description="AyakaLauncher 发布打包脚本")
     parser.add_argument("--configuration", default="Release", help="构建配置（默认 Release）")
-    parser.add_argument("--platform", default="x64", help="目标平台（默认 x64；--upload 模式支持逗号分隔多平台）")
+    parser.add_argument("--platform", default="auto", help="目标平台（默认 auto：自动探测本机架构 x86_64→x64 / ARM64→arm64；--upload 模式支持逗号分隔多平台）")
     parser.add_argument("--with-bundle", action="store_true", help="额外打包 exe + runtime 整合包")
     parser.add_argument("--bump", action="store_true", help="同步升级版本号（metadata.json + csproj）")
     parser.add_argument("--version", default=None, help="--bump 指定版本号 X.Y.Z（缺省 minor+1、patch 归零）")
@@ -358,11 +381,18 @@ def main() -> None:
         if not args.upload:
             return
     if args.upload:
-        upload([p.strip() for p in args.platform.split(",") if p.strip()],
-               args.tag, args.release_title, args.notes_file, args.prerelease)
+        platform_list = [p.strip() for p in args.platform.split(",") if p.strip()]
+        if any(p.lower() == "auto" for p in platform_list):
+            detected, raw_arch = detect_platform()
+            print(f"自动探测本机架构：{raw_arch} → 目标平台 {detected}")
+            platform_list = [detected if p.lower() == "auto" else p for p in platform_list]
+        upload(platform_list, args.tag, args.release_title, args.notes_file, args.prerelease)
         return
 
     configuration, platform = args.configuration, args.platform
+    if platform.lower() == "auto":
+        platform, raw_arch = detect_platform()
+        print(f"自动探测本机架构：{raw_arch} → 目标平台 {platform}")
 
     # ---- 0. 前置校验 ----
     # 0.1 项目根必须存在 runtime/ 目录；缺失时提示先获取网盘分发的 runtime.7z。
