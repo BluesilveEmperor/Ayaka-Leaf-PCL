@@ -54,6 +54,9 @@ public partial class Application
                     {
                         Environment.Exit((int)ModBase.ProcessReturnValues.Fail);
                     }
+                else if (args[0] == "update")
+                    // 更新替换：update <旧进程pid> "<旧exe路径>" "<新exe路径>" <是否重启>
+                    _HandleUpdateArguments(args);
 
             // 初始化文件结构
             Directory.CreateDirectory(ModBase.exePath + @"PCL\Pictures");
@@ -115,6 +118,89 @@ public partial class Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             FormMain.EndProgramForce(ModBase.ProcessReturnValues.Exception);
+        }
+    }
+
+    /// <summary>
+    ///     处理更新替换参数：update <旧进程pid> "<旧exe路径>" "<新exe路径>" <是否重启>。
+    ///     由旧版本进程以隐藏窗口方式启动，等待其退出后把新 exe 覆盖到原位置，全程日志写入 PCL\update.log。
+    /// </summary>
+    private static void _HandleUpdateArguments(string[] args)
+    {
+        var logFile = ModBase.exePath + @"PCL\update.log";
+
+        void Log(string message)
+        {
+            try
+            {
+                Directory.CreateDirectory(ModBase.exePath + "PCL");
+                File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\r\n");
+            }
+            catch
+            {
+                // 日志失败不影响更新流程
+            }
+        }
+
+        try
+        {
+            var pid = int.Parse(args[1]);
+            var oldPath = args[2].Trim('"');
+            var newPath = args[3].Trim('"');
+            var restart = args.Length > 4 && bool.TryParse(args[4], out var shouldRestart) && shouldRestart;
+            Log($"更新程序启动：pid={pid}，旧={oldPath}，新={newPath}，restart={restart}");
+
+            // 等待旧进程退出（≤10s；超时继续尝试，不破坏现场）
+            try
+            {
+                using var oldProcess = Process.GetProcessById(pid);
+                if (oldProcess.WaitForExit(10000))
+                    Log($"旧进程 {pid} 已退出");
+                else
+                    Log($"警告：旧进程 {pid} 在 10 秒内未退出，继续尝试替换");
+            }
+            catch (ArgumentException)
+            {
+                Log($"旧进程 {pid} 已不存在");
+            }
+
+            // 替换文件（重试 3 次，间隔 500ms）
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.Copy(newPath, oldPath, true);
+                    Log($"文件替换成功（第 {attempt} 次尝试）");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log($"文件替换失败（第 {attempt} 次尝试）：{ex.Message}");
+                    if (attempt >= 3)
+                    {
+                        Log("替换重试次数耗尽，更新失败");
+                        MessageBox.Show(
+                            "更新替换文件失败，请手动将新版本文件覆盖到原位置。\r\n" + ex.Message,
+                            "AyakaLauncher 更新", MessageBoxButton.OK, MessageBoxImage.Error);
+                        Environment.Exit((int)ModBase.ProcessReturnValues.Fail);
+                    }
+
+                    System.Threading.Thread.Sleep(500);
+                }
+            }
+
+            if (restart)
+            {
+                Log($"重启程序：{oldPath}");
+                Process.Start(new ProcessStartInfo(oldPath));
+            }
+
+            Environment.Exit((int)ModBase.ProcessReturnValues.TaskDone);
+        }
+        catch (Exception ex)
+        {
+            Log("更新流程异常：" + ex);
+            Environment.Exit((int)ModBase.ProcessReturnValues.Fail);
         }
     }
 

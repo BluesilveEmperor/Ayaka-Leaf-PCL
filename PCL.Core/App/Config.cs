@@ -98,9 +98,9 @@ public static partial class Config
         [ConfigItem<UpdateChannel>("SystemUpdateChannel", UpdateChannel.Release, ConfigSource.Local)] public partial UpdateChannel UpdateChannel { get; set; }
             
         /// <summary>
-        /// Mirror 酱 CDK。
+        /// 更新通道总开关（GitHub Releases 在线更新）。
         /// </summary>
-        [ConfigItem<string>("SystemMirrorChyanKey", "", ConfigSource.SharedEncrypt)] public partial string MirrorChyanKey { get; set; }
+        [ConfigItem<bool>("SystemUpdateChannelEnabled", true, ConfigSource.Local)] public partial bool ChannelEnabled { get; set; }
     }
 
     /// <summary>

@@ -33,6 +33,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - **管理员与账号联动** —— 首个本地用户自动开通服务端管理员；账户中心直达管理面板、一键重置 Ayakaleaf 密码；删除本地用户时同步清理服务端账号
 - **全量备份** —— 全部数据卷 + 账号凭据 + 本地用户库 + 启动器配置一键打包为单个 zip，一键恢复
 - **镜像版本管理** —— 镜像页显示当前使用镜像与版本；导入新版本镜像包后重启服务，自动以新镜像重建容器（数据卷跨版本保留）
+- **在线更新** —— 基于 GitHub Releases 的自动更新通道：启动时按设置检查新版本，下载后 SHA256 校验并自动替换程序文件，设置中可关闭；详见「在线更新」章节
 
 ## 📐 编辑器联动
 
@@ -42,6 +43,16 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - 只对公式选区生效；选中普通文字、复制粘贴不受影响
 - 右侧需已成功编译出 PDF 才会触发（未编译时静默跳过，不弹错误提示）
 - 高亮框来自 SyncTeX 记录的位置，并经过本地几何消歧与墨迹扫描校正，多行环境、多栏排版下也能框住实际内容
+
+## 🔄 在线更新
+
+从 2.1.0 起内置基于 GitHub Releases 的在线更新通道：
+
+- **通道行为**：启动时按「设置 → 启动器更新」中选择的更新方式检查新版本（自动下载并安装 / 自动下载并提示更新 / 仅提示有新版本 / 不自动检查），下载完成后进行 SHA256 校验，再自动替换程序文件；也可在该页点击「检查更新」手动触发
+- **总开关**：取消勾选「启用更新通道」后，启动器完全不检查、不下载更新
+- **下载加速**：优先经 ghfast.top / gh-proxy.com 加速下载，加速站点不可用时自动回退直连
+- **独立版本线**：版本号为本项目独立维护，与上游 PCL2-CE 的版本号无关
+- **存量版本**：2.0.0 及之前的版本未启用更新通道，需手动下载一次新版 exe 替换，此后即可在线更新；已有账号数据与配置不受升级影响
 
 ## 🤝 团队协作与远程协作
 
@@ -287,3 +298,5 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 - [Meloong-Git/PCL](https://github.com/Meloong-Git/PCL) —— 上游原项目
 - [Overleaf](https://github.com/overleaf/overleaf) —— 内嵌的协作 LaTeX 服务
 - [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro) —— 上游 Overleaf 定制服务端，本项目内嵌运行时与工作台的服务端来源
+- [Campfire](https://github.com/Xocio/Campfire) —— 异地 / 异网协作方案与「營火橘」主题色的设计参考
+- [LaTeX-Workshop](https://github.com/James-Yu/LaTeX-Workshop) —— 符号面板拓展所采纳的全量符号集来源

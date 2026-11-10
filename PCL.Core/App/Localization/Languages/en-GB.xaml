@@ -2472,11 +2472,6 @@
     <sys:String x:Key="Setup.About.SourceCode">Source code</sys:String>
     <sys:String x:Key="Setup.About.SponsorOriginalAuthor">Sponsor original author</sys:String>
     <sys:String x:Key="Setup.About.Title">About</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.CopyrightText">Copyright © 龙腾猫跃 2016. All Rights Reserved.&#xD;Computer Software Copyright Registration No.: 2020SR0875133&#xD;Report violations to: hexdragon@vip.qq.com&#xD;NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.OpenSource">Source code</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.PrivacyText">The User Agent of this software includes the launcher version number to count the number of users on each version.&#xD;Other than this, this software will not upload any other information to the developers.</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.TermsAndDisclaimer">ToS &amp; Disclaimer</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.Title">Upstream legal information</sys:String>
     <sys:String x:Key="Setup.About.Version.Info">Current version: %VERSION% (%BRANCH%, %VERSIONCODE%, %COMMIT_HASH%)</sys:String>
 
     <!-- Setup.About.EasterEgg -->
@@ -3577,9 +3572,11 @@
     <sys:String x:Key="Update.Error.FileNotFound">Update file not found</sys:String>
     <sys:String x:Key="Update.Error.OperationFailed">An update operation failed. See the details below.</sys:String>
     <sys:String x:Key="Update.Error.Sha256Mismatch">Update file SHA256 mismatch. Expected: {0}, actual: {1}</sys:String>
+    <sys:String x:Key="Update.Error.Sha256Missing">The GitHub Release is missing the SHA256 checksum file, so the update cannot be verified. Please contact the developer.</sys:String>
     <sys:String x:Key="Update.Error.UnableToGetUpdate">Unable to get update information</sys:String>
     <sys:String x:Key="Update.Error.UpdateBlocked">Update failed</sys:String>
     <sys:String x:Key="Update.Error.UpdateBlockedMessage">Ayaka cannot update because it was blocked by Windows Security or does not have sufficient permissions.&#xA;Please add the Ayaka folder to the exclusion list, or manually replace the current file with {0}PCL\Plain Craft Launcher Community Edition.exe!</sys:String>
+    <sys:String x:Key="Update.Latest">You are already on the latest version!</sys:String>
     <sys:String x:Key="Update.Service.PclCe">Ayaka service</sys:String>
     <sys:String x:Key="Update.Title">Launcher update</sys:String>
 

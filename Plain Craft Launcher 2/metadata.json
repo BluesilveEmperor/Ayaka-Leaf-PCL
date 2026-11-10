@@ -1,10 +1,10 @@
 {
   "name": "AyakaLauncher",
   "version": {
-    "base": "2.0.0",
+    "base": "2.1.0",
     "upstream": "2.12.1",
     "suffix": "",
-    "code": 2000
+    "code": 2001
   },
   "licenses": [
     {
@@ -89,7 +89,19 @@
       "name": "DotNet.Glob",
       "info": "Copyright © 2015-present Darrell Tunnell\nLicensed under the MIT license.",
       "website": "https://github.com/dazinator/DotNet.Glob",
-      "license": "https://github.com/dazinator/DotNet.Glob/blob/master/LICENSE"
+      "license": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "name": "Microsoft.Web.WebView2",
+      "info": "Copyright © Microsoft\nLicensed under the MIT license.",
+      "website": "https://learn.microsoft.com/microsoft-edge/webview2/",
+      "license": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "name": "Overleaf (ShareLaTeX)",
+      "info": "Copyright © Overleaf\nLicensed under the GNU AGPL-3.0 license.",
+      "website": "https://github.com/overleaf/overleaf",
+      "license": "https://github.com/overleaf/overleaf/blob/main/LICENSE"
     }
   ]
 }

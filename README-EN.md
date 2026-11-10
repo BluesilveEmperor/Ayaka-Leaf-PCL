@@ -28,6 +28,7 @@ This project is **fully decoupled from Minecraft**: it no longer contains any MC
 - **Remote collaboration** — EasyTier-based virtual networking: the host opens the local Overleaf service with a one-click invite code; remote peers join the virtual network and get port forwards automatically — no public IP or port mapping needed. See the "Remote Collaboration" chapter
 - **Portable account isolation** — Account database, credentials and user data all live next to the launcher exe; copy the folder for a fully portable install, and multiple copies never share or collide accounts
 - **Theme colors** — Four built-in theme colors to switch at will — Sky Blue, Totoro Blue, Crash Blue and Campfire Orange (Campfire's signature #E2680C) — adapted to both light and dark modes
+- **Online updates** — An auto-update channel built on GitHub Releases: new versions are checked at startup per your settings, downloaded with SHA256 verification and the exe is replaced automatically; can be turned off in Settings. See the "Online Updates" chapter
 
 ## 📐 Editor Sync
 
@@ -37,6 +38,16 @@ Select a piece of formula code in the workbench and the PDF pane jumps to the re
 - Only formula selections trigger it; selecting plain text, copying and pasting are unaffected
 - Requires a successfully compiled PDF; it stays silent when no PDF exists (no error toasts)
 - Highlight boxes come from SyncTeX positions, refined by local geometry disambiguation and ink scanning, so they wrap the actual content even in multi-line environments and multi-column layouts
+
+## 🔄 Online Updates
+
+Starting with 2.1.0 the launcher ships an online update channel built on GitHub Releases:
+
+- **Behavior**: at startup new versions are checked according to the update mode chosen in "Settings → Launcher Update" (auto download & install / auto download & announce / announce only / never check); downloads are verified with SHA256 and the exe is replaced automatically. A manual "Check for updates" button is also available on that page
+- **Master switch**: unchecking "Enable update channel" stops all update checks and downloads
+- **Download acceleration**: downloads prefer the ghfast.top / gh-proxy.com mirrors and fall back to a direct connection when they are unavailable
+- **Independent version line**: version numbers are maintained independently for this project and are unrelated to upstream PCL2-CE versions
+- **Legacy builds**: 2.0.0 and earlier did not ship the update channel — download the new exe manually once and replace the old file; online updates work from then on. Existing account data and settings survive upgrades
 
 ## 🤝 Team Collaboration & Remote Collaboration
 

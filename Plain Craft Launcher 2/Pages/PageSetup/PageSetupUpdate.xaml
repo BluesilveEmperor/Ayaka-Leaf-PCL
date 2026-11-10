@@ -25,18 +25,44 @@
                                VerticalAlignment="Center" />
                         <TextBlock x:Name="TextCurrentVersion" Text="AyakaLauncher" FontWeight="Bold" FontSize="20"
                                    Grid.Row="0" Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" />
-                        <TextBlock x:Name="TextCurrentDesc" Text="本地版未启用在线更新" FontSize="14" Grid.Row="2" Grid.Column="2"
+                        <TextBlock x:Name="TextCurrentDesc" Text="正在使用 GitHub Releases 更新通道" FontSize="14" Grid.Row="2" Grid.Column="2"
                                    HorizontalAlignment="Left" VerticalAlignment="Top" />
                     </Grid>
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Height="Auto" Margin="0,15" x:Name="CardUpdateChannel">
+                <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="更新通道" FontWeight="Bold" />
+                    <local:MyCheckBox x:Name="CheckUpdateEnabled" Text="启用更新通道" Height="22" Margin="-1,10,0,7"
+                                      Change="CheckUpdateEnabled_OnChange" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="更新方式：" VerticalAlignment="Center" />
+                        <local:MyComboBox x:Name="ComboUpdateMode" Grid.Column="1" VerticalAlignment="Center"
+                                          SelectionChanged="ComboUpdateMode_OnChange">
+                            <local:MyComboBoxItem Content="自动下载并安装" />
+                            <local:MyComboBoxItem Content="自动下载并提示更新" />
+                            <local:MyComboBoxItem Content="仅提示有新版本" />
+                            <local:MyComboBoxItem Content="不自动检查" />
+                        </local:MyComboBox>
+                        <local:MyButton x:Name="BtnCheckUpdate" Grid.Column="3" Text="检查更新" Padding="15,6"
+                                        Click="BtnCheckUpdate_Click" />
+                    </Grid>
+                    <TextBlock x:Name="TextUpdateChannelDesc" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </local:MyCard>
             <local:MyCard Height="Auto" Margin="0,15">
                 <StackPanel Margin="20,15,20,15">
                     <TextBlock Text="更新说明" FontWeight="Bold" />
                     <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                               Text="AyakaLauncher 为本地分发的定制版本，未启用在线更新功能。" />
+                               Text="更新通过 GitHub Releases 分发，下载完成后进行 SHA256 校验，再自动替换程序文件。若加速站点不可用会自动回退直连。" />
                     <TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
-                               Text="如需升级，请向版本提供方获取最新的发行包，直接替换本程序文件即可。已有账号数据与游戏目录会自动保留，不受升级影响。" />
+                               Text="版本号为本项目独立版本线，与上游 PCL2-CE 无关。旧版本（2.0.0 及之前未启用更新通道的版本）需手动下载一次新版 exe 替换，此后即可在线更新。已有账号数据与配置不受升级影响。" />
                 </StackPanel>
             </local:MyCard>
         </StackPanel>

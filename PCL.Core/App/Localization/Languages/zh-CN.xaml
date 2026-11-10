@@ -2519,11 +2519,6 @@
     <sys:String x:Key="Setup.About.SourceCode">查看源代码</sys:String>
     <sys:String x:Key="Setup.About.SponsorOriginalAuthor">赞助原作者</sys:String>
     <sys:String x:Key="Setup.About.Title">关于</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.CopyrightText">Copyright © 龙腾猫跃 2016. All Rights Reserved.&#xD;计算机软件著作权登记号：2020SR0875133&#xD;违法违规行为举报投诉邮箱：hexdragon@vip.qq.com&#xD;非 MINECRAFT 官方产品。未经 MOJANG 或 MICROSOFT 批准，也不与 MOJANG 或 MICROSOFT 关联。</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.OpenSource">开源代码</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.PrivacyText">本软件的 User Agent 中包含启动器的版本号，以统计各版本的用户数量。&#xD;除此之外，本软件不会向开发者上传任何其他信息。</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.TermsAndDisclaimer">用户协议与免责声明</sys:String>
-    <sys:String x:Key="Setup.About.UpstreamLegal.Title">上游版权与法律信息</sys:String>
     <sys:String x:Key="Setup.About.Version.Info">当前版本: %VERSION% (%BRANCH%, %VERSIONCODE%, %COMMIT_HASH%)</sys:String>
 
     <!-- Setup.About.EasterEgg -->
@@ -3633,9 +3628,11 @@
     <sys:String x:Key="Update.Error.FileNotFound">找不到更新文件</sys:String>
     <sys:String x:Key="Update.Error.OperationFailed">更新操作失败。请查看错误详情。</sys:String>
     <sys:String x:Key="Update.Error.Sha256Mismatch">更新文件 SHA256 不正确，应该为 {0}，实际为 {1}</sys:String>
+    <sys:String x:Key="Update.Error.Sha256Missing">GitHub Release 缺少 SHA256 校验文件，无法验证更新包完整性，请联系开发者</sys:String>
     <sys:String x:Key="Update.Error.UnableToGetUpdate">无法获取更新</sys:String>
     <sys:String x:Key="Update.Error.UpdateBlocked">更新失败</sys:String>
     <sys:String x:Key="Update.Error.UpdateBlockedMessage">由于被 Windows 安全中心拦截，或者存在权限问题，导致 Ayaka 无法更新。&#xA;请将 Ayaka 所在文件夹加入白名单，或者手动用 {0}PCL\Plain Craft Launcher Community Edition.exe 替换当前文件！</sys:String>
+    <sys:String x:Key="Update.Latest">当前已是最新版本！</sys:String>
     <sys:String x:Key="Update.Service.PclCe">Ayaka 服务</sys:String>
     <sys:String x:Key="Update.Title">启动器更新</sys:String>
 

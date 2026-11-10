@@ -36,35 +36,35 @@
                         Margin="0,6,0,0"
                         LineHeight="19"
                         TextWrapping="Wrap"
-                        Text="· 内置本地用户系统：注册、登录、切换用户与用户管理。&#x0a;· 内嵌 Ayakaleaf 运行时：无需预装 Docker 或 WSL 发行版，一键部署，完全离线可用。&#x0a;· 本地版不连接社区服务，也不检查在线更新。" />
+                        Text="· 内置本地用户系统：注册、登录、切换用户与用户管理。&#x0a;· 内嵌 Ayakaleaf 运行时：无需预装 Docker 或 WSL 发行版，一键部署，完全离线可用。&#x0a;· 更新通过 GitHub Releases 分发，可在设置的「启动器更新」页管理更新通道。" />
                 </StackPanel>
             </local:MyCard>
             <local:MyCard
                 Margin="0,0,0,15"
                 CanSwap="True"
                 IsSwapped="True"
-                Title="{DynamicResource Setup.About.UpstreamLegal.Title}">
+                Title="版权与法律信息">
                 <StackPanel Margin="25,39,23,20">
                     <TextBlock
                         Margin="0,6,0,4"
                         FontWeight="Bold"
-                        Text="{DynamicResource Setup.About.Legal.PrivacyNotice}"
+                        Text="隐私说明"
                         TextWrapping="Wrap" />
                     <TextBlock
                         Margin="0,0,0,2"
                         LineHeight="17"
-                        Text="{DynamicResource Setup.About.UpstreamLegal.PrivacyText}"
-                        TextWrapping="Wrap" />
+                        TextWrapping="Wrap"
+                        Text="本软件的 User Agent 中包含启动器的版本号，用于访问 GitHub API 检查更新与下载新版本。&#xD;除此之外，本软件不会向开发者上传任何其他信息，项目、文档与账号数据均保存在本地。" />
                     <TextBlock
                         Margin="0,12,0,4"
                         FontWeight="Bold"
-                        Text="{DynamicResource Setup.About.Legal.OtherInfo}"
+                        Text="其他信息"
                         TextWrapping="Wrap" />
                     <TextBlock
                         Margin="0,0,0,2"
                         LineHeight="17"
-                        Text="{DynamicResource Setup.About.UpstreamLegal.CopyrightText}"
-                        TextWrapping="Wrap" />
+                        TextWrapping="Wrap"
+                        Text="AyakaLauncher 由 Ayakaleaf 基于 Plain Craft Launcher Community Edition（PCL2-CE）定制，遵循其许可协议并保留上游署名。&#xD;上游版权：Copyright © 龙腾猫跃 2016. All Rights Reserved.&#xD;计算机软件著作权登记号：2020SR0875133" />
                     <StackPanel
                         Height="35"
                         Margin="0,12,0,0"
@@ -77,14 +77,14 @@
                             local:CustomEventService.EventData="https://shimo.im/docs/rGrd8pY8xWkt6ryW"
                             local:CustomEventService.EventType="OpenUrl"
                             Padding="13,0"
-                            Text="{DynamicResource Setup.About.UpstreamLegal.TermsAndDisclaimer}" />
+                            Text="用户协议与免责声明" />
                         <local:MyButton
                             Width="120"
                             Margin="0,0,20,0"
-                            local:CustomEventService.EventData="https://github.com/Meloong-Git/PCL"
+                            local:CustomEventService.EventData="https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL"
                             local:CustomEventService.EventType="OpenUrl"
                             Padding="13,0"
-                            Text="{DynamicResource Setup.About.UpstreamLegal.OpenSource}" />
+                            Text="开源代码" />
                     </StackPanel>
                 </StackPanel>
             </local:MyCard>

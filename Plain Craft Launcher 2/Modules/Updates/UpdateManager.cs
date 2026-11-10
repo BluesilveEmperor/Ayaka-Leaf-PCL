@@ -14,13 +14,7 @@ public static class UpdateManager
 
     public static UpdatesWrapperModel remoteServer = new(new List<IUpdateSource>
     {
-        new UpdatesMirrorChyanModel(),
-        new UpdatesRandomModel(new[]
-        {
-            new UpdatesMinioModel("https://s3.pysio.online/pcl2-ce/", "Pysio"),
-            new UpdatesMinioModel("https://staticassets.naids.com/resources/pclce/", "Naids")
-        }),
-        new UpdatesMinioModel("https://github.com/PCL-Community/PCL2_CE_Server/raw/main/", "GitHub")
+        new UpdatesGitHubModel()
     });
 
     public static bool IsCurrentVersionBeta
@@ -72,7 +66,15 @@ public static class UpdateManager
 
     public static void UpdateStart(UpdateEnums.UpdateType type, string receivedKey = null, bool forceValidated = false)
     {
-        var dlTargetPath = ModBase.exePath + @"PCL\Plain Craft Launcher Community Edition.exe";
+        if (!Config.Update.ChannelEnabled)
+        {
+            ModBase.Log("[Update] 更新通道已关闭，忽略更新请求");
+            if (type != UpdateEnums.UpdateType.Silent)
+                HintService.Hint("更新通道已关闭，请在设置中开启后再检查更新", HintType.Info);
+            return;
+        }
+
+        var dlTargetPath = ModBase.exePath + @"PCL\AyakaLauncher.exe";
         ModBase.RunInNewThread(() =>
         {
             try
@@ -85,7 +87,12 @@ public static class UpdateManager
                 ModBase.WriteFile($"{ModBase.pathTemp}CEUpdateLog.md", version.Changelog);
                 ModBase.Log($"[Update] 远程最新版本: {version.VersionName}, 当前版本: {ModBase.versionBaseName}");
                 if (!(SemVer.Parse(version.VersionName) > SemVer.Parse(ModBase.versionBaseName)))
+                {
+                    // 无可用更新：手动检查时给出"已是最新"反馈，静默检查直接返回
+                    if (type == UpdateEnums.UpdateType.PromptOnly)
+                        HintService.Hint(Lang.Text("Update.Latest"), HintType.Info);
                     return;
+                }
                 if (type == UpdateEnums.UpdateType.PromptOnly)
                 {
                     ModBase.RunInUi(() =>
@@ -109,6 +116,9 @@ public static class UpdateManager
                     SystemInfo.IsArm64System ? UpdateArch.arm64 : UpdateArch.x64, dlTargetPath));
                 loaders.Add(new ModLoader.LoaderTask<int, int>(Lang.Text("Update.Task.Check"), _ =>
                 {
+                    // 更新源未提供 SHA256 时（如旧版 Release 缺少伴生校验文件），明确报错而非给出模糊的校验不匹配
+                    if (string.IsNullOrEmpty(version.Sha256))
+                        throw new Exception(Lang.Text("Update.Error.Sha256Missing"));
                     var curHash = ModBase.GetFileSHA256(dlTargetPath);
                     if ((curHash ?? "") != (version.Sha256 ?? ""))
                         throw new Exception(Lang.Text("Update.Error.Sha256Mismatch", version.Sha256, curHash));
@@ -155,7 +165,7 @@ public static class UpdateManager
     {
         try
         {
-            var fileName = ModBase.exePath + @"PCL\Plain Craft Launcher Community Edition.exe";
+            var fileName = ModBase.exePath + @"PCL\AyakaLauncher.exe";
             if (!File.Exists(fileName))
             {
                 ModBase.Log("[System] 更新失败：未找到更新文件");
@@ -225,8 +235,14 @@ public static class UpdateManager
 
     private static void LoadOnlineInfo()
     {
-        // AyakaLauncher 本地版：不检查在线更新，保持静默
-        ModBase.Log("[Update] 本地版已停用在线更新检查");
+        // GitHub Releases 更新通道：受总开关门控，启动时按配置调度检查
+        if (!Config.Update.ChannelEnabled)
+        {
+            ModBase.Log("[Update] 更新通道已关闭，跳过在线更新检查");
+            return;
+        }
+
+        ScheduleBasedOnConfig();
     }
 
     private static void ScheduleBasedOnConfig()

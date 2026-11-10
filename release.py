@@ -20,14 +20,21 @@ exe 被占用（启动器正在运行）时只告警不失败。
 打包 runtime.zip / 整合包时显示字节级进度条。
 
 用法：python release.py [--configuration Release] [--platform x64] [--with-bundle]
+      python release.py --bump [--version X.Y.Z] [--code N]     # 版本号同步升级
+      python release.py --upload [--platform x64[,arm64]] [--tag vX.Y.Z]
+                               [--release-title 标题] [--notes-file 文件] [--prerelease]
+                                                                # 构建并上传 GitHub Release
 """
 
 from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -236,13 +243,125 @@ def human_size(path: Path) -> str:
     return f"{size / 1073741824:.2f} GB" if size >= 1073741824 else f"{size / 1048576:.2f} MB"
 
 
+METADATA_PATH = ROOT / "Plain Craft Launcher 2" / "metadata.json"
+CSPROJ_PATH = ROOT / "Plain Craft Launcher 2" / "Plain Craft Launcher 2.csproj"
+GITHUB_REPO = "BluesilveEmperor/Ayaka-Leaf-PCL"
+
+
+def load_metadata() -> dict:
+    return json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+
+
+def bump(version: str | None, code: int | None) -> str:
+    """同步更新 metadata.json（base/code）与 csproj（AssemblyVersion/FileVersion）。
+
+    返回新版本号（X.Y.Z）。version 缺省时 minor +1、patch 归零；code 缺省时 +1。
+    """
+    meta = load_metadata()
+    base = meta["version"]["base"]
+    if version is None:
+        parts = base.split(".")
+        parts[1] = str(int(parts[1]) + 1)
+        version = ".".join(parts[:2] + ["0"])
+    if code is None:
+        code = int(meta["version"]["code"]) + 1
+
+    meta["version"]["base"] = version
+    meta["version"]["code"] = code
+    METADATA_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    csproj = CSPROJ_PATH.read_text(encoding="utf-8")
+    csproj = re.sub(r"<AssemblyVersion>[\d.]+</AssemblyVersion>",
+                    f"<AssemblyVersion>{version}.0</AssemblyVersion>", csproj)
+    csproj = re.sub(r"<FileVersion>[\d.]+</FileVersion>",
+                    f"<FileVersion>{version}.0</FileVersion>", csproj)
+    CSPROJ_PATH.write_text(csproj, encoding="utf-8")
+    print(f"版本已更新：base {base} → {version}，code → {code}（metadata.json 与 csproj 已同步）")
+    return version
+
+
+def upload(platform_list: list[str], tag: str | None, title: str | None,
+           notes_file: str | None, prerelease: bool) -> None:
+    """构建 → 计算 SHA256 → 生成伴生 .sha256 → gh release create。
+
+    gh CLI 不可用时打印完整手动上传清单后退出。
+    """
+    base = load_metadata()["version"]["base"]
+    tag = tag or f"v{base}"
+    title = title or f"AyakaLauncher {tag.lstrip('v')}"
+    RELEASE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # ---- 1. 构建各平台 + 生成产物与伴生校验文件 ----
+    files: list[Path] = []
+    for plat in platform_list:
+        publish("Release", plat)
+        exe = ARTIFACT / "AyakaLauncher.exe"
+        if not exe.exists():
+            fail(f"未找到 {exe}")
+        asset = RELEASE_DIR / f"AyakaLauncher_Release_{plat}.exe"
+        shutil.copyfile(exe, asset)
+        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        sha_file = asset.with_name(asset.name + ".sha256")
+        sha_file.write_text(digest + "\n", encoding="ascii")
+        files.extend([asset, sha_file])
+        print(f"产物就绪：{asset.name}（{human_size(asset)}）sha256={digest}")
+
+    # ---- 2. 上传（gh CLI）----
+    if shutil.which("gh") is None:
+        print()
+        print("==== 手动上传清单（未检测到 gh CLI）====")
+        print(f"  仓库：  https://github.com/{GITHUB_REPO}/releases/new")
+        print(f"  Tag：   {tag}{'（勾选 Set as a pre-release）' if prerelease else ''}")
+        print(f"  标题：  {title}")
+        if notes_file:
+            print(f"  说明：  {notes_file}")
+        for f in files:
+            print(f"  附件：  {f}")
+        return
+
+    cmd = ["gh", "release", "create", tag, "--repo", GITHUB_REPO, "--title", title]
+    if prerelease:
+        cmd.append("--prerelease")
+    if notes_file:
+        cmd += ["--notes-file", notes_file]
+    cmd += [str(f) for f in files]
+    print(f"创建 Release：{tag} …")
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="")
+        fail(f"gh release create 失败（{result.returncode}）")
+    if result.stdout.strip():
+        print(result.stdout.strip())
+
+
 def main() -> None:
     setup_stdio()
     parser = argparse.ArgumentParser(description="AyakaLauncher 发布打包脚本")
     parser.add_argument("--configuration", default="Release", help="构建配置（默认 Release）")
-    parser.add_argument("--platform", default="x64", help="目标平台（默认 x64）")
+    parser.add_argument("--platform", default="x64", help="目标平台（默认 x64；--upload 模式支持逗号分隔多平台）")
     parser.add_argument("--with-bundle", action="store_true", help="额外打包 exe + runtime 整合包")
+    parser.add_argument("--bump", action="store_true", help="同步升级版本号（metadata.json + csproj）")
+    parser.add_argument("--version", default=None, help="--bump 指定版本号 X.Y.Z（缺省 minor+1、patch 归零）")
+    parser.add_argument("--code", type=int, default=None, help="--bump 指定版本 code（缺省 +1）")
+    parser.add_argument("--upload", action="store_true", help="构建并上传 GitHub Release（需 gh CLI，缺失时打印手动清单）")
+    parser.add_argument("--tag", default=None, help="--upload 指定 Release tag（缺省 v<metadata base>）")
+    parser.add_argument("--release-title", default=None, help="--upload 指定 Release 标题")
+    parser.add_argument("--notes-file", default=None, help="--upload 指定说明文件路径")
+    parser.add_argument("--prerelease", action="store_true", help="--upload 标记为预发布（对应 beta 更新通道）")
     args = parser.parse_args()
+
+    # ---- 版本升级 / Release 上传模式 ----
+    if args.bump:
+        bump(args.version, args.code)
+        if not args.upload:
+            return
+    if args.upload:
+        upload([p.strip() for p in args.platform.split(",") if p.strip()],
+               args.tag, args.release_title, args.notes_file, args.prerelease)
+        return
+
     configuration, platform = args.configuration, args.platform
 
     # ---- 0. 前置校验 ----
