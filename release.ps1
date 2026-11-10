@@ -2,16 +2,16 @@
 # ---------------------------------------------------------------------------
 # 默认产出：
 #   release\AyakaLauncher_<配置>_<平台>.exe   —— 可执行文件（命名与 Release 附件对齐）
-#   release\runtime.zip                       —— 内嵌运行时（约 1.8GB，含 4 个镜像包：
+#   release\runtime.zip                       —— 内嵌运行时（约 4.2GB，含 4 个镜像包：
 #                                                sharelatex-server-pro / git-bridge /
-#                                                mongo-8.0 / redis-7；主镜像 1262.9MB，
+#                                                mongo-8.0 / redis-7；主镜像约 3.5GB，
 #                                                超过 GitHub 普通仓库 100MB 单文件限制，
 #                                                故不入库）
 # Release 不再附带运行时包；对外分发统一使用网盘提供的 runtime.7z，
 # 本机生成的 release\runtime.zip 仅供整合包与离线分发，不上传到 Release。
 #
 # 可选产出（-WithBundle）：
-#   release\AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 1.8GB）
+#   release\AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 4.2GB）
 #
 # 本机运行目录：dist\ 存在时（本机日常运行布局），发布后自动同步新 exe 到
 # dist\AyakaLauncher.exe；exe 被占用（启动器正在运行）时只告警不失败。
@@ -154,7 +154,7 @@ if (Test-Path $distDir) {
 
 # ---- 3. 打包 runtime.zip（字节级进度条；条目结构与原 bsdtar 产物一致）----
 $zipRuntime = Join-Path $releaseDir 'runtime.zip'
-Write-Host '打包 runtime.zip（runtime 约 1.8GB，稍候）…'
+Write-Host '打包 runtime.zip（runtime 约 4.2GB，稍候）…'
 $runtimeEntries = @(Get-RuntimeEntries)
 Compress-Entries -ZipPath $zipRuntime -Activity '打包 runtime.zip' -Entries $runtimeEntries
 
@@ -162,7 +162,7 @@ Compress-Entries -ZipPath $zipRuntime -Activity '打包 runtime.zip' -Entries $r
 $bundle = $null
 if ($WithBundle) {
     $bundle = Join-Path $releaseDir "AyakaLauncher_${version}_${Configuration}_${Platform}.zip"
-    Write-Host '打包整合包（exe + runtime，约 1.7GB，稍候）…'
+    Write-Host '打包整合包（exe + runtime，约 4.2GB，稍候）…'
     $bundleEntries = @(@{ Src = (Join-Path $artifact 'AyakaLauncher.exe'); Name = 'AyakaLauncher.exe' }) + $runtimeEntries
     Compress-Entries -ZipPath $bundle -Activity '打包整合包' -Entries $bundleEntries
 }
