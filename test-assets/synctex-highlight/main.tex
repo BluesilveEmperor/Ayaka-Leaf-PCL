@@ -1,0 +1,79 @@
+% 公式联动高亮修复（Batch 1 / Step 0 实测抓包）测试文档
+% 覆盖两类症状：
+%   症状 1：多栏排版下，行内公式随段落流经多栏，
+%           选中公式时 /sync/code 返回源码行级的全部排版矩形 → 整段跨栏全亮
+%           1a（第 1 页）：multicols{2} 环境内段落跨栏流动
+%           1b（第 2 页）：twocolumn 文档流中段落跨左右栏流动
+%   症状 2：高亮框框不住编译内容（高分式/矩阵纵向溢出、align 多行环境只覆盖首行）
+% 结构说明：multicol 包不能与文档类 twocolumn 选项叠用（包自身警告 "May not
+%           work with the twocolumn option"，嵌套后形成窄双子栏且 1b 场景失真），
+%           故文档类用默认单栏，先以 multicols 覆盖 1a，再 \twocolumn 切换双栏
+%           文档流覆盖 1b 与症状 2。
+% 说明：正文填充文字用英文（默认 pdfLaTeX 无中文字体，保证开箱即可编译）。
+
+\documentclass{article}
+\usepackage{amsmath, multicol}
+\begin{document}
+
+% ========== 第 1 页：症状 1a —— multicols 环境内段落流经两栏 ==========
+\begin{multicols}{2}
+In the theory of special relativity, the mass-energy equivalence is
+expressed as $E=mc^2$, which states that energy and mass are
+interchangeable. Consider a particle accelerated through a potential
+difference; its kinetic behavior can be approximated by the ratio
+$\frac{a+b}{c+d}$ under suitable normalization assumptions. Many
+subsequent experiments have confirmed the predicted deviations from
+classical mechanics, and the correction term grows with the square of
+the velocity ratio $v^2/c^2$. Further analysis of scattering data
+shows that the effective cross section depends on
+$\frac{1}{2}mv^{2}$ to leading order, while higher-order corrections
+involve the dimensionless coupling $g=\frac{e^{2}}{4\pi\varepsilon_{0}\hbar c}$.
+These relations, taken together, form the backbone of the modern
+understanding of relativistic dynamics in two-column typesetting.
+\end{multicols}
+
+% ========== 第 2 页起：twocolumn 文档流 ==========
+
+% 症状 1b：段落随文档双栏流经左右两栏
+\twocolumn
+The experimental foundations of modern physics rest on a long series
+of precision measurements, each of which constrains the parameters of
+the standard model with increasing accuracy. When a charged particle
+traverses a magnetic field, its trajectory bends with a radius
+proportional to the momentum, a relation summarized by $p = qBr$,
+which underlies the design of every modern particle spectrometer.
+Statistical fluctuations in detector response are governed by the
+Poisson distribution $P(k)=\frac{\lambda^{k}e^{-\lambda}}{k!}$, so
+significance estimates must account for finite sample sizes.
+Moreover, the resolution of a tracking chamber improves with the
+square root of the number of measured layers, following roughly
+$\sigma \propto 1/\sqrt{N}$, while systematic uncertainties dominate
+once the statistics become sufficiently large. Interpreting these
+results therefore requires a careful separation of the contribution
+of random noise from that of correlated instrumental effects.
+Calibration procedures further complicate the picture: the gain of
+each channel drifts with temperature, so the recorded amplitude
+$A(T)$ must be corrected by a factor of the form $1+\alpha\,(T-T_{0})$
+before any physical quantity can be extracted. In addition, the
+alignment constants relating the survey frame to the reconstruction
+frame are obtained from cosmic-ray data, and their uncertainties
+propagate into the final momentum resolution as
+$\Delta p \approx p\,\frac{\Delta B}{B}$. Future upgrades aim to
+reduce these effects by installing faster front-end electronics,
+whose time-over-threshold signal encodes the deposited charge as
+$Q \simeq k\,(t_{\text{tot}}-t_{0})$, and by improving the cooling
+infrastructure so that thermal gradients across the detector remain
+below the threshold where gain drifts become significant across the
+two columns of this page.
+
+% 症状 2：高分式 + 矩阵（纵向溢出）
+\[ \frac{1}{2}\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} + \sum_{i=1}^{n} x_i \]
+
+% 症状 2：多行环境（align 多行）
+\begin{align}
+a &= b + c \\
+d &= e + f \\
+g &= h + i
+\end{align}
+
+\end{document}

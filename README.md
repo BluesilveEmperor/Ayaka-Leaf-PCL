@@ -41,7 +41,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - 支持 `$…$`、`$$…$$`、`\(…\)`、`\[…\]`，以及 `equation`、`align`、`gather`、`multline`、`split`、`cases`、`matrix` 等 `\begin{}` 环境
 - 只对公式选区生效；选中普通文字、复制粘贴不受影响
 - 右侧需已成功编译出 PDF 才会触发（未编译时静默跳过，不弹错误提示）
-- 高亮框来自 SyncTeX 记录的位置，多行环境可能只覆盖该处首行
+- 高亮框来自 SyncTeX 记录的位置，并经过本地几何消歧与墨迹扫描校正，多行环境、多栏排版下也能框住实际内容
 
 ## 🤝 团队协作与远程协作
 

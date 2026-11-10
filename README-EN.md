@@ -36,7 +36,7 @@ Select a piece of formula code in the workbench and the PDF pane jumps to the re
 - Supports `$…$`, `$$…$$`, `\(…\)`, `\[…\]` and `\begin{}` environments such as `equation`, `align`, `gather`, `multline`, `split`, `cases`, `matrix`
 - Only formula selections trigger it; selecting plain text, copying and pasting are unaffected
 - Requires a successfully compiled PDF; it stays silent when no PDF exists (no error toasts)
-- Highlight boxes come from SyncTeX positions, so multi-line environments may only cover the first line of that spot
+- Highlight boxes come from SyncTeX positions, refined by local geometry disambiguation and ink scanning, so they wrap the actual content even in multi-line environments and multi-column layouts
 
 ## 🤝 Team Collaboration & Remote Collaboration
 
