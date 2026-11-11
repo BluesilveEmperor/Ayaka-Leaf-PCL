@@ -183,10 +183,10 @@ The executable is published on [GitHub Releases](https://github.com/BluesilveEmp
 
 The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every one of them is a primary download source** — pick whichever works best for you. More shares will be added over time.
 
-| Cloud drive | Share link | Notes |
-|---|---|---|
-| Aliyun Drive | [Aliyun Drive share](https://www.alipan.com/s/NYaZyrvbRmX) | `runtime.7z` to be uploaded by the maintainer; check the share page for the actual file |
-| Other cloud drives | To be added | More share links will be added later |
+| Cloud drive | Share link |
+|---|---|
+| Aliyun Drive | [Aliyun Drive share](https://www.alipan.com/s/NYaZyrvbRmX) |
+| Other cloud drives | To be added |
 
 > 📁 **Organised by version**: the share is split into folders per launcher version — open the folder matching your executable (currently `v2.0.0`) before downloading `runtime.7z`. The launcher's fallback share uses the same per-version folder layout; take both files from the **same version folder** and never mix versions.
 
