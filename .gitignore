@@ -366,3 +366,6 @@ Plain Craft Launcher 2/runtime/
 # DevEco Code 会话目录
 .deveco/
 .resultverify/
+
+# WorkBuddy 本地记忆数据
+.workbuddy/
