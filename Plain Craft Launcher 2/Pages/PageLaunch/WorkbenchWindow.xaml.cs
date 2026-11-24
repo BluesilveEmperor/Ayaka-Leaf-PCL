@@ -358,6 +358,15 @@ public partial class WorkbenchWindow
                 case "ayaka:langAnchorMissing":
                     LogWrapper.Warn("[Ayakaleaf] 未找到工作台拼写和语言设置锚点，界面语言条目未注入");
                     break;
+                // 编辑器联动脚本的诊断输出（同步高亮排查用；换行折叠成一行便于看日志）
+                case "ayaka:syncLog":
+                    var message = root.TryGetProperty("message", out var msgElement) &&
+                                  msgElement.ValueKind == JsonValueKind.String
+                        ? msgElement.GetString()
+                        : null;
+                    if (!string.IsNullOrEmpty(message))
+                        LogWrapper.Info("[Ayakaleaf][page] " + message.Replace("\r\n", " / ").Replace("\n", " / "));
+                    break;
             }
         }
         catch (Exception ex)

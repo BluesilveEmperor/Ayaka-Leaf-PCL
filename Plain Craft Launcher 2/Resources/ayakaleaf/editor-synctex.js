@@ -8,9 +8,10 @@
  *   1. 通过 window.overleaf.unstable.store 拿到当前 CodeMirror 视图与文档全文；
  *   2. 用轻量扫描器收集文中所有数学环境区间（$..$ / $$..$$ / \(..\) / \[..\] /
  *      equation、align、gather 等 \begin{} 环境），只有选区落在公式里才继续；
- *   3. 直接把光标位置对准公式起点，派发官方的 'cursor:editor:syncToPdf' 事件，
- *      交给 Overleaf 自带的 use-synctex 完成 /sync/code 请求、画高亮框、滚动定位。
- *      缩放、滚动、分页、清缓存等行为与点工具栏按钮完全一致。
+ *   3. 把同步目标定死在公式起点所在行：派发官方的 'cursor:editor:syncToPdf' 事件，
+ *      同时把目标行写进公式标记，由第二段包装的 fetch 直接改写 /sync/code 的 line
+ *      参数（只靠伪造光标事件会被编辑器自身的 cursor 更新抢走，实测会取到选区末端），
+ *      之后的 /sync/code、画高亮框、滚动定位仍由 Overleaf 自带 use-synctex 完成。
  *
  * 第二段（高亮修正，由 /sync/code 实测数据驱动）：
  *   A. 拦截 /sync/code 响应做几何消歧，修复多栏误亮：
@@ -19,13 +20,19 @@
  *        整页只剩退化矩形时回退保留（保住 scrollIntoView 滚动行为）；
  *      - 多行环境（align 后续行等）同时返回「整栏宽行盒」和「内容级小盒」，
  *        行盒顶部范围内若落有更窄的小盒，说明它是行级噪音 → 丢弃；
- *      - 行内公式只返回行盒（synctex 无更细粒度）→ 原样保留，行为与官方一致。
- *   B. MutationObserver 监听高亮元素出现，用 canvas 墨迹扫描扩框，修复
- *      「高亮框框不住内容」（高分式/矩阵纵向溢出、align 首行 height=0 不可见）：
- *      - 在矩形四周容忍少量空白向墨迹方向扩张，覆盖完整公式墨迹；
+ *      - 行内公式只返回行盒（synctex 无更细粒度）→ 原样保留，行为与官方一致；
+ *      - tikz/tabular 等大盒内容会连带返回「从该行到页底」的容器盒（高数百 bp、
+ *        整片空白）→ 单条公式不可能那么高，同页还有实心矩形时丢弃。
+ *   B. MutationObserver 监听高亮元素出现，用 canvas 墨迹扫描把高亮贴到内容上：
+ *      - 先收窄：synctex 盒子常带留白（tikz 坐标轴外边距、整行行盒的列宽），
+ *        把矩形收缩到自身范围内的墨迹边界，高亮才贴住内容而不是空白；
+ *      - 再扩框（不足以覆盖公式墨迹时）：高分式/矩阵纵向溢出、align 首行
+ *        height=0 不可见，从矩形四周容忍少量空白向墨迹方向扩张；
  *      - 零高度矩形从原位置上下搜索第一行墨迹作种子（救回 align 首行）；
  *      - 垂直空隙容忍度小于行距（不吞并相邻行），水平容忍度小于栏间距
- *        （不跨栏）；只在扩得出去时改写样式，画布未渲染时自动重试。
+ *        （不跨栏）；只在几何发生变化时改写样式，画布未渲染时自动重试。
+ *   D. 空白高亮剔除：几何过滤漏掉的错位矩形在画布上一点墨迹都没有，
+ *      同页已有含墨迹的高亮时直接删除（整页唯一高亮即使是空白也保留）。
  *
  * 注入方式：WebView2 的 AddScriptToExecuteOnDocumentCreatedAsync，每次文档创建都执行，
  *          先于应用 bundle 运行，因此可以安全包装 window.fetch。
@@ -86,7 +93,12 @@
         if (matchFn(stack[k])) {
           const entry = stack[k]
           stack.length = k
-          ranges.push({ from: entry.start, to: end, kind: entry.kind, name: entry.name })
+          // 非数学环境（document／tikzpicture／figure 等）只用于配对，不入区间表：
+          // 之前把它们也当成区间，导致 (a) 合并多公式时行号表被垃圾行占满上限、
+          // 真公式被挤掉；(b) 反向选择时起点落在外层环境里，被当成命中 → 同步到选区末端。
+          if (entry.kind !== 'other') {
+            ranges.push({ from: entry.start, to: end, kind: entry.kind, name: entry.name })
+          }
           return
         }
       }
@@ -242,22 +254,62 @@
     window.dispatchEvent(new CustomEvent('cursor:editor:syncToPdf'))
   }
 
+  // 诊断输出（第一段自己实现一份：第二段的 report 尚未定义，运行期才可用）
+  function reportDiag(text) {
+    try {
+      const sink = window.__ayakaReport
+      if (typeof sink === 'function') {
+        sink(text)
+        return
+      }
+      console.info(text)
+    } catch {
+      // ignore
+    }
+  }
+
+  // 记录选区与命中集合，便于对照「扫到了哪几处公式」
+  function reportSelection(view, from, to, head, lines, primaryLine) {
+    try {
+      const fromLine = view.state.doc.lineAt(from).number
+      const toLine = view.state.doc.lineAt(to).number
+      const headLine = view.state.doc.lineAt(head).number
+      reportDiag(
+        `[ayaka-sync] 选区 ${fromLine}-${toLine}（head ${headLine}）命中 ${lines.length} 处` +
+        ` → [${lines.join(',')}] 主行 ${primaryLine}`
+      )
+    } catch {
+      // ignore
+    }
+  }
+
+  // 一次同步最多合并多少个公式（选区很大时防止请求风暴）
+  const MAX_SYNC_LINES = 8
+
   // 标记「这次同步由公式选区触发」，Part C（行内公式收窄）读取后清除；
   // 工具栏/光标移动触发的同步不打标记，保持官方行为。
-  function markFormulaSync(line) {
+  // lines：选区命中的全部公式起始行（一次同步多个公式时由 Part A2 合并响应）。
+  function markFormulaSync(line, lines) {
     try {
-      window.__ayakaFormulaSyncPending = { line: line ?? null, at: Date.now() }
+      window.__ayakaFormulaSyncPending = {
+        line: line ?? null,
+        lines: Array.isArray(lines) && lines.length > 0 ? lines.slice(0, MAX_SYNC_LINES) : null,
+        at: Date.now()
+      }
     } catch {
       // 标记失败最多是不收窄，不能影响同步本身
     }
   }
 
-  // 把光标位置挪到公式起点：官方 syncToPdf 读的是 useSynctex 里缓存的坐标，
-  // 所以先派发一次 cursor:editor:update，等 React 写回 ref 再触发同步。
-  function dispatchSyncAt(row, column, srcLine) {
+  // 把光标位置挪到公式起点：官方 syncToPdf 读的是 useSynctex 里缓存的坐标。
+  // 只派发 cursor:editor:update 并不保险——编辑器自身的 cursor 更新会和它抢，
+  // 实测最终用的是「选区末端」（选中前两张图只亮第二张）。所以在派发事件的同时
+  // 先把目标行记进公式标记，由 inject 的 fetch 包装直接改写请求里的 line 参数
+  // （见 forcedSyncUrl），行号不再依赖事件竞态。
+  function dispatchSyncAt(row, column, srcLine, lines) {
+    markFormulaSync(srcLine, lines)
     window.dispatchEvent(new CustomEvent('cursor:editor:update', { detail: { row, column } }))
     window.setTimeout(() => {
-      markFormulaSync(srcLine)
       dispatchSyncToPdf()
     }, AFTER_CURSOR_UPDATE_MS)
   }
@@ -288,6 +340,7 @@
     const ranges = collectMathRanges(docText)
 
     // 选区起点在公式内，或选区覆盖了某个公式，都算命中
+    const overlapping = ranges.filter(range => range.to > from && range.from < to)
     const hit =
       ranges.find(range => from >= range.from && from <= range.to) ??
       ranges.find(range => range.from < to && range.to > from)
@@ -303,15 +356,24 @@
     const target = hit.from
     const head = view.state.selection.main.head
 
+    // 选区覆盖到的全部公式起始行（去重、按出现顺序）：一个选区里有多个公式时
+    // 由 Part A2 分别请求再合并矩形，让整段选区一起高亮
+    const lines = []
+    for (const range of overlapping) {
+      const lineNo = view.state.doc.lineAt(range.from).number
+      if (lines.indexOf(lineNo) < 0) lines.push(lineNo)
+    }
+
     if (head >= hit.from && head <= hit.to) {
       // 光标本来就在公式里，直接用官方记录的坐标同步（缓存的就是 head 位置）
-      markFormulaSync(view.state.doc.lineAt(head).number)
+      markFormulaSync(view.state.doc.lineAt(head).number, lines)
       dispatchSyncToPdf()
       return
     }
 
     const line = view.state.doc.lineAt(target)
-    dispatchSyncAt(line.number - 1, target - line.from, line.number)
+    reportSelection(view, from, to, head, lines, line.number)
+    dispatchSyncAt(line.number - 1, target - line.from, line.number, lines)
   }
 
   function scheduleRun() {
@@ -335,6 +397,8 @@
     lastKey = ''
     run()
   }
+  // 自测用：暴露数学区间扫描
+  window.__ayakaCollectMathRanges = collectMathRanges
 })();
 
 /* ===========================================================================
@@ -357,7 +421,105 @@
   if (window.__ayakaSyncTexFix) return
   window.__ayakaSyncTexFix = true
 
+  // 注入版本号：宿主把 [ayaka-sync] 诊断经 postMessage 写进 PCL 日志，
+  // 用来确认「跑的是哪一版脚本」以及每次同步的过滤结果
+  const BRIDGE_VERSION = '10'
+
+  // 诊断上报：控制台 + 宿主日志两条路（宿主日志在 设置 → 日志 里可导出）
+  function report(text) {
+    try {
+      console.info(text)
+    } catch {
+      // ignore
+    }
+    try {
+      const webview = window.chrome && window.chrome.webview
+      if (webview && typeof webview.postMessage === 'function') {
+        webview.postMessage({ type: 'ayaka:syncLog', message: text })
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  report(`[ayaka-sync] bridge v${BRIDGE_VERSION} 已注入（${typeof location !== 'undefined' ? location.pathname : '?'}）`)
+  // 供第一段（选区扫描）复用同一路诊断输出
+  window.__ayakaReport = report
+
   const EPS = 0.5
+  // 容器矩形阈值：tikz／表格等大盒内容所在行会连带返回「从该行到页底」的容器盒
+  // （宽度 = 栏宽，高度可达数百 bp），单条公式高亮不可能有 300bp 高（≈10.6cm）
+  const CONTAINER_MIN_HEIGHT_BP = 300
+  // 容器盒的第二种判据（实测 194×288bp 那条就卡在 300 以下）：
+  // 高度 ≥ 200bp，且同栏存在与之重叠、高度不足它 60% 的内容盒
+  const CONTAINER_OVERLAP_MIN_BP = 200
+  const CONTAINER_OVERLAP_RATIO = 0.6
+
+  function rectsOverlap(a, b) {
+    const ox = Math.min((a.h || 0) + (a.width || 0), (b.h || 0) + (b.width || 0)) -
+      Math.max(a.h || 0, b.h || 0)
+    const oy = Math.min((a.v || 0) + (a.height || 0), (b.v || 0) + (b.height || 0)) -
+      Math.max(a.v || 0, b.v || 0)
+    return ox > EPS && oy > EPS
+  }
+
+  // 同一栏：横向重叠超过较窄者一半（跨栏的两条矩形横向不重叠，不算竞争）
+  function sameColumn(a, b) {
+    const aw = a.width || 0
+    const bw = b.width || 0
+    if (aw <= 0 || bw <= 0) return false
+    const ox = Math.min((a.h || 0) + aw, (b.h || 0) + bw) - Math.max(a.h || 0, b.h || 0)
+    return ox > 0.5 * Math.min(aw, bw)
+  }
+
+  // 竖排容器盒：同栏内被更矮的内容盒「顶住」，自己一路延伸到页底。
+  // 判据要求「起点更靠下、终点更靠下」：容器从内容中部开始，一直伸到内容盒下方，
+  // 这样图文并排（图盒在上、题注在下且更矮）之类的情形不会被误判成容器。
+  function isColumnContainer(rect, list) {
+    const height = rect.height || 0
+    if (height < CONTAINER_OVERLAP_MIN_BP) return false
+    const top = rect.v || 0
+    const bottom = top + height
+    return list.some(other => {
+      if (other === rect) return false
+      const otherHeight = other.height || 0
+      if (otherHeight <= 0 || otherHeight > CONTAINER_OVERLAP_RATIO * height) return false
+      const otherTop = other.v || 0
+      if (top <= otherTop + EPS) return false
+      if (bottom <= otherTop + otherHeight + EPS) return false
+      if (!sameColumn(rect, other)) return false
+      return rectsOverlap(rect, other)
+    })
+  }
+
+  /* ------------------------------------------------------------------ *
+   * A0. 纵向坐标系换算：synctex 的 v 是盒子「下沿」，前端当「上沿」用
+   *
+   * 实测（TeX Live 2026 + 本项目 clsi，2026-11）：
+   *  - `synctex view` 返回的 v 是盒子基线（下沿），盒子纵向占 [v-height, v]：
+   *    本地编译同一文档对照 PDF 墨迹，第 1 行图墨迹在 y=124..287，synctex 给
+   *    v=286.59；第 2 行图墨迹在 y=287..450，synctex 给 v=449.38 —— 都落在下沿。
+   *  - 前端 features/pdf-preview/util/highlights.ts 的 buildHighlightElement
+   *    直接用 top=v、bottom=v+height，于是每条高亮都向下偏了自身高度：
+   *    行内公式（h≈13bp）偏 ~10px，会被墨迹扩框向上补回来，看不出问题；
+   *    tikzpicture（h≈162bp）就偏出一整张图 —— 用户实测「高亮在正下方」。
+   *  - clsi 的 SynctexOutputParser.js 原样透传 v/H，服务端没有做换算。
+   * 故在交给前端之前统一换算：top = v - height（height=0 的退化矩形不换算）。
+   * 另外前端把 viewBox 高度写成 `viewBox[3] + 10`（多 10bp 的补偿常数），
+   * 换算后所有高亮会整体上移 10bp（≈10px，小公式看不出、整图能看出来），
+   * 这里一并加回去，让落点与内容完全对齐。
+   * 几何消歧与公式收窄仍在原始（下沿）坐标系里跑，避免既有规则失效。
+   * ------------------------------------------------------------------ */
+
+  // 前端 highlights.ts: `const viewBoxHeight = viewport.viewBox[3] + 10`
+  const VIEWBOX_Y_FUDGE_BP = 10
+
+  function toTopEdge(rect) {
+    const height = (rect && rect.height) || 0
+    if (!rect) return rect
+    const v = (rect.v || 0) + VIEWBOX_Y_FUDGE_BP
+    return height > 0 ? Object.assign({}, rect, { v: v - height }) : Object.assign({}, rect, { v: v })
+  }
 
   /* ------------------------------------------------------------------ *
    * A. /sync/code 响应几何消歧
@@ -417,6 +579,24 @@
           return true
         })
       })
+
+      // 3) 容器矩形剔除（tikz／tabular 等大盒内容的典型输出）：
+      //    synctex 会在内容所在行额外返回「从该行一直延伸到页底」的容器盒，
+      //    宽度 = 栏宽、高度数百 bp —— 渲染出来就是一大片空白黄块
+      //    （用户实测：选中 tikzpicture 代码，内容下方到页底整片被高亮）。
+      //
+      //    3a 绝对高度：单条公式高亮不可能有 300bp 高（≈10.6cm）；
+      //    3b 重叠对比：实测容器盒不止 300bp（194×288bp 那条最典型），
+      //       但同一栏里必有一条更矮的内容盒与它重叠（内容盒 194×162bp），
+      //       且容器盒总是「从内容盒中部一直往下延伸」—— 高度差 1.6 倍以上即判容器。
+      //       两条都是「同页还有别的实心矩形才动手」，整页只剩容器盒时保留
+      //       （宁可大也不空，滚动定位不丢）。
+      const tall = kept.filter(r => (r.height || 0) < CONTAINER_MIN_HEIGHT_BP)
+      if (tall.length > 0) {
+        const content = tall.filter(r => !isColumnContainer(r, tall))
+        keep.push(...(content.length > 0 ? content : tall))
+        continue
+      }
 
       keep.push(...(kept.length > 0 ? kept : solid))
     }
@@ -638,29 +818,132 @@
   const SYNC_CODE_URL_RE = /\/sync\/code\?/
   const COMPILE_URL_RE = /\/project\/[^/?]+\/compile/
 
+  // 诊断（可在启动器日志里看到，便于排查“高亮不对”的现场）：
+  // 只输出 [ayaka-sync] 前缀，宿主 WorkbenchWindow 会把它们转发进 PCL 日志。
+  function briefRects(list) {
+    const seen = new Set()
+    const out = []
+    for (const r of list) {
+      if (!r || typeof r.page !== 'number') continue
+      const s = `${r.page}:${(r.h || 0).toFixed(0)},${(r.v || 0).toFixed(0)} ` +
+        `${(r.width || 0).toFixed(0)}x${(r.height || 0).toFixed(0)}`
+      if (seen.has(s)) continue
+      seen.add(s)
+      out.push(s)
+    }
+    return out.join(' | ')
+  }
+
+  function logSync(url, raw, out) {
+    try {
+      report(
+        `[ayaka-sync] ${syncQueryParam(url, 'file')}:${syncQueryParam(url, 'line')} ` +
+        `原始 ${raw.length} 条 → 过滤 ${out.length} 条 | ` +
+        `raw: ${briefRects(raw)} | out: ${briefRects(out)}`
+      )
+    } catch {
+      // 诊断日志绝不能影响同步
+    }
+  }
+
   function requestUrlOf(input) {
     if (typeof input === 'string') return input
     if (input && typeof input.url === 'string') return input.url
     return ''
   }
 
+  // 公式选区触发的同步：把请求里的 line 强制改成公式起点所在行。
+  // 官方 syncToPdf 用的是「缓存的光标位置」，而编辑器自身的 cursor 更新会和
+  // 我们伪造的事件抢（实测极端情况下最终取选区末端：选中前两张图只高亮第二张）。
+  // 直接在 URL 上定死行号，行为与点击公式开头完全一致，不再依赖事件顺序。
+  function forcedSyncUrl(url) {
+    const flag = window.__ayakaFormulaSyncPending
+    if (!flag || flag.line == null) return ''
+    if (Date.now() - (flag.at || 0) > FORMULA_FLAG_TTL_MS) return ''
+    const current = syncQueryParam(url, 'line')
+    if (current && +current === flag.line) return '' // 已经是目标行
+    return url.replace(/([?&]line=)[^&]*/, '$1' + flag.line)
+  }
+
+  /* ------------------------------------------------------------------ *
+   * A2. 一个选区命中多个公式时合并高亮
+   *
+   * 官方 setHighlights(data.pdf) 是「整批替换」，一次同步只能显示一组矩形，
+   * 所以选中多张 tikzpicture / 多个公式时只能亮其中一个。这里对选区内的其余
+   * 公式各自补发一次 /sync/code（同 file/buildId/editorId，只换 line），把
+   * 返回的矩形并进首个响应，前端一次渲染就会全部高亮。
+   * 失败/超时一律降级为「只亮首个公式」，不影响主流程。
+   * ------------------------------------------------------------------ */
+
+  const MULTI_SYNC_TIMEOUT_MS = 1500
+
+  // 取走本次要合并的其它公式行号（一次性；首个请求行本身不重复请求）
+  function takeExtraSyncLines(url) {
+    const flag = window.__ayakaFormulaSyncPending
+    if (!flag || !Array.isArray(flag.lines) || flag.lines.length < 2) return []
+    const primary = +syncQueryParam(url, 'line')
+    return flag.lines.filter(line => line !== primary)
+  }
+
+  function clearFormulaFlag() {
+    try {
+      delete window.__ayakaFormulaSyncPending
+    } catch {
+      // ignore
+    }
+  }
+
+  function fetchSyncRects(url, line) {
+    const target = url.replace(/([?&]line=)[^&]*/, '$1' + line)
+    return origFetch(target, { credentials: 'same-origin' })
+      .then(resp => {
+        if (!resp || !resp.ok) return []
+        return resp.json().then(data => (data && Array.isArray(data.pdf) ? data.pdf : []))
+      })
+      .catch(() => [])
+  }
+
+  function mergeExtraSyncRects(url, primaryRects, extraLines) {
+    if (extraLines.length === 0) return Promise.resolve(primaryRects)
+    const all = Promise.all(extraLines.map(line => fetchSyncRects(url, line)))
+    const timeout = new Promise(resolve => {
+      window.setTimeout(() => resolve(null), MULTI_SYNC_TIMEOUT_MS)
+    })
+    return Promise.race([all, timeout]).then(parts => {
+      if (!parts) return primaryRects // 超时：只用首个公式的矩形
+      let merged = primaryRects.slice()
+      for (const part of parts) {
+        if (Array.isArray(part) && part.length > 0) merged = merged.concat(part)
+      }
+      return merged
+    })
+  }
+
   // 包装 window.fetch：
-  //  - /sync/code 命中时消歧 + （公式选区触发的）行内公式收窄后改写响应体；
+  //  - /sync/code 命中时先按公式选区改写 line，再消歧 + （选区触发的）行内公式收窄；
   //  - compile 响应只旁路记录 synctex.gz URL，本身原样透传；
   //  - 其余请求原样透传。
   const origFetch = window.fetch
   if (typeof origFetch === 'function') {
-    window.fetch = function () {
-      const url = requestUrlOf(arguments[0])
-      const init = arguments[1]
+    window.fetch = function (input, init) {
+      let url = requestUrlOf(input)
+      let requestInput = input
+      if (SYNC_CODE_URL_RE.test(url)) {
+        const forced = forcedSyncUrl(url)
+        if (forced && forced !== url) {
+          url = forced
+          requestInput = forced
+        }
+      }
       const isSync = SYNC_CODE_URL_RE.test(url)
       const isCompile =
         !isSync &&
         COMPILE_URL_RE.test(url) &&
         init &&
-        String(init.method || '').toUpperCase() === 'POST'
+        init.method &&
+        String(init.method).toUpperCase() === 'POST'
 
-      const promise = origFetch.apply(this, arguments)
+      const promise = origFetch.call(this, requestInput, init)
       if (isCompile) {
         promise.then(noteCompileResponse).catch(() => {})
       }
@@ -675,20 +958,40 @@
         const clone = resp.clone()
         return clone.json().then(async data => {
           if (!data || !Array.isArray(data.pdf)) return resp
-          let filtered = disambiguatePdfRects(data.pdf)
-          filtered = await narrowWithSynctex(filtered, url)
-          if (filtered === data.pdf) return resp
+          // 选区命中多个公式：先把其余公式的矩形并进来，再统一消歧/换算
+          const extraLines = takeExtraSyncLines(url)
+          if (extraLines.length > 0) clearFormulaFlag()
+          let merged = data.pdf
+          if (extraLines.length > 0) {
+            merged = await mergeExtraSyncRects(url, data.pdf, extraLines)
+            report(
+              `[ayaka-sync] 多公式合并 ${extraLines.length + 1} 处 ` +
+              `(line ${[syncQueryParam(url, 'line')].concat(extraLines).join(',')}) → ${merged.length} 条`
+            )
+          }
+          let filtered = disambiguatePdfRects(merged)
+          // 多公式合并时不收窄：收窄只对单个公式的 math 锚点成立
+          if (extraLines.length === 0) filtered = await narrowWithSynctex(filtered, url)
+          // 最后一步：v 换算成「上沿」再交给前端（见 toTopEdge 注释）
+          const output = filtered.map(toTopEdge)
+          logSync(url, merged, output)
+          if (output.length === 0) return resp
 
           const headers = new Headers(resp.headers)
           headers.delete('content-length')
           headers.delete('content-encoding')
-          const body = JSON.stringify(Object.assign({}, data, { pdf: filtered }))
+          const body = JSON.stringify(Object.assign({}, data, { pdf: output }))
           return new Response(body, {
             status: resp.status,
             statusText: resp.statusText,
             headers
           })
-        }).catch(() => resp)
+        }).catch(err => {
+          // 绝不静默：过滤链一旦抛错就会回退原始响应（高亮维持官方行为），
+          // 这条日志是判断“为什么没生效”的唯一线索
+          report('[ayaka-sync] 过滤链异常，回退原始响应：' + (err && err.message ? err.message : err))
+          return resp
+        })
       })
     }
   }
@@ -699,6 +1002,14 @@
 
   const HIGHLIGHT_BG = 'rgb(255, 255, 0)'
   const processedHighlights = new WeakSet()
+  // 高亮 div → 'ink'（区域内确有墨迹）/ 'blank'（区域内全空白）
+  const highlightInk = new WeakMap()
+  // 当前存活的高亮 div（判「同页是否还有正确高亮」用；量级很小）
+  const liveHighlights = new Set()
+  // 空白判定的重试次数：画布可能还在渲染（首屏/翻页）
+  const BLANK_RETRY = 3
+  const PENDING_RETRY = 5
+  const RETRY_MS = 350
 
   function isHighlightNode(node) {
     if (!node || node.nodeType !== 1) return false
@@ -732,55 +1043,105 @@
     return best
   }
 
+  // 画布是否已经真正绘制过内容：空白矩形的判定前提。
+  // 抽 24 条横向扫描线粗扫，避免整页 getImageData 的开销。
+  function canvasIsPainted(canvas) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return false
+    const w = canvas.width
+    const h = canvas.height
+    if (!w || !h) return false
+    const strips = 24
+    for (let i = 0; i < strips; i++) {
+      const y = Math.min(h - 1, Math.floor((i + 0.5) * h / strips))
+      let row
+      try {
+        row = ctx.getImageData(0, y, w, 1).data
+      } catch {
+        return false
+      }
+      for (let x = 0; x < w; x += 2) {
+        const p = x * 4
+        if (row[p + 3] >= 16 && !(row[p] >= 245 && row[p + 1] >= 245 && row[p + 2] >= 245)) return true
+      }
+    }
+    return false
+  }
+
+  // 扫描结果：
+  //   'ink'     —— 区域内确有墨迹（可能已扩框）
+  //   'blank'   —— 画布已渲染，但区域整片空白：这条高亮是错位的噪音矩形
+  //   'pending' —— 画布未就绪／坐标取不到，稍后重试
   function scanAndExpand(div) {
     const divRect = div.getBoundingClientRect()
     const canvas = findCanvasFor(divRect)
-    if (!canvas) return false
+    if (!canvas) return 'pending'
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return false
+    if (!ctx) return 'pending'
 
     const canvasRect = canvas.getBoundingClientRect()
     const scale = canvas.width / canvasRect.width
-    if (!Number.isFinite(scale) || scale <= 0) return false
+    if (!Number.isFinite(scale) || scale <= 0) return 'pending'
 
     // div → canvas 设备像素坐标
-    const x0 = Math.round((divRect.left - canvasRect.left) * scale)
-    const x1 = Math.round((divRect.right - canvasRect.left) * scale)
+    let x0 = Math.round((divRect.left - canvasRect.left) * scale)
+    let x1 = Math.round((divRect.right - canvasRect.left) * scale)
     let y0 = Math.round((divRect.top - canvasRect.top) * scale)
     let y1 = Math.round((divRect.bottom - canvasRect.top) * scale)
+    // 原始矩形（对应 div 当前的内联样式）：收窄/扩框后要按它算样式增量
+    const ox0 = x0
+    const ox1 = x1
+    const oy0 = y0
+    const oy1 = y1
 
     // 扫描参数（设备像素）：
-    //   垂直空隙容忍 < 行距（不吞相邻行）；水平空隙容忍 < 栏间距（不跨栏）
-    const mX = Math.round(28 * scale)
-    const mY = Math.round(44 * scale)
+    //   mX/mY：允许扩框的最大边距，只留抗锯齿余量（实测取大值会把相邻内容算进来）；
+    //   mSeedY：零高度矩形的种子搜索半径，需要比 mY 大得多才能找到最近一行墨迹；
+    //   gapX/gapY：容忍的空隙小于行距/栏间距，不吞相邻行、不跨栏。
+    const mX = Math.round(6 * scale)
+    const mY = Math.round(8 * scale)
+    const mSeedY = Math.round(44 * scale)
     const gapX = Math.max(3, Math.round(5 * scale))
     const gapY = Math.max(2, Math.round(2.2 * scale))
 
     const rx0 = Math.max(0, x0 - mX)
     const rx1 = Math.min(canvas.width, x1 + mX)
-    const ry0 = Math.max(0, y0 - mY)
-    const ry1 = Math.min(canvas.height, y1 + mY)
-    if (rx1 - rx0 < 2 || ry1 - ry0 < 2) return false
+    // 纵向取样窗口要容纳种子搜索半径（零高度矩形需要更远的搜索范围）
+    const ry0 = Math.max(0, y0 - Math.max(mY, mSeedY))
+    const ry1 = Math.min(canvas.height, y1 + Math.max(mY, mSeedY))
+    if (rx1 - rx0 < 2 || ry1 - ry0 < 2) return 'pending'
 
     let img
     try {
       img = ctx.getImageData(rx0, ry0, rx1 - rx0, ry1 - ry0)
     } catch {
-      return false
+      return 'pending'
     }
     const W = img.width
     const D = img.data
 
+    // 「墨迹」判定：偏白（三通道都很亮）与透明都算空白。
+    // 阈值取 235 而不是 245 —— 245 会把画布抗锯齿的浅灰边缘当成墨迹，
+    // 收窄时收不下去、扩框时又往外长；淡彩（pgfplots 的 pink/green 等）仍能识别。
+    const INK_LEVEL = 235
     const isBlank = (x, y) => {
       const p = ((y - ry0) * W + (x - rx0)) * 4
-      return D[p + 3] < 16 || (D[p] >= 245 && D[p + 1] >= 245 && D[p + 2] >= 245)
+      if (D[p + 3] < 16) return true
+      return D[p] >= INK_LEVEL && D[p + 1] >= INK_LEVEL && D[p + 2] >= INK_LEVEL
     }
+    // 行/列判定要求至少 2 个墨迹像素：单个孤立噪点（PDF 抗锯齿、压缩噪点）
+    // 不该决定边界。窗口很窄时退化为 1，避免细竖线判不出来。
+    const inkNeed = (span) => (span >= 6 ? 2 : 1)
     const rowHasInk = (y, ax0, ax1) => {
-      for (let x = ax0; x < ax1; x++) if (!isBlank(x, y)) return true
+      const need = inkNeed(ax1 - ax0)
+      let hit = 0
+      for (let x = ax0; x < ax1; x++) if (!isBlank(x, y) && ++hit >= need) return true
       return false
     }
     const colHasInk = (x, ay0, ay1) => {
-      for (let y = ay0; y < ay1; y++) if (!isBlank(x, y)) return true
+      const need = inkNeed(ay1 - ay0)
+      let hit = 0
+      for (let y = ay0; y < ay1; y++) if (!isBlank(x, y) && ++hit >= need) return true
       return false
     }
 
@@ -790,15 +1151,16 @@
       const sx0 = Math.max(rx0, x0)
       const sx1 = Math.min(rx1, x1)
       let seed = -1
-      for (let dy = 0; dy <= mY && seed < 0; dy++) {
+      for (let dy = 0; dy <= mSeedY && seed < 0; dy++) {
         if (y0 - dy >= ry0 && rowHasInk(y0 - dy, sx0, sx1)) seed = y0 - dy
         else if (y0 + dy < ry1 && rowHasInk(y0 + dy, sx0, sx1)) seed = y0 + dy
       }
-      if (seed < 0) return false
+      if (seed < 0) return 'pending'
       y0 = seed
       y1 = seed + 1
     } else {
-      // 原矩形内部必须有墨迹，否则多半是画布还没渲染出来，交给重试
+      // 原矩形内部必须有墨迹：没有墨迹有两种可能 —— 画布还没渲染（重试），
+      // 或这条矩形本身就是错位的空白噪音（整片空白的高亮块，丢掉）。
       let hasInk = false
       const sy0 = Math.max(ry0, y0)
       const sy1 = Math.min(ry1, y1)
@@ -808,75 +1170,223 @@
           if (!isBlank(x, y)) { hasInk = true; break outer }
         }
       }
-      if (!hasInk) return false
+      if (!hasInk) return canvasIsPainted(canvas) ? 'blank' : 'pending'
     }
 
-    // 向上/向下扩张到墨迹边界（容忍 gapY 空白行）
-    let ny0 = y0
-    let gap = 0
-    for (let y = y0 - 1; y >= ry0; y--) {
-      if (rowHasInk(y, x0, x1)) { ny0 = y; gap = 0; continue }
-      if (++gap > gapY) break
-    }
-    let ny1 = y1
-    gap = 0
-    for (let y = y1; y < ry1; y++) {
-      if (rowHasInk(y, x0, x1)) { ny1 = y + 1; gap = 0; continue }
-      if (++gap > gapY) break
+    // 收窄：synctex 盒子常带大量留白（tikzpicture 的坐标轴外边距、行盒的列宽），
+    // 直接高亮会把空白一起框进去。先把矩形收缩到自身范围内的墨迹边界，
+    // 之后再走下面的扩框逻辑（此时通常已经贴住内容，不会再扩）。
+    // 只收缩、不越过原矩形：避免把错误位置的矩形收缩成别处的墨点。
+    let ty0 = y0
+    while (ty0 < y1 - 1 && !rowHasInk(ty0, x0, x1)) ty0++
+    let ty1 = y1
+    while (ty1 > ty0 + 1 && !rowHasInk(ty1 - 1, x0, x1)) ty1--
+    let tx0 = x0
+    while (tx0 < x1 - 1 && !colHasInk(tx0, ty0, ty1)) tx0++
+    let tx1 = x1
+    while (tx1 > tx0 + 1 && !colHasInk(tx1 - 1, ty0, ty1)) tx1--
+    x0 = tx0
+    x1 = tx1
+    y0 = ty0
+    y1 = ty1
+
+    // 收窄成功说明内容整体落在矩形内部，不需要再往外扩（扩了就是多余的边距）
+    const trimmed = tx0 !== ox0 || tx1 !== ox1 || ty0 !== oy0 || ty1 !== oy1
+    if (!trimmed) {
+      // 以下扩框只对「矩形本身切进了内容」的情况生效（高阶分式/矩阵纵向溢出、
+      // 行盒高度不足等）：向墨迹方向补最多 mX/mY。
+      const limitTop = Math.max(ry0, y0 - mY)
+      const limitBottom = Math.min(ry1, y1 + mY)
+      let ny0 = y0
+      let gap = 0
+      for (let y = y0 - 1; y >= limitTop; y--) {
+        if (rowHasInk(y, x0, x1)) { ny0 = y; gap = 0; continue }
+        if (++gap > gapY) break
+      }
+      let ny1 = y1
+      gap = 0
+      for (let y = y1; y < limitBottom; y++) {
+        if (rowHasInk(y, x0, x1)) { ny1 = y + 1; gap = 0; continue }
+        if (++gap > gapY) break
+      }
+      let nx0 = x0
+      gap = 0
+      for (let x = x0 - 1; x >= rx0; x--) {
+        if (colHasInk(x, ny0, ny1)) { nx0 = x; gap = 0; continue }
+        if (++gap > gapX) break
+      }
+      let nx1 = x1
+      gap = 0
+      for (let x = x1; x < rx1; x++) {
+        if (colHasInk(x, ny0, ny1)) { nx1 = x + 1; gap = 0; continue }
+        if (++gap > gapX) break
+      }
+      x0 = nx0
+      x1 = nx1
+      y0 = ny0
+      y1 = ny1
     }
 
-    // 向左/向右扩张（用扩张后的纵向范围；整栏宽行盒两侧是空白栏沟，天然不会扩出去）
-    let nx0 = x0
-    gap = 0
-    for (let x = x0 - 1; x >= rx0; x--) {
-      if (colHasInk(x, ny0, ny1)) { nx0 = x; gap = 0; continue }
-      if (++gap > gapX) break
-    }
-    let nx1 = x1
-    gap = 0
-    for (let x = x1; x < rx1; x++) {
-      if (colHasInk(x, ny0, ny1)) { nx1 = x + 1; gap = 0; continue }
-      if (++gap > gapX) break
-    }
+    // 与原始矩形比较：收窄（缩小）和扩框（放大）都要落到样式上
+    if (x0 === ox0 && x1 === ox1 && y0 === oy0 && y1 === oy1) return 'ink'
 
-    if (nx0 === x0 && nx1 === x1 && ny0 === y0 && ny1 === y1) return true
-
-    // 换算回 div 的 CSS 像素并改写内联样式（沿用官方容器的坐标系）
-    const dLeft = (nx0 - x0) / scale
-    const dTop = (ny0 - y0) / scale
-    const dWidth = (nx1 - nx0 - (x1 - x0)) / scale
-    const dHeight = (ny1 - ny0 - (y1 - y0)) / scale
+    // 换算回 div 的 CSS 像素并改写内联样式（沿用官方容器的坐标系；
+    // 增量一律相对原始矩形计算，与 div 当前样式对应）
+    const dLeft = (x0 - ox0) / scale
+    const dTop = (y0 - oy0) / scale
+    const dWidth = (x1 - x0 - (ox1 - ox0)) / scale
+    const dHeight = (y1 - y0 - (oy1 - oy0)) / scale
     const left = parseFloat(div.style.left)
     const top = parseFloat(div.style.top)
     const width = parseFloat(div.style.width)
     const height = parseFloat(div.style.height)
-    if (![left, top, width, height].every(Number.isFinite)) return false
+    if (![left, top, width, height].every(Number.isFinite)) return 'pending'
 
-    div.style.left = Math.floor(left + dLeft) + 'px'
-    div.style.top = Math.floor(top + dTop) + 'px'
-    div.style.width = Math.max(1, Math.floor(width + dWidth)) + 'px'
-    div.style.height = Math.max(1, Math.floor(height + dHeight)) + 'px'
+    // 取整用 round：floor 会系统性少 1px（右下边被切掉半像素），
+    // 对一行公式/一张图这种小目标肉眼可辨
+    div.style.left = Math.round(left + dLeft) + 'px'
+    div.style.top = Math.round(top + dTop) + 'px'
+    div.style.width = Math.max(1, Math.round(width + dWidth)) + 'px'
+    div.style.height = Math.max(1, Math.round(height + dHeight)) + 'px'
+    return 'ink'
+  }
+
+  /* ------------------------------------------------------------------ *
+   * D. 空白高亮剔除
+   *
+   * tikz／表格等大盒内容所在行，/sync/code 除了内容盒还会返回错位的空白矩形
+   * （用户实测：选中 tikzpicture 代码，右栏从内容下方到页底整片空白被高亮）。
+   * 这类矩形在画布上一点墨迹都没有 —— 空白即噪音，不应停留。
+   *
+   * 只在「同页另有含墨迹的高亮」时删除：整页唯一高亮即使空白也保留，
+   * 保证滚动定位与可见性行为不退化。
+   * ------------------------------------------------------------------ */
+
+  function pageOfHighlight(div) {
+    const canvas = findCanvasFor(div.getBoundingClientRect())
+    if (!canvas) return null
+    return canvas.closest('.pdfViewer .page') || canvas
+  }
+
+  function forgetHighlight(div) {
+    liveHighlights.delete(div)
+  }
+
+  function dropHighlight(div) {
+    try {
+      div.remove()
+    } catch {
+      div.style.display = 'none'
+    }
+    forgetHighlight(div)
+  }
+
+  // 同页是否已有含墨迹的高亮
+  function hasInkSibling(div) {
+    const page = pageOfHighlight(div)
+    if (!page) return false
+    for (const other of liveHighlights) {
+      if (other === div) continue
+      if (!other.isConnected) {
+        forgetHighlight(other)
+        continue
+      }
+      if (highlightInk.get(other) !== 'ink') continue
+      if (pageOfHighlight(other) === page) return true
+    }
+    return false
+  }
+
+  // 本条确认为空白：同页有正确高亮才删
+  function pruneBlankHighlight(div) {
+    if (!hasInkSibling(div)) return false
+    dropHighlight(div)
     return true
+  }
+
+  // 本条确认含墨迹：回收之前被判空白的同页高亮
+  function pruneBlankSiblings(div) {
+    const page = pageOfHighlight(div)
+    if (!page) return
+    for (const other of [...liveHighlights]) {
+      if (other === div) continue
+      if (!other.isConnected) {
+        forgetHighlight(other)
+        continue
+      }
+      if (highlightInk.get(other) !== 'blank') continue
+      if (pageOfHighlight(other) !== page) continue
+      dropHighlight(other)
+    }
+  }
+
+  // 高亮几何诊断：确认「服务端给的 v」与「实际落点」是否一致
+  function logHighlight(div, status) {
+    try {
+      const rect = div.getBoundingClientRect()
+      const canvas = findCanvasFor(rect)
+      const pageEl = canvas ? canvas.closest('.pdfViewer .page') || canvas : null
+      const pageRect = pageEl ? pageEl.getBoundingClientRect() : null
+      // 相对页面尺寸的百分比：截图缩放/窗口大小变化后仍可对照
+      let rel = ''
+      if (pageRect && pageRect.width > 0 && pageRect.height > 0) {
+        const px = (n) => Math.round(n * 100) + '%'
+        rel = ` rel(${px((rect.left - pageRect.left) / pageRect.width)},` +
+          `${px((rect.top - pageRect.top) / pageRect.height)} ` +
+          `${px(rect.width / pageRect.width)}x${px(rect.height / pageRect.height)})`
+      }
+      report(
+        `[ayaka-sync] hl ${status} style(${div.style.left}/${div.style.top} ` +
+        `${div.style.width}x${div.style.height}) abs(${Math.round(rect.left)},${Math.round(rect.top)} ` +
+        `${Math.round(rect.width)}x${Math.round(rect.height)}) page(${pageEl ? pageEl.getAttribute('data-page-number') || '?' : '?'} ` +
+        `${pageRect ? Math.round(pageRect.width) + 'x' + Math.round(pageRect.height) : '-'}) ` +
+        `canvas(${canvas ? canvas.width + 'x' + canvas.height : '-'})${rel}`
+      )
+    } catch {
+      // 诊断失败不影响行为
+    }
   }
 
   function processHighlight(div) {
     if (processedHighlights.has(div)) return
+    liveHighlights.add(div)
     let tries = 0
+    let blankTries = 0
     const attempt = () => {
-      if (!div.isConnected) return
-      tries++
-      let done = false
-      try {
-        done = scanAndExpand(div)
-      } catch {
-        done = false
+      if (!div.isConnected) {
+        forgetHighlight(div)
+        return
       }
-      if (done) {
+      tries++
+      let status = 'pending'
+      try {
+        status = scanAndExpand(div)
+      } catch {
+        status = 'pending'
+      }
+      if (status === 'ink') {
         processedHighlights.add(div)
+        highlightInk.set(div, 'ink')
+        logHighlight(div, 'ink')
+        pruneBlankSiblings(div)
+        return
+      }
+      if (status === 'blank') {
+        blankTries++
+        // 画布渲染有间隔：先用几次重试排除「还没画出来」
+        if (blankTries < BLANK_RETRY) {
+          window.setTimeout(attempt, RETRY_MS)
+          return
+        }
+        processedHighlights.add(div)
+        highlightInk.set(div, 'blank')
+        logHighlight(div, 'blank')
+        pruneBlankHighlight(div)
         return
       }
       // 画布可能还没渲染/还没翻到，稍后重试几次
-      if (tries < 5) window.setTimeout(attempt, 350)
+      if (tries < PENDING_RETRY) window.setTimeout(attempt, RETRY_MS)
+      else forgetHighlight(div)
     }
     attempt()
   }
@@ -916,6 +1426,13 @@
   }
   // 调试/自测用：暴露消歧函数
   window.__ayakaDisambiguate = disambiguatePdfRects
+  // 调试/自测用：暴露纵向换算
+  window.__ayakaToTopEdge = toTopEdge
+  // 调试/自测用：暴露请求行号改写
+  window.__ayakaForcedSyncUrl = forcedSyncUrl
+  // 调试/自测用：暴露多公式合并
+  window.__ayakaTakeExtraLines = takeExtraSyncLines
+  window.__ayakaMergeRects = mergeExtraSyncRects
   // 调试/自测用：暴露 synctex 解析、compile 响应记录与收窄函数
   window.__ayakaParseSynctex = parseSynctex
   window.__ayakaNoteCompile = noteCompileResponse

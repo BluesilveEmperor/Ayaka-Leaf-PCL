@@ -11,13 +11,16 @@ Overleaf 原生符号面板 schema（category/command/codepoint/description/alia
 - LaTeX-Workshop 符号按其原始分类合并（同分类同命令去重，原生优先）；
 - 分类标签固定中文（保留 LaTeX-Workshop 分类体系）。
 
-codepoint 推导顺序：
+codepoint 推导顺序（顺序即优先级；必须判在 SVG 之前：SVG 画的是「示例字母 + 符号」，
+首个字形常是示例字母，判早了整类符号都会退化成同一个字母 a）：
 1. 纯字符 snippet（定界符等）直接取字符；
-2. MathJax SVG 首个字形 id 的十六进制 codepoint；
-3. unimathsymbols.json 的 detail 首字符；
-4. 重音命令 → 组合附加符；
-5. 字母样式（\\mathbb{A} 等）→ 数学字母数字符号区；
-6. 无法解析时留空，由补丁加固后的解析逻辑回退显示命令文本。
+2. 字母样式（\\mathbb{A} 等）→ 数学字母数字符号区；
+3. 重音符号 → 带示例字母的重音字母（\\hat → â），示例字母与 LaTeX-Workshop 面板一致；
+4. 手工覆盖表（SVG/unimath 都判错的极少数符号，如 \\Im → ℑ）；
+5. MathJax SVG 首个字形 id 的十六进制 codepoint；
+6. unimathsymbols.json 的 detail 首字符；
+7. 重音命令 → 组合附加符（无可用示例字母时兜底）；
+8. 无法解析时留空，由补丁加固后的解析逻辑回退显示命令文本。
 
 用法：
     python generate-symbol-patch.py [snippetpanel.json] [unimathsymbols.json]
@@ -35,7 +38,7 @@ DEFAULT_PANEL = Path(r"D:\Documents\02_Programming\LaTeX-Workshop\resources\snip
 DEFAULT_UNIMATH = Path(r"D:\Documents\02_Programming\LaTeX-Workshop\data\unimathsymbols.json")
 OUTPUT = REPO_ROOT / "PCL.Core" / "Ayakaleaf" / "Assets" / "symbol-patch.js"
 
-PATCH_VERSION = "v2"
+PATCH_VERSION = "v3"
 
 # 分类体系：保留 LaTeX-Workshop 的分类，界面以中文显示（顺序即标签顺序）
 CATEGORIES = [
@@ -60,11 +63,35 @@ NATIVE_CATEGORY_MAP = {
     "Misc": "Miscellaneous",
 }
 
-# 重音命令 → 组合附加符（LaTeX-Workshop "Accents" 分类的显示字符）
+# 重音命令 → 组合附加符（无可组合示例字母时的兜底；单独的组合符在界面上几乎不可见）
 ACCENT_COMBINING = {
     "hat": 0x0302, "dot": 0x0307, "check": 0x030C, "ddot": 0x0308,
     "tilde": 0x0303, "breve": 0x0306, "acute": 0x0301, "bar": 0x0304,
     "grave": 0x0300, "vec": 0x20D7,
+}
+
+# 重音命令 → 预组合重音字母（示例字母固定 a，与 LaTeX-Workshop 面板的 svg 一致）。
+# 必须判在 MathJax SVG 之前：\hat 的 svg 画的是 â，首个字形 id 是示例字母 a，
+# 走 SVG 会让 10 个重音全部显示成「a」（符号面板重音符号分类的已知缺陷）。
+ACCENT_PRECOMPOSED = {
+    "hat": 0x00E2,   # â
+    "dot": 0x0227,   # ȧ
+    "check": 0x01CE, # ǎ
+    "ddot": 0x00E4,  # ä
+    "tilde": 0x00E3, # ã
+    "breve": 0x0103, # ă
+    "acute": 0x00E1, # á
+    "bar": 0x0101,   # ā
+    "grave": 0x00E0, # à
+}
+
+# 手工覆盖：SVG 首个字形是 ASCII 首字母（\Im → I）或数据源缺失导致的空 codepoint
+CODEPOINT_OVERRIDES = {
+    "Im": 0x2111,       # ℑ
+    "Re": 0x211C,       # ℜ
+    "iint": 0x222C,     # ∬
+    "|": 0x2016,        # ‖（\| 与 \Vert 同形，snippetpanel 未给 svg）
+    "llcorner": 0x231E, # ⌞
 }
 
 # 字母样式 → 数学字母数字符号区（U+1D400 起，含标准例外字符）
@@ -179,10 +206,17 @@ def derive_codepoint(name: str, source: str, snippet: str, svg: str, unimath, ca
             if base:
                 offset = ord(letter) - (0x30 if letter.isdigit() else 0x41 if letter.isupper() else 0x61)
                 return chr(base + offset), "letterstyle"
-    # 3. 标准函数（\cos 等）非符号：直接回退为命令文本，避免误导性的首字母显示
+    # 3~4. 重音与手工覆盖：键取命令名（去掉前导反斜杠），不做花括号剥离
+    key = name[1:] if name.startswith("\\") else name
+    # 重音（\hat 等）的 svg 画的是「示例字母 a + 附加符」，走 SVG 会让整类显示成 a
+    if key in ACCENT_PRECOMPOSED:
+        return chr(ACCENT_PRECOMPOSED[key]), "accent-pre"
+    if key in CODEPOINT_OVERRIDES:
+        return chr(CODEPOINT_OVERRIDES[key]), "override"
+    # 5. 标准函数（\cos 等）非符号：直接回退为命令文本，避免误导性的首字母显示
     if category == "Standard Functions":
         return "", "text"
-    # 4. MathJax SVG 首个字形
+    # 6. MathJax SVG 首个字形
     m = MATHJAX_GLYPH.search(svg or "")
     if m:
         cp = int(m.group(1), 16)
@@ -193,14 +227,13 @@ def derive_codepoint(name: str, source: str, snippet: str, svg: str, unimath, ca
             if category == "Maths Constructs" and ch.isascii() and ch.isalnum():
                 return "", "text"
             return ch, "svg"
-    # 5. unimathsymbols 数据库
-    key = name if not name.startswith("\\") else name[1:]
+    # 7. unimathsymbols 数据库
     entry = unimath.get(key) or unimath.get(key.strip("{}"))
     if entry:
         ch = first_char(entry.get("detail", ""))
         if ch:
             return ch, "unimath"
-    # 6. 重音组合附加符
+    # 8. 重音组合附加符（无预组合字母可用的 \vec 等兜底）
     if key in ACCENT_COMBINING:
         return chr(ACCENT_COMBINING[key]), "accent"
     return "", "none"
@@ -209,6 +242,9 @@ def derive_codepoint(name: str, source: str, snippet: str, svg: str, unimath, ca
 def build_command(snippet: str) -> str:
     """插入命令 = 展开占位符；以字母结尾（裸命令）补一个空格防止吞字。"""
     cmd = expand_snippet(snippet)
+    # 片段语法里被转义的右花括号写成 \\}（\left\{\right\} → \left\{\right\\}），
+    # 原样插入等于「换行 + }」；还原成 \}（左花括号片段本身没被转义，无需处理）
+    cmd = re.sub(r"\\\\\}", r"\\}", cmd)
     if re.search(r"[A-Za-z]$", cmd):
         cmd += " "
     return cmd
