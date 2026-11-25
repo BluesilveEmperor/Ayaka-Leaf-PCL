@@ -723,30 +723,53 @@ public static class AyakaleafAccountService
     // ---------------- HTTP 辅助 ----------------
 
     /// <summary>取登录页 CSRF 令牌；连接失败映射为服务不可用，非成功状态码 / 未命中映射为服务未就绪。</summary>
+    /// <remarks>
+    /// 容器刚启动时（Up 几十秒）Overleaf Web 仍在预热，此时 /login 可能返回 5xx 或缺 csrfToken，
+    /// 属于瞬时状态。对「已响应但未就绪」做有限次退避重试（<see cref="CsrfReadyRetryCount"/> 次，
+    /// 间隔 <see cref="CsrfReadyRetryDelay"/>），超限才抛给上层，避免开机窗口期内弹红色错误条。
+    /// </remarks>
+    private const int CsrfReadyRetryCount = 5;
+    private static readonly TimeSpan CsrfReadyRetryDelay = TimeSpan.FromSeconds(2);
+
     private static async Task<string> _GetCsrfTokenAsync()
     {
-        HttpResponseMessage response;
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            response = await Http.GetAsync(AyakaleafService.BaseUrl + "/login").ConfigureAwait(false);
-        }
-        catch (Exception ex) when (_IsConnectionFailure(ex))
-        {
-            throw _ServiceUnavailable(ex);
-        }
+            HttpResponseMessage response;
+            try
+            {
+                response = await Http.GetAsync(AyakaleafService.BaseUrl + "/login").ConfigureAwait(false);
+            }
+            catch (Exception ex) when (_IsConnectionFailure(ex))
+            {
+                throw _ServiceUnavailable(ex);
+            }
 
-        using (response)
-        {
-            if (!response.IsSuccessStatusCode)
-                throw _ServiceNotReady((int)response.StatusCode);
+            string? csrf = null;
+            int? statusCode = null;
+            using (response)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    // 正则沿用既有实现，保持对 Overleaf 登录页的兼容
+                    var body = await _ReadBodyAsync(response).ConfigureAwait(false);
+                    var match = Regex.Match(body, "ol-csrfToken\" content=\"([^\"]+)\"");
+                    if (match.Success)
+                        return match.Groups[1].Value;
+                }
+                else
+                {
+                    statusCode = (int)response.StatusCode;
+                }
+            }
 
-            // 正则沿用既有实现，保持对 Overleaf 登录页的兼容
-            var body = await _ReadBodyAsync(response).ConfigureAwait(false);
-            var match = Regex.Match(body, "ol-csrfToken\" content=\"([^\"]+)\"");
-            if (!match.Success)
-                throw _ServiceNotReady(null);
+            if (attempt >= CsrfReadyRetryCount)
+                throw _ServiceNotReady(statusCode);
 
-            return match.Groups[1].Value;
+            LogWrapper.Warn(
+                $"[Ayakaleaf] 登录页尚未就绪（第 {attempt}/{CsrfReadyRetryCount} 次探测失败" +
+                $"{(statusCode is null ? "" : $"，HTTP {statusCode}")}），{CsrfReadyRetryDelay.TotalSeconds:0}s 后重试");
+            await Task.Delay(CsrfReadyRetryDelay).ConfigureAwait(false);
         }
     }
 
