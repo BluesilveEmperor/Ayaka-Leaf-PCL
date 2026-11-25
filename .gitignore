@@ -369,3 +369,6 @@ Plain Craft Launcher 2/runtime/
 
 # WorkBuddy 本地记忆数据
 .workbuddy/
+
+# 本地规格/草稿目录（不入库）
+spec/
