@@ -20,9 +20,20 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 - **服务台** —— 一键部署 / 启动 / 停止内置 Overleaf 服务（MongoDB 8.0 + Redis 7 + Overleaf；启用 Git-Bridge 时另含 git-bridge 容器），自动初始化 MongoDB 副本集，服务就绪自动探测
 - **容器运行时** —— 基于 Windows WSL 3.0+ 内置容器能力（WSLC），**无需 Docker Desktop**，数据卷为独立 vhd 文件
 - **工作台** —— 内嵌 WebView2 打开 Overleaf，自动开户 + 自动登录，免手动输入
+- **文档导入（Pandoc）** —— 镜像内置 Pandoc 3.x，工作台直接导入 Word / Markdown 文档；导入失败给出中文原因提示，超大文档自动拦截
 - **公式联动** —— 左侧选中 LaTeX 公式代码，右侧 PDF 自动高亮对应位置并滚动定位（复用 Overleaf 自带 SyncTeX）
+- **PDF 反向同步** —— 在 PDF 上单击任意位置，编辑器自动跳到对应源码行并闪烁高亮（反向 SyncTeX 定位）；跨文件定位失败时自动回退官方双击流程
+- **错误汉化** —— 编译错误日志附中文解释（点错误跳源码行的官方交互保留）；Word / Markdown 导入失败同样给出中文原因
+- **首启环境引导** —— 环境自检页列出 WSL / wslc / .NET 三项运行环境状态，缺失项提供一键修复指引
+- **镜像变体** —— Overleaf 主镜像双变体按需部署：完整版（约 3.5GB，精选宏包集）与「中文常用版」精简镜像（约 1.7GB，中文排版 + 常用宏包保留集）
+- **宏包面板** —— 页面内搜索 / 安装 / 卸载 TeX Live 宏包（tlmgr 在线补装）；精简镜像缺宏包时在线补装即可，形成闭环
+- **服务状态页** —— 容器运行状态、资源占用、最近日志一页可见，支持一键重启服务
+- **服务端账号管理** —— 页面内列出服务端全部账号：搜索 / 停用 / 恢复 / 重置密码 / 授予或撤销管理员
+- **中文模板库** —— 内置中学试卷、本科毕业论文、竞赛报告、国内期刊四类中文模板，一键新建项目即可用 XeLaTeX 直接编译（随镜像内置中文字体）
+- **本地文件夹同步** —— 项目与本地文件夹双向自动同步：本地编辑器保存自动推送、工作台修改自动拉回；同一文件双端都改过时双方版本均保留（冲突副本 + 显式提示），绝不静默覆盖
+- **轻量协作客户端** —— AyakaCollabLite（≤ 50MB、免安装、零运行时依赖），异地队友无需完整启动器即可凭邀请码加入协作
 - **符号面板拓展** —— 内置符号面板拓展为 LaTeX-Workshop 全量符号集：10 个中文分类、760+ 符号（在 Overleaf 原生符号之上合并增量），支持按名称 / 关键字 / Unicode 搜索，服务启动时自动生效，无需手动操作
-- **镜像管理** —— 内置镜像 tar.gz（`runtime/images`），部署时自动加载，重复加载幂等
+- **镜像管理** —— 内置镜像 tar.gz（`runtime/images`，双变体主镜像 + 清单），部署时按所选变体自动加载，重复加载幂等
 - **备份恢复** —— 数据卷即 vhd 文件，页面内一键快照 / 恢复
 - **局域网共享（团队协作）** —— 服务台实时显示「队友访问地址」，同一局域网的队友用浏览器即可访问、注册账号并实时协同编辑；网络切换后地址自动刷新，自动排除 VPN / TUN 虚拟网卡（Mihomo / Clash 等），详见「团队协作」章节
 - **远程协作** —— 基于 EasyTier 的异地组网：房主一键生成邀请码开放本机 Overleaf 服务，异地队友输码自动加入虚拟网络并转发端口，无需公网 IP 或端口映射，详见「远程协作」章节
@@ -61,7 +72,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 | 场景 | 功能 | 要求 |
 |---|---|---|
 | 同一局域网（宿舍 / 实验室 / 办公室内网） | 团队协作（局域网共享） | 队友仅需浏览器，无需安装任何软件 |
-| 异地 / 不同网络 | 远程协作（EasyTier 虚拟组网） | 双方都能访问互联网；队友需运行本启动器 |
+| 异地 / 不同网络 | 远程协作（EasyTier 虚拟组网） | 双方都能访问互联网；队友运行完整启动器或轻量客户端 AyakaCollabLite |
 
 ### 🏠 团队协作（局域网共享）
 
@@ -120,6 +131,36 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 
 默认自动连接 5 个社区公共中转节点；网络受限时可配置自定义节点（`tcp://` / `udp://` / `wss://` / `https://` 格式，多个以逗号分隔，追加在内置节点之后）。
 
+### 🪶 轻量协作客户端（AyakaCollabLite）
+
+只需加入他人协作、不需要本地服务栈的队友，可改用轻量客户端 AyakaCollabLite：
+
+- **体积 ≤ 50MB、免安装、零运行时依赖**：解压即用，双击 `CollabLite.bat` 启动（PowerShell 5.1 WinForms 图形界面，Windows 10/11 自带环境即可运行）
+- 功能聚焦异地协作：粘贴房主邀请码 → 自动组网（内置 EasyTier v2.6.4，与主程序版本一致保证协议兼容）→ 按房主启用的界面语言建立本地端口转发 → 浏览器打开转发地址即可协同编辑
+- 与完整启动器的协作功能互相兼容：房主用完整启动器「开启协作」，队友任选完整启动器「加入协作」或轻量客户端加入，组网参数一致
+- 安装包 `AyakaCollabLite_<版本>_x64.zip` 随主程序 Release 一并分发，附 `.sha256` 校验文件
+
+## 📁 本地文件夹同步（双向）
+
+把 Ayakaleaf 项目与本地文件夹建立双向同步，实现「本地编辑 + Overleaf 编译」混合工作流：
+
+1. 在工作台打开要绑定的项目，点击窗口顶部的「⟳ 本地同步」按钮
+2. 在弹出的管理窗口中点击「绑定当前项目到文件夹…」，选择本地文件夹（建议空文件夹）并确认
+3. 绑定完成后首轮同步自动把项目内容拉到本地；此后双向自动同步：
+   - **本地 → 工作台**：本地编辑器（VS Code / TeXstudio / 记事本等）保存文件后自动推送到服务端，已连接的协作者会实时看到更新
+   - **工作台 → 本地**：工作台中的修改（含协作者编辑）自动拉回本地文件夹
+   - 本地监听为准实时（约 1.5 秒防抖），远端轮询周期 30 秒；服务未启动时自动跳过，服务恢复后自动续传
+
+**冲突规则（绝不静默覆盖）**：同一文件双端都修改且内容不同时，以远端为当前版本落盘，本地修改保存为冲突副本 `名称.conflict-YYYYMMDD-HHMMSS.扩展名`，并弹出明确提示——双方版本都保留，由你决定保留哪份。
+
+**绑定管理**：管理窗口内可对每个绑定执行「立即同步」「暂停 / 恢复」「打开文件夹」「解除绑定」；解除绑定只停止自动同步，本地文件与清单均保留。绑定配置随启动器持久化，重启后自动恢复监听。
+
+**v1 范围限制**（后续版本演进）：
+
+- 删除 / 重命名不自动传播：本地删除的文件远端保留，远端删除的文件本地保留
+- 已存在二进制文件（如图片）的修改不支持推送（请在工作台内替换），新增二进制文件可正常上传
+- 编译产物与临时文件（`.aux` / `.log` / `.synctex.gz` 等）自动排除，不会同步到工作台
+
 ## 💻 支持平台
 
 | 操作系统 | 支持情况 | 环境要求 |
@@ -132,7 +173,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载主程序 `AyakaLauncher_Release_x64.exe`（ARM64 设备选 `AyakaLauncher_Release_ARM64.exe`）；运行时包 `runtime.7z` 从下文「主下载源（网盘）」获取；主程序另有备用下载，见下文「备用下载：主程序」
-2. 把 exe 与运行时包放到同一目录，解压得到 `runtime\images\`（约 4.2GB，详见下节）
+2. 把 exe 与运行时包放到同一目录，解压得到 `runtime\images\`（约 6.3GB，含双变体主镜像，详见下节）
 3. 安装 [.NET 10 Desktop Runtime](https://get.dot.net/10)（架构与主程序一致）
 4. 启用 WSL：管理员 PowerShell 执行 `wsl --install --no-distribution`，完成后执行 `wsl --update`
 5. 启动 `AyakaLauncher_Release_<平台>.exe` → 注册本地用户并登录
@@ -143,7 +184,7 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 ## ⚠️ 功能限制
 
 - **邮件不可用**：本地实例未配置 SMTP，确认邮件 / 密码找回邮件无法发送（注册已自动跳过邮箱确认）；注册策略选「域名白名单」时激活邮件同样无法送达，请知悉后再选用
-- **沙箱编译与 Pandoc 导入**：WSL 容器环境无法运行同级（sibling）容器，TeX Live 全量沙箱编译与 Pandoc 文档导入不可用，设置页中置灰展示
+- **沙箱编译**：WSL 容器环境无法运行同级（sibling）容器，TeX Live 全量沙箱编译不可用，设置页中置灰展示；编译仍在 Ayakaleaf 容器内进行，不受影响。**Pandoc 文档导入**已随新版运行时镜像恢复（镜像内置 Pandoc 3.x，Word / Markdown 导入可用），设置页显示实际检测结果
 - **OAuth 回调可达性**：GitHub / GitLab / Gitea / Zotero / Mendeley 授权回调要求访问者能访问站点地址；局域网模式使用本机 IP，公网不可达时授权可能失败
 - **凭据安全**：AI 密钥、OAuth Client Secret 等敏感配置保存在本机加密配置源中，容器重建指纹仅取 SHA256 哈希，不写日志
 
@@ -155,19 +196,29 @@ AyakaLauncher 是 [Ayakaleaf](https://github.com/ayaka-notes/ayakaleaf-pro)（Ov
 AyakaLauncher.exe
 runtime\
 └─ images\
-   ├─ sharelatex-server-pro.tar.gz   # Overleaf 服务端定制镜像（约 3.46GB，自包含 TeX Live 2026 完整宏包集）
-   ├─ git-bridge.tar.gz              # Git-Bridge / MCP 服务镜像（约 387MB，必选，Git 操作与三方同步依赖）
-   ├─ mongo-8.0.tar.gz               # MongoDB 8.0（约 300MB）
-   └─ redis-7.tar.gz                 # Redis 7（约 42MB）
+   ├─ sharelatex-server-pro.tar.gz       # Overleaf 完整版镜像（约 3.5GB，内置 Pandoc 3.x + 精选完整宏包集）
+   ├─ sharelatex-server-pro-cn.tar.gz    # Overleaf「中文常用版」精简镜像（约 1.7GB，中文排版 + 常用宏包保留集）
+   ├─ git-bridge.tar.gz                  # Git-Bridge / MCP 服务镜像（约 387MB，必选，Git 操作与三方同步依赖）
+   ├─ mongo-8.0.tar.gz                   # MongoDB 8.0（约 300MB）
+   ├─ redis-7.tar.gz                     # Redis 7（约 42MB）
+   ├─ images-manifest.json               # 镜像清单（变体、标签、SHA256、构建时间）
+   └─ *.sha256                           # 各镜像包的 SHA256 校验文件
 ```
 
-四个包合计约 4.2GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（Release 不再附带运行时包）。**v2.0.0 版本**分发的 `sharelatex-server-pro.tar.gz` **自包含 TeX Live 2026 收录的完整宏包集**（scheme-full 全量安装，约 4900 个宏包，texlive 目录增至约 7–8GB、含文档，已覆盖 ctex / xeCJK 中文支持与 IEEEtran / revtex / elsarticle 等期刊模板；规模与构建参数以 `tools/runtime/texlive-full/Dockerfile` 为准）；镜像内已预装全部宏包，部署后无需联网用 `tlmgr` 补装，开箱即可编译中文论文。需要自行重建该镜像时，仓库提供两种 Dockerfile：`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）与 `tools/runtime/texlive-packages/Dockerfile`（精选集合，体积更小），构建后 `wslc tag` + `wslc save` 导出覆盖即可。获取方式任选其一：
+**双变体主镜像**：Overleaf 主镜像提供「完整版 / 中文常用版」两种变体，部署时按所选变体加载对应镜像包（未选中的变体包自动跳过；磁盘紧张时可删除不用的变体包）：
+
+| 变体 | 镜像包 | 体积 | 适用 |
+|---|---|---|---|
+| 完整版（默认） | `sharelatex-server-pro.tar.gz` | 约 3.5GB | 精选完整宏包集开箱即用，覆盖中文支持与常见期刊 / 模板宏包 |
+| 中文常用版（精简） | `sharelatex-server-pro-cn.tar.gz` | 约 1.7GB | 面向中文常用排版场景裁剪；后续缺宏包时经「宏包面板」tlmgr 在线补装，形成闭环 |
+
+全部包合计约 6.3GB，**不入 git 仓库**（`.gitignore` 已排除），正式分发走下文「主下载源（网盘）」中的 `runtime.7z`（Release 不再附带运行时包）。需要自行重建镜像时，仓库提供三种 TeX Live 层 Dockerfile：`tools/runtime/texlive-packages/Dockerfile`（精选集合，完整版默认）、`tools/runtime/texlive-full/Dockerfile`（scheme-full 全量）、`tools/runtime/texlive-cn/Dockerfile`（中文常用版精简），经 `tools/runtime/build-images.ps1` / `build-images.py` 一键构建（串联 Pandoc 层 → TeX Live 层 → `wslc save` → SHA256 清单）。获取方式任选其一：
 
 | 方式 | 适用镜像 | 说明 |
 |---|---|---|
 | 网盘主下载源 `runtime.7z` | 全部 | 从下文「主下载源（网盘）」任选一个分享链接下载，解压到 exe 同级即为 `runtime\images\` |
 | `wslc` 自助导出 | mongo / redis | 标准镜像：`wslc pull mongo:8.0` 后 `wslc save -o runtime\images\mongo-8.0.tar.gz mongo:8.0`（redis 同理） |
-| ayakaleaf-pro 构建 | sharelatex / git-bridge 定制镜像 | 从 [ayakaleaf-pro](https://github.com/ayaka-notes/ayakaleaf-pro) 构建镜像后 `wslc save` 导出 |
+| 本仓库构建脚本 | sharelatex 双变体 / git-bridge 定制镜像 | `pwsh tools\runtime\build-images.ps1`（默认精选集合；`-Variant cn` 精简中文；`-Variant full` scheme-full） |
 
 **放置位置**：解压后的 `runtime.7z` 或整合包内，均放在 exe 同级；源码开发放在**仓库根** `runtime\images\`（构建后自动挂到输出目录，见下节）。
 
@@ -200,20 +251,21 @@ dotnet run --project "Plain Craft Launcher 2"
 
 也可以用 Visual Studio / Rider / VS Code 打开解决方案直接 F5。
 
-**runtime junction 机制**：仓库根 `runtime\` 是镜像包的真实存放处；每次构建后，csproj 中的 `LinkAyakaleafRuntime` Target 会把输出目录 `bin\<配置>\net10.0-windows\runtime` 以目录联接（junction）指向它，`dotnet publish` 输出目录由 `LinkAyakaleafRuntimeOnPublish` 同样处理——避免每次构建复制 4.2GB，应用运行时从 exe 旁的 `runtime\images` 读取。对仓库根 `runtime\` 的改动在下次运行时即时生效。
+**runtime junction 机制**：仓库根 `runtime\` 是镜像包的真实存放处；每次构建后，csproj 中的 `LinkAyakaleafRuntime` Target 会把输出目录 `bin\<配置>\net10.0-windows\runtime` 以目录联接（junction）指向它，`dotnet publish` 输出目录由 `LinkAyakaleafRuntimeOnPublish` 同样处理——避免每次构建复制约 6.3GB，应用运行时从 exe 旁的 `runtime\images` 读取。对仓库根 `runtime\` 的改动在下次运行时即时生效。
 
 **首次运行流程**：注册本地用户并登录 → 服务台点击 **开始部署**（自动加载镜像、初始化 MongoDB 副本集）→ **启动服务** → **打开工作台**。可用 `wslc images` 确认 4 个镜像、`wslc list` 确认 3 个容器（mongo / redis / overleaf；启用 Git-Bridge 时另见 git-bridge 容器）均已就绪。
 
 ## 📦 发布与分发（Release）
 
-主程序统一从 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载，运行时包 `runtime.7z` 从下方「主下载源（网盘）」获取；**Release 仅附带主程序，不再附带运行时包**。附件如下：
+主程序统一从 [GitHub Releases](https://github.com/BluesilveEmperor/Ayaka-Leaf-PCL/releases) 下载，运行时包 `runtime.7z` 从下方「主下载源（网盘）」获取；**Release 仅附带主程序与轻量客户端，不再附带运行时包**。附件如下：
 
 | 附件 | 说明 |
 |---|---|
 | `AyakaLauncher_Release_x64.exe` | x64 主程序，Framework-dependent 单文件，需 [.NET 10 Desktop Runtime](https://get.dot.net/10) |
 | `AyakaLauncher_Release_ARM64.exe` | ARM64 主程序，Framework-dependent 单文件，需求同上 |
+| `AyakaCollabLite_<版本>_x64.zip`（+ `.sha256`） | 轻量协作客户端（≤ 50MB），异地队友免完整启动器加入协作，解压即用 |
 
-> 📌 **v2.0.0 运行时说明**：本版本配套的 `sharelatex-server-pro.tar.gz` 已**自包含 TeX Live 2026 收录的全部宏包**（scheme-full 全量），部署后无需联网补装任何宏包；中文支持（ctex / xeCJK）与各期刊模板同样已内置。
+> 📌 **运行时说明**：`runtime.7z` 内含双变体主镜像（完整版约 3.5GB / 中文常用版约 1.7GB），均内置 Pandoc 3.x 与中文支持；完整版开箱即用，中文常用版缺宏包时经「宏包面板」在线补装。
 
 ### 主下载源（网盘）
 
@@ -250,7 +302,7 @@ GitHub Releases 是主程序的**主渠道**；下载不便时，可从以下备
 
 ### 为什么 runtime 不进入代码仓库
 
-单个镜像包最大约 3.46GB（sharelatex-server-pro，自包含 TeX Live 2026 完整宏包集），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由网盘主下载源 `runtime.7z` 分发（Release 不再附带运行时包）。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
+单个镜像包最大约 3.5GB（sharelatex-server-pro 完整版），远超 GitHub 普通仓库 100MB 的单文件限制，因此运行时镜像不打入 git，改由网盘主下载源 `runtime.7z` 分发（Release 不再附带运行时包）。仓库内的 `runtime\` 目录仅供本机开发使用，已在 `.gitignore` 中忽略。
 
 ### 本地打包
 
@@ -274,15 +326,21 @@ pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform 
 pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform ARM64 -WithBundle
 ```
 
+```powershell
+# 可选：随发布一并构建轻量协作客户端（Python 版用 --with-collab-lite）
+pwsh -ExecutionPolicy Bypass -File release.ps1 -Configuration Release -Platform x64 -WithCollabLite
+```
+
 > `runtime.zip` 与平台无关，ARM64 重跑仅重新打包覆盖，内容不变；Release 不再附带运行时包，对外统一由网盘 `runtime.7z` 分发。
 
-打包前脚本会先检查项目根是否存在 `runtime\` 目录：若不存在，直接提示先从网盘下载 `runtime.7z`、解压到项目根目录后再运行脚本；若存在，则继续校验 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四个镜像是否齐备，缺失则报错并提示补齐（可从网盘 `runtime.7z` 解压恢复）。
+打包前脚本会先检查项目根是否存在 `runtime\` 目录：若不存在，直接提示先从网盘下载 `runtime.7z`、解压到项目根目录后再运行脚本；若存在，则继续校验 `runtime\images\` 下的 `sharelatex-server-pro.tar.gz`、`git-bridge.tar.gz`、`mongo-8.0.tar.gz`、`redis-7.tar.gz` 四个必备镜像是否齐备，缺失则报错并提示补齐（可从网盘 `runtime.7z` 解压恢复）。随后校验镜像清单 `images-manifest.json`（存在时）：清单声明的每个镜像包（含中文常用版变体）必须存在，且各自的 `.sha256` 伴生文件与清单一致，防止产出残缺或被篡改的运行时包。
 
 | 产物 | 触发条件 | 说明 |
 |---|---|---|
 | `release\AyakaLauncher_<配置>_<平台>.exe` | 默认 | 主程序（x64 / ARM64 分别构建），命名与 Release 附件一致（不含版本号） |
-| `release\runtime.zip` | 默认 | 内嵌运行时镜像包，约 4.2GB，仅供本机整合包使用，不再随 Release 分发 |
-| `release\AyakaLauncher_<版本>_<配置>_<平台>.zip` | 加 `-WithBundle` | exe + runtime 整合包，约 4.2GB，适合离线分发 |
+| `release\runtime.zip` | 默认 | 内嵌运行时镜像包（含双变体主镜像），约 6.3GB，仅供本机整合包使用，不再随 Release 分发 |
+| `release\AyakaLauncher_<版本>_<配置>_<平台>.zip` | 加 `-WithBundle` | exe + runtime 整合包（含双变体主镜像），约 6.3GB，适合离线分发 |
+| `release\AyakaCollabLite_<版本>_x64.zip`（+ `.sha256`） | 默认校验 / `-WithCollabLite` 时先构建 | 轻量协作客户端安装包（≤ 50MB）；已存在则校验哈希纳入产物清单，缺失时告警提示构建 |
 | `dist\AyakaLauncher.exe` | `dist\` 存在时自动同步 | 本机日常运行目录（runtime 以 junction 挂载）随发布刷新；启动器正在运行时仅告警跳过 |
 
 打包仅用各语言标准库（PowerShell 的 `System.IO.Compression` / Python 的 `zipfile`），无第三方依赖。本机日常运行无需打包——`dist\` 与构建输出目录的 runtime 均已通过 junction 挂好。
