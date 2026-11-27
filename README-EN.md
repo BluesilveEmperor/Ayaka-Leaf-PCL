@@ -274,22 +274,23 @@ The runtime archive `runtime.7z` is distributed via cloud-drive shares. **Every 
 
 | Cloud drive | Share link |
 |---|---|
-| Aliyun Drive | [Aliyun Drive share](https://www.alipan.com/s/NYaZyrvbRmX) |
-| Other cloud drives | To be added |
+| Aliyun Drive | [Ayaka-Leaf-PCL](https://www.alipan.com/s/Yr6ycbUyxym) |
+| Baidu Netdisk | [Ayaka-Leaf-PCL](https://pan.baidu.com/s/1-vdI5bpj666vci9EbFvvHw?pwd=Lkmd) (extraction code `Lkmd`) |
 
 > 📁 **Organised by version**: the share is split into folders per launcher version — open the folder matching your executable (currently `v2.1.2`) before downloading `runtime.7z`. The launcher's fallback share uses the same per-version folder layout; take both files from the **same version folder** and never mix versions.
 
 If the archive isn't there yet, it's either still crawling up on a slow connection or the maintainer has been a bit lazy — check back later. Extract `runtime.7z` with a 7z-capable tool into the folder containing the exe to get `runtime\images\`; then follow the "Deployment" steps below.
 
-### Alternative download: launcher executable (Aliyun Drive)
+### Alternative download: launcher executable (cloud drives)
 
 GitHub Releases remains the **primary channel** for the executable. If it is inconvenient, the same `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe` builds can also be fetched from this fallback share (check the share page for the actual files):
 
-- [Aliyun Drive share](https://www.alipan.com/s/XBcaUK75hrU)
+- [Aliyun Drive — Ayaka-Leaf-PCL](https://www.alipan.com/s/Yr6ycbUyxym)
+- [Baidu Netdisk — Ayaka-Leaf-PCL](https://pan.baidu.com/s/1-vdI5bpj666vci9EbFvvHw?pwd=Lkmd) (extraction code `Lkmd`)
 
 > 📁 The share is **organised into folders per launcher version** — open the folder for your release (currently `v2.1.2`) before downloading the exe, and keep it on the same version as `runtime.7z` from the section above.
 
-> ⚠️ This share contains **the launcher executable only**. The runtime archive `runtime.7z` is a separate resource — get it from the "Primary download sources (cloud drives)" section above. The two links are not interchangeable.
+> ℹ️ These are the **same shares** listed under "Primary download sources (cloud drives)" above: the runtime archive and the launcher executable are distributed in the same share, organised into per-version folders — take both the exe and `runtime.7z` from the same version folder and never mix versions.
 
 ### Deployment
 

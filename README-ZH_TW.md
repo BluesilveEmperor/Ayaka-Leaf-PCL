@@ -274,22 +274,23 @@ dotnet run --project "Plain Craft Launcher 2"
 
 | 網盤 | 分享連結 |
 |---|---|
-| 阿里雲盤 | [阿里雲盤分享連結](https://www.alipan.com/s/NYaZyrvbRmX) |
-| 其他網盤 | 待補充 |
+| 阿里雲盤 | [Ayaka-Leaf-PCL](https://www.alipan.com/s/Yr6ycbUyxym) |
+| 百度網盤 | [Ayaka-Leaf-PCL](https://pan.baidu.com/s/1-vdI5bpj666vci9EbFvvHw?pwd=Lkmd)（提取碼 `Lkmd`） |
 
 > 📁 **按版本分資料夾**：網盤分享頁按啟動器版本建立資料夾，請先進入對應版本目錄（目前 `v2.1.2`）再下載 `runtime.7z`。主程式的備用網盤分享同樣按版本分資料夾，兩者必須取自**同一版本目錄**，切勿跨版本混用。
 
 若暫時沒在網盤裡找到，那多半是網路有點慢還沒傳完，或者作者有點懶還沒上傳——稍後再來看看。以支援 7z 的解壓工具把 `runtime.7z` 解壓到 exe 同級目錄，得到 `runtime\images\`；接著依下方「部署步驟」繼續。
 
-### 備用下載：主程式（阿里雲盤）
+### 備用下載：主程式（網盤）
 
 GitHub Releases 仍為主程式的**主要下載管道**；下載不便時，可從以下備用分享取得 `AyakaLauncher_Release_x64.exe` / `AyakaLauncher_Release_ARM64.exe`（以分享頁實際檔案為準）：
 
-- [阿里雲盤分享連結](https://www.alipan.com/s/XBcaUK75hrU)
+- [阿里雲盤 Ayaka-Leaf-PCL](https://www.alipan.com/s/Yr6ycbUyxym)
+- [百度網盤 Ayaka-Leaf-PCL](https://pan.baidu.com/s/1-vdI5bpj666vci9EbFvvHw?pwd=Lkmd)（提取碼 `Lkmd`）
 
 > 📁 分享頁**按啟動器版本分資料夾**存放，請先進入對應版本目錄（目前 `v2.1.2`）再取 exe，並與上文「主下載源（網盤）」的 `runtime.7z` 維持同一版本。
 
-> ⚠️ 此處僅提供**主程式 exe**。執行環境包 `runtime.7z` 屬另一份資源，仍須從上文「主下載源（網盤）」取得；兩個連結用途不同，不可互相替代。
+> ℹ️ 以上與「主下載源（網盤）」為**同一批分享**：執行環境包與主程式同目錄分發（按啟動器版本分資料夾），從同一版本目錄取齊 exe 與 `runtime.7z` 即可，切勿跨版本混用。
 
 ### 部署步驟
 
