@@ -18,7 +18,48 @@ public partial class PageMirror
     public PageMirror()
     {
         InitializeComponent();
+        // 变体选项文案来自服务注册表（含体积标注，US3/SC-003）
+        RadioVariantFull.Text = $"{AyakaleafService.OverleafVariants[0].Label}（{AyakaleafService.OverleafVariants[0].SizeLabel}）";
+        RadioVariantCn.Text = $"{AyakaleafService.OverleafVariants[1].Label}（{AyakaleafService.OverleafVariants[1].SizeLabel}）";
+        RefreshVariantSelection();
         Loaded += (_, _) => RefreshImages();
+    }
+
+    /// <summary>
+    /// 按配置恢复变体选中态并刷新提示（镜像覆盖配置优先生效时说明）。
+    /// </summary>
+    private void RefreshVariantSelection()
+    {
+        var selected = AyakaleafService.SelectedOverleafVariant;
+        RadioVariantFull.SetChecked(selected.Id == AyakaleafService.OverleafVariants[0].Id, false);
+        RadioVariantCn.SetChecked(selected.Id == AyakaleafService.OverleafVariants[1].Id, false);
+        RefreshVariantHint();
+    }
+
+    private void RefreshVariantHint()
+    {
+        var selected = AyakaleafService.SelectedOverleafVariant;
+        var tarball = Path.Combine(AyakaleafService.RuntimeDirectory, "images", selected.TarballName);
+        var tarballExists = File.Exists(tarball);
+        var overridden = !string.IsNullOrWhiteSpace(Config.Ayakaleaf.OverleafImage);
+        var hint =
+            $"当前选中：{selected.Label}，镜像 {selected.Tag}。" +
+            (tarballExists
+                ? $"部署将加载镜像包 {selected.TarballName}（{selected.SizeLabel}）。"
+                : $"未找到镜像包 {selected.TarballName}，部署前请先将其放入 runtime\\images，或改选另一变体。");
+        if (overridden)
+            hint += " 注意：已设置显式镜像覆盖（设置 → Ayakaleaf → 高级），启动时以覆盖值为准。";
+        LabVariantHint.Text = hint;
+    }
+
+    /// <summary>变体切换：持久化选择并刷新提示（US3）。</summary>
+    private void RadioVariant_Check(object sender, ModBase.RouteEventArgs e)
+    {
+        if (sender == RadioVariantFull)
+            Config.Ayakaleaf.ImageVariant = AyakaleafService.OverleafVariants[0].Id;
+        else if (sender == RadioVariantCn)
+            Config.Ayakaleaf.ImageVariant = AyakaleafService.OverleafVariants[1].Id;
+        RefreshVariantHint();
     }
 
     private bool TryLock() => Interlocked.Exchange(ref _busy, 1) == 0;
@@ -42,8 +83,18 @@ public partial class PageMirror
         }
         PanImages.Children.Clear();
         PanImages.Children.Add(new TextBlock { Text = "正在获取镜像列表…", Opacity = 0.6, FontSize = 12.5 });
-        var images = await AyakaleafService.ListImagesAsync();
-        await RefreshImageSummary(images);
+        List<AyakaleafImage> images;
+        try
+        {
+            images = await AyakaleafService.ListImagesAsync();
+            await RefreshImageSummary(images);
+        }
+        catch (Exception ex)
+        {
+            PanImages.Children.Clear();
+            PanImages.Children.Add(new TextBlock { Text = "获取镜像列表失败：" + ex.Message, Opacity = 0.6, FontSize = 12.5 });
+            return;
+        }
         PanImages.Children.Clear();
         if (images.Count == 0)
         {

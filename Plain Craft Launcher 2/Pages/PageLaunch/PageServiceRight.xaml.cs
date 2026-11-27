@@ -1,6 +1,7 @@
-using System.Net.NetworkInformation;
+﻿using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Core.Ayakaleaf;
@@ -19,6 +20,31 @@ public partial class PageServiceRight
         // 局域网地址若不跟随网络变化刷新，切网（Wi-Fi↔热点等）后会一直显示旧 IP 误导用户。
         // NetworkAddressChanged 在后台线程触发，须切回 UI 线程更新界面。
         NetworkChange.NetworkAddressChanged += (_, _) => ModBase.RunInUi(RefreshLanAddress);
+    }
+
+    private void BtnServiceStatus_Click(object sender, MouseButtonEventArgs e)
+    {
+        ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.ServiceStatus });
+    }
+
+    private void BtnPackages_Click(object sender, MouseButtonEventArgs e)
+    {
+        ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Packages });
+    }
+
+    private void BtnAccounts_Click(object sender, MouseButtonEventArgs e)
+    {
+        ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Accounts });
+    }
+
+    private void BtnEnvironment_Click(object sender, MouseButtonEventArgs e)
+    {
+        ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Environment });
+    }
+
+    private void BtnTemplates_Click(object sender, MouseButtonEventArgs e)
+    {
+        ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Templates });
     }
 
     private void RefreshAll()
@@ -112,7 +138,17 @@ public partial class PageServiceRight
         if (!Config.Ayakaleaf.Deployed) return;
         PanContainers.Children.Clear();
         PanContainers.Children.Add(new TextBlock { Text = "正在获取容器列表…", Opacity = 0.6, FontSize = 12.5 });
-        var containers = await AyakaleafService.GetContainersAsync();
+        List<AyakaleafContainer> containers;
+        try
+        {
+            containers = await AyakaleafService.GetContainersAsync();
+        }
+        catch (Exception ex)
+        {
+            PanContainers.Children.Clear();
+            PanContainers.Children.Add(new TextBlock { Text = "获取容器列表失败：" + ex.Message, Opacity = 0.6, FontSize = 12.5 });
+            return;
+        }
         PanContainers.Children.Clear();
         if (containers.Count == 0)
         {
@@ -167,8 +203,15 @@ public partial class PageServiceRight
     {
         if (!Config.Ayakaleaf.Deployed) return;
         LabLog.Text = "正在获取日志…";
-        var log = await AyakaleafService.GetLogsAsync();
-        LabLog.Text = string.IsNullOrWhiteSpace(log) ? "（暂无日志）" : log;
+        try
+        {
+            var log = await AyakaleafService.GetLogsAsync();
+            LabLog.Text = string.IsNullOrWhiteSpace(log) ? "（暂无日志）" : log;
+        }
+        catch (Exception ex)
+        {
+            LabLog.Text = "获取日志失败：" + ex.Message;
+        }
     }
 
     private void BtnRefreshContainers_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => RefreshContainers();
@@ -191,6 +234,16 @@ public partial class PageServiceRight
                 {
                     HintService.Hint("内嵌运行时部署完成", HintType.Success);
                     RefreshAll();
+                });
+            }
+            catch (EnvironmentNotReadyException)
+            {
+                // 环境未就绪（US2）：引导至环境自检页一键修复，而非当作部署失败
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("运行环境未就绪，已跳转「环境自检」页，请修复后重试", HintType.Info);
+                    LabDeployProgress.Text = "环境未就绪：请到环境自检页修复后重试";
+                    ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Environment });
                 });
             }
             catch (Exception ex)

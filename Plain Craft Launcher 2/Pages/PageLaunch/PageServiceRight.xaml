@@ -1,4 +1,4 @@
-<local:MyPageRight
+﻿<local:MyPageRight
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -17,6 +17,37 @@
                                     Click="BtnDeploy_Click" />
                     <TextBlock x:Name="LabDeployProgress" Margin="0,8,0,0" FontSize="12" Opacity="0.7"
                                TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="运行状态" FontWeight="Bold" FontSize="15" />
+                    <TextBlock Margin="0,6,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+                               Text="查看容器 CPU/内存占用、当前编译任务与运行日志；服务卡死时可一键重启。宏包管理可直接搜索安装 TeX 宏包。" />
+                    <!-- 右栏可用宽度约 440px（窗口 850 - 左栏 300 - 边距），
+                         四个 130px 按钮横排共需 550px，超出部分会被 MyScrollViewer 裁剪，
+                         故用 WrapPanel：宽度不足时自动换行，避免「环境自检」按钮被截断。 -->
+                    <WrapPanel Margin="0,12,0,0">
+                        <local:MyButton x:Name="BtnServiceStatus" Height="34" Width="130" Margin="0,0,10,10"
+                                        Text="查看服务状态" ColorType="Highlight"
+                                        Click="BtnServiceStatus_Click" />
+                        <local:MyButton x:Name="BtnPackages" Height="34" Width="130" Margin="0,0,10,10"
+                                        Text="宏包管理" Click="BtnPackages_Click" />
+                        <local:MyButton x:Name="BtnAccounts" Height="34" Width="130" Margin="0,0,10,10"
+                                        Text="账号管理" Click="BtnAccounts_Click" />
+                        <local:MyButton x:Name="BtnEnvironment" Height="34" Width="130" Margin="0,0,0,10"
+                                        Text="环境自检" Click="BtnEnvironment_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="中文模板库" FontWeight="Bold" FontSize="15" />
+                    <TextBlock Margin="0,6,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+                               Text="内置中学试卷、本科毕设、竞赛报告、国内期刊投稿四类常用中文场景模板：一键新建项目，创建后即可直接编译。" />
+                    <local:MyButton x:Name="BtnTemplates" Height="34" Width="130" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" Text="浏览模板库" ColorType="Highlight"
+                                    Click="BtnTemplates_Click" />
                 </StackPanel>
             </local:MyCard>
             <local:MyCard Margin="0,0,0,15">

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -30,6 +30,11 @@ public static class ModMain
     public static PageMirror? frmMirror;
     public static PageBackup? frmBackup;
     public static PageCollab? frmCollab;
+    public static PageServiceStatus? frmServiceStatus;
+    public static PagePackages? frmPackages;
+    public static PageAccounts? frmAccounts;
+    public static PageEnvironment? frmEnvironment;
+    public static PageTemplates? frmTemplates;
     public static PageSpeedLeft? frmSpeedLeft;
     public static PageSpeedRight? frmSpeedRight;
     public static PageSetupLeft? frmSetupLeft;

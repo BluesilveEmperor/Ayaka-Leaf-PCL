@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using PCL.Core.App;
@@ -25,12 +26,21 @@ public partial class WorkbenchWindow
     /// <summary>界面语言切换脚本（文件 → 设置 → 拼写和语言 面板中添加“界面语言”选项）。</summary>
     private const string InterfaceLanguageResource = "Resources/ayakaleaf/interface-language.js";
 
+    /// <summary>编译错误汉化脚本（在错误条目的日志文本里补中文解释，跳转仍走官方交互）。</summary>
+    private const string CompileErrorsZhResource = "Resources/ayakaleaf/compile-errors-zh.js";
+
+    /// <summary>文档导入失败汉化脚本（Word/Markdown 导入失败中文提示 + 超大文档拦截）。</summary>
+    private const string ImportErrorsZhResource = "Resources/ayakaleaf/import-errors-zh.js";
+
+    /// <summary>PDF 反向同步脚本（单击 PDF → 宿主定位 → 编辑器跳行，US7）。</summary>
+    private const string PdfReverseSyncResource = "Resources/ayakaleaf/pdf-reverse-sync.js";
+
     /// <summary>界面语言切换不可用时的中文提示（服务可正常使用，只是切换不会生效）。</summary>
     private const string LanguageUnavailableHint =
         "提示：界面语言切换当前不可用（服务语言补丁未生效），可在日志中查看原因。";
 
     private readonly AyakaleafAccount? _account;
-    private string _sid;
+    private string _sid = "";
     private int _retryCount;
 
     /// <summary>访客模式：经协作转发端口访问房主服务（无本地会话注入）。</summary>
@@ -74,6 +84,8 @@ public partial class WorkbenchWindow
         InitializeComponent();
         _account = account;
         _sid = sessionId;
+        // 本地同步入口仅本地模式可用（访客无本地服务，无法绑定本地文件夹）
+        BtnFolderSync.Visibility = System.Windows.Visibility.Visible;
         // 路径规范化：空白回退默认 /project；确保以 / 开头
         var path = string.IsNullOrWhiteSpace(initialPath) ? "/project" : initialPath.Trim();
         _initialPath = path.StartsWith('/') ? path : "/" + path;
@@ -139,6 +151,9 @@ public partial class WorkbenchWindow
             // 必须在首次导航之前注入，才能在编辑器页面加载时生效
             await InjectEditorBridgeAsync();
             await InjectInterfaceLanguageAsync();
+            await InjectCompileErrorsZhAsync();
+            await InjectImportErrorsZhAsync();
+            await InjectPdfReverseSyncAsync();
             EnterWorkbench();
         }
         catch (Exception ex)
@@ -220,6 +235,148 @@ public partial class WorkbenchWindow
         {
             LogWrapper.Warn(ex, "[Ayakaleaf] 编辑器联动脚本注入失败");
         }
+    }
+
+    /// <summary>
+    /// 注入编译错误汉化脚本：包装 fetch，在 compile 响应的错误日志文本后补一行中文解释。
+    /// 只改文本、不改 file/line，因此 Overleaf 原生「点错误跳转到源码行」完全保留。
+    /// </summary>
+    private async Task InjectCompileErrorsZhAsync()
+    {
+        var script = GetCompileErrorsZhScript();
+        if (string.IsNullOrEmpty(script)) return;
+
+        try
+        {
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 编译错误汉化脚本注入失败");
+        }
+    }
+
+    private static string? _compileErrorsZhScript;
+    private static bool _compileErrorsZhLoaded;
+
+    private static string? GetCompileErrorsZhScript()
+    {
+        if (_compileErrorsZhLoaded) return _compileErrorsZhScript;
+        _compileErrorsZhLoaded = true;
+
+        try
+        {
+            using var stream = Basics.GetResourceStream(CompileErrorsZhResource);
+            if (stream is null)
+            {
+                LogWrapper.Warn("[Ayakaleaf] 未找到编译错误汉化脚本资源：" + CompileErrorsZhResource);
+                return null;
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            _compileErrorsZhScript = reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 编译错误汉化脚本加载失败");
+        }
+
+        return _compileErrorsZhScript;
+    }
+
+    /// <summary>
+    /// 注入文档导入失败汉化脚本：包装 fetch 与表单提交，导入失败时
+    /// 给出中文原因提示（FR-003），超大文档在浏览器侧拦截（FR-003 Edge Case）。
+    /// </summary>
+    private async Task InjectImportErrorsZhAsync()
+    {
+        var script = GetImportErrorsZhScript();
+        if (string.IsNullOrEmpty(script)) return;
+
+        try
+        {
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 文档导入汉化脚本注入失败");
+        }
+    }
+
+    private static string? _importErrorsZhScript;
+    private static bool _importErrorsZhLoaded;
+
+    private static string? GetImportErrorsZhScript()
+    {
+        if (_importErrorsZhLoaded) return _importErrorsZhScript;
+        _importErrorsZhLoaded = true;
+
+        try
+        {
+            using var stream = Basics.GetResourceStream(ImportErrorsZhResource);
+            if (stream is null)
+            {
+                LogWrapper.Warn("[Ayakaleaf] 未找到文档导入汉化脚本资源：" + ImportErrorsZhResource);
+                return null;
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            _importErrorsZhScript = reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 文档导入汉化脚本加载失败");
+        }
+
+        return _importErrorsZhScript;
+    }
+
+    /// <summary>
+    /// 注入 PDF 反向同步脚本（US7）：单击 PDF 文本层时由宿主执行 SyncTeX 反向定位，
+    /// 命中后直接跳回编辑器对应源码行并闪烁高亮；跨文件/异常时回退官方双击流程。
+    /// 脚本内部自行捕获编译上下文（editorId/buildId/clsiServerId），此处无需传参。
+    /// </summary>
+    private async Task InjectPdfReverseSyncAsync()
+    {
+        var script = GetPdfReverseSyncScript();
+        if (string.IsNullOrEmpty(script)) return;
+
+        try
+        {
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] PDF 反向同步脚本注入失败");
+        }
+    }
+
+    private static string? _pdfReverseSyncScript;
+    private static bool _pdfReverseSyncLoaded;
+
+    private static string? GetPdfReverseSyncScript()
+    {
+        if (_pdfReverseSyncLoaded) return _pdfReverseSyncScript;
+        _pdfReverseSyncLoaded = true;
+
+        try
+        {
+            using var stream = Basics.GetResourceStream(PdfReverseSyncResource);
+            if (stream is null)
+            {
+                LogWrapper.Warn("[Ayakaleaf] 未找到 PDF 反向同步脚本资源：" + PdfReverseSyncResource);
+                return null;
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            _pdfReverseSyncScript = reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] PDF 反向同步脚本加载失败");
+        }
+
+        return _pdfReverseSyncScript;
     }
 
     private static string? GetEditorBridgeScript()
@@ -367,6 +524,19 @@ public partial class WorkbenchWindow
                     if (!string.IsNullOrEmpty(message))
                         LogWrapper.Info("[Ayakaleaf][page] " + message.Replace("\r\n", " / ").Replace("\n", " / "));
                     break;
+                // 文档导入汉化脚本的提示输出（导入失败原因 / 超大文档拦截，FR-003）
+                case "ayaka:importLog":
+                    var importMessage = root.TryGetProperty("message", out var importElement) &&
+                                        importElement.ValueKind == JsonValueKind.String
+                        ? importElement.GetString()
+                        : null;
+                    if (!string.IsNullOrEmpty(importMessage))
+                        LogWrapper.Info("[Ayakaleaf][import] " + importMessage.Replace("\r\n", " / ").Replace("\n", " / "));
+                    break;
+                // PDF 反向同步脚本的单击定位请求（US7）：宿主执行 SyncTeX 反向定位并回发结果
+                case "ayaka:pdf-reverse-click":
+                    HandlePdfReverseClick(root);
+                    break;
             }
         }
         catch (Exception ex)
@@ -483,6 +653,223 @@ public partial class WorkbenchWindow
             return _guestLanguages is { Count: > 0 } ? _guestLanguages[0].LocalPort : Config.Ayakaleaf.Port;
         }
         return AyakaleafService.PortForLanguage(lang);
+    }
+
+    /// <summary>
+    /// 处理页面发来的 PDF 单击定位请求（<c>ayaka:pdf-reverse-click</c>，US7）：
+    /// 解析点击坐标与编译上下文，交由 <see cref="SyncTexReverseService"/> 反向定位，
+    /// 结果异步回发页面（<c>ayaka:pdf-reverse-locate</c> / <c>ayaka:pdf-reverse-miss</c>），
+    /// 页面脚本据此快速跳行或回退官方双击流程。
+    /// </summary>
+    private void HandlePdfReverseClick(JsonElement root)
+    {
+        // 访客模式没有本地会话 Cookie，无法以宿主身份请求 sync/pdf：
+        // 回 miss(error) 让页面回退官方流程（由页面自带会话完成定位），行为与官方双击一致
+        if (_isGuestMode || string.IsNullOrEmpty(_sid))
+        {
+            ReplyPdfReverseMiss("error");
+            return;
+        }
+
+        var page = ReadJsonInt(root, "page");
+        var x = ReadJsonDouble(root, "x");
+        var y = ReadJsonDouble(root, "y");
+        // 载荷不完整属于脚本/协议异常：回 miss(error) 走官方流程，不能让点击无响应
+        if (page < 1 || double.IsNaN(x) || double.IsNaN(y))
+        {
+            LogWrapper.Warn("[Ayakaleaf] PDF 反向同步载荷不完整，回退官方流程");
+            ReplyPdfReverseMiss("error");
+            return;
+        }
+
+        var editorId = ReadJsonString(root, "editorId");
+        var buildId = ReadJsonString(root, "buildId");
+        var clsiServerId = ReadJsonString(root, "clsiserverid");
+        var path = ReadJsonString(root, "path");
+
+        // 项目 ID 优先取点击时页面路径（SPA 内导航后 Source 可能滞后），失败再取当前源
+        var projectId = ExtractProjectId(path) ?? ExtractProjectId(Web.CoreWebView2?.Source);
+        if (projectId is null)
+        {
+            LogWrapper.Warn($"[Ayakaleaf] 无法从工作台地址解析项目 ID：{path}");
+            ReplyPdfReverseMiss("error");
+            return;
+        }
+
+        // 服务源（含端口）：语言端口与主端口同源同会话，取当前页面 Authority 即可
+        if (!Uri.TryCreate(Web.CoreWebView2?.Source, UriKind.Absolute, out var uri))
+        {
+            ReplyPdfReverseMiss("error");
+            return;
+        }
+        var origin = uri.GetLeftPart(UriPartial.Authority);
+
+        // 不 await：消息处理须立即返回，定位结果通过回发消息送达页面。
+        // WebMessageReceived 在 UI 线程触发，延续不离开 UI 线程（CoreWebView2 回发需要 UI 线程）
+        _ = RunPdfReverseLocateAsync(origin, _sid, projectId, page, x, y, editorId, buildId, clsiServerId);
+    }
+
+    /// <summary>
+    /// 执行 SyncTeX 反向定位并回发结果。服务契约上不抛异常（失败以状态返回），
+    /// 此处仍保留兜底：任何异常都回 miss(error)，让页面回退官方流程而不是点击无响应。
+    /// </summary>
+    private async Task RunPdfReverseLocateAsync(
+        string origin, string sessionId, string projectId, int page, double x, double y,
+        string editorId, string buildId, string clsiServerId)
+    {
+        try
+        {
+            var result = await SyncTexReverseService.LocateAsync(
+                origin, sessionId, projectId, page, x, y,
+                editorId, buildId, clsiServerId);
+
+            switch (result.Status)
+            {
+                case SyncTexReverseStatus.Hit:
+                    LogWrapper.Info($"[Ayakaleaf] PDF 反向定位命中：{result.File}:{result.Line}");
+                    ReplyPdfReverseLocate(result.File!, result.Line, result.Column);
+                    break;
+                case SyncTexReverseStatus.NoHit:
+                    LogWrapper.Info("[Ayakaleaf] PDF 反向定位未命中（该位置无 SyncTeX 记录）");
+                    ReplyPdfReverseMiss("no-hit");
+                    break;
+                default:
+                    LogWrapper.Warn("[Ayakaleaf] PDF 反向定位通道异常：" + result.Error);
+                    ReplyPdfReverseMiss("error");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] PDF 反向定位执行失败");
+            ReplyPdfReverseMiss("error");
+        }
+    }
+
+    /// <summary>向页面回发定位命中结果，页面脚本据此跳转编辑器对应源码行。</summary>
+    private void ReplyPdfReverseLocate(string file, int line, int column)
+    {
+        var core = Web.CoreWebView2;
+        if (core is null) return;
+
+        try
+        {
+            core.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "ayaka:pdf-reverse-locate",
+                file,
+                line,
+                column,
+            }));
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 回发 PDF 反向定位结果失败");
+        }
+    }
+
+    /// <summary>
+    /// 向页面回发定位未命中：<paramref name="reason"/> 为 <c>no-hit</c>（该位置无记录，页面静默）
+    /// 或 <c>error</c>（通道异常，页面回退官方双击流程）。
+    /// </summary>
+    private void ReplyPdfReverseMiss(string reason)
+    {
+        var core = Web.CoreWebView2;
+        if (core is null) return;
+
+        try
+        {
+            core.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "ayaka:pdf-reverse-miss",
+                reason,
+            }));
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 回发 PDF 反向定位未命中消息失败");
+        }
+    }
+
+    /// <summary>
+    /// 从工作台路径或完整地址解析项目 ID（<c>/project/{24 位十六进制 ObjectId}</c>）。
+    /// 兼容 SPA 子路径与完整 URL 两种形态。
+    /// </summary>
+    private static string? ExtractProjectId(string? pathOrUrl)
+    {
+        if (string.IsNullOrEmpty(pathOrUrl)) return null;
+        var match = ProjectIdRegex().Match(pathOrUrl);
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    /// <summary>
+    /// 打开本地同步管理窗口（US11）：传入当前打开的项目 ID（未打开项目则传空，
+    /// 由管理窗口引导先进入项目）；项目显示名取页面标题（仅用于界面展示，取不到退回 ID）。
+    /// </summary>
+    private async void BtnFolderSync_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_isGuestMode) return;
+        try
+        {
+            string? projectId = null;
+            string? projectName = null;
+            try
+            {
+                var current = Web.CoreWebView2?.Source ?? Web.Source?.ToString();
+                projectId = ExtractProjectId(current);
+            }
+            catch
+            {
+                // WebView 可能尚未初始化：按未打开项目处理
+            }
+
+            if (projectId is not null)
+            {
+                try
+                {
+                    var titleJson = await Web.CoreWebView2.ExecuteScriptAsync("document.title");
+                    var title = JsonSerializer.Deserialize<string>(titleJson);
+                    if (!string.IsNullOrEmpty(title))
+                        projectName = title.Replace(" - Overleaf", string.Empty).Trim();
+                }
+                catch
+                {
+                    // 标题取不到时由管理窗口退回项目 ID 展示
+                }
+            }
+
+            new SyncBindingsWindow(projectId, projectName).Show();
+        }
+        catch (Exception ex)
+        {
+            LogWrapper.Warn(ex, "[Ayakaleaf] 打开本地同步管理窗口失败");
+        }
+    }
+
+    [GeneratedRegex(@"/project/([0-9a-fA-F]{24})(?![0-9a-zA-Z])")]
+    private static partial Regex ProjectIdRegex();
+
+    private static int ReadJsonInt(JsonElement root, string name)
+    {
+        return root.TryGetProperty(name, out var element) &&
+               element.ValueKind == JsonValueKind.Number &&
+               element.TryGetInt32(out var value)
+            ? value
+            : int.MinValue;
+    }
+
+    private static double ReadJsonDouble(JsonElement root, string name)
+    {
+        return root.TryGetProperty(name, out var element) && element.ValueKind == JsonValueKind.Number
+            ? element.GetDouble()
+            : double.NaN;
+    }
+
+    private static string ReadJsonString(JsonElement root, string name)
+    {
+        return root.TryGetProperty(name, out var element) && element.ValueKind == JsonValueKind.String
+            ? element.GetString() ?? ""
+            : "";
     }
 
     private void InjectSession()

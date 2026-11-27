@@ -1,0 +1,49 @@
+<local:MyPageRight
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" x:Class="PCL.PageServiceStatus"
+    PanScroll="{Binding ElementName=PanBack}">
+    <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
+        <StackPanel x:Name="PanMain" Margin="25,25,25,10">
+            <local:MyCard Margin="0,0,0,15" Title="服务状态">
+                <StackPanel Margin="20,40,20,15">
+                    <TextBlock x:Name="LabHealth" Text="正在检测…" FontSize="15" FontWeight="Bold"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="LabHint" Margin="0,4,0,0" FontSize="12" Opacity="0.7"
+                               TextWrapping="Wrap" />
+                    <StackPanel x:Name="PanMetrics" Orientation="Horizontal" Margin="0,14,0,0">
+                        <StackPanel Width="140">
+                            <TextBlock Text="CPU 占用" FontSize="12" Opacity="0.7" />
+                            <TextBlock x:Name="LabCpu" Text="—" FontSize="18" FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel Width="180">
+                            <TextBlock Text="内存占用" FontSize="12" Opacity="0.7" />
+                            <TextBlock x:Name="LabMemory" Text="—" FontSize="18" FontWeight="Bold" />
+                        </StackPanel>
+                        <StackPanel Width="140">
+                            <TextBlock Text="编译中" FontSize="12" Opacity="0.7" />
+                            <TextBlock x:Name="LabQueue" Text="—" FontSize="18" FontWeight="Bold" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock x:Name="LabSampledAt" Margin="0,10,0,0" FontSize="11" Opacity="0.55"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <local:MyButton x:Name="BtnRefresh" Height="34" Width="96" Text="刷新"
+                                        ColorType="Highlight" Click="BtnRefresh_Click" />
+                        <local:MyButton x:Name="BtnRestart" Height="34" Width="150" Margin="10,0,0,0"
+                                        Text="一键重启服务" ColorType="Red" Click="BtnRestart_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15" Title="最近日志">
+                <TextBox x:Name="TextLog" Margin="20,40,20,15" Height="300" IsReadOnly="True"
+                         FontFamily="Consolas, Microsoft YaHei UI" FontSize="11"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         TextWrapping="NoWrap" AcceptsReturn="True" BorderThickness="0"
+                         Background="Transparent" />
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</local:MyPageRight>

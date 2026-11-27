@@ -9,6 +9,19 @@
         <StackPanel x:Name="PanMain" Margin="25,25,25,10">
             <local:MyCard Margin="0,0,0,15">
                 <StackPanel Margin="20,15,20,15">
+                    <TextBlock Text="运行时镜像变体" FontWeight="Bold" FontSize="15" />
+                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Opacity="0.8"
+                               Text="部署内嵌运行时使用的 Overleaf 镜像变体。「中文常用版（精简）」仅保留中文常用宏包集（下载体积减半），缺失宏包可经「宏包管理」面板在线补装；「完整版」包含全部精选宏包。修改后需重新部署或重启服务生效。" />
+                    <StackPanel Margin="0,10,0,0">
+                        <local:MyRadioBox x:Name="RadioVariantFull" Height="24" Check="RadioVariant_Check" />
+                        <local:MyRadioBox x:Name="RadioVariantCn" Height="24" Margin="0,8,0,0" Check="RadioVariant_Check" />
+                    </StackPanel>
+                    <TextBlock x:Name="LabVariantHint" Margin="0,10,0,0" FontSize="12" Opacity="0.75"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15">
+                <StackPanel Margin="20,15,20,15">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1*" />

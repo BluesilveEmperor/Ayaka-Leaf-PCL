@@ -1,0 +1,34 @@
+<Window
+    x:Class="PCL.SyncBindingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:PCL"
+    mc:Ignorable="d"
+    Title="本地同步管理"
+    Width="780"
+    Height="580"
+    MinWidth="640"
+    MinHeight="440"
+    WindowStartupLocation="CenterScreen"
+    Background="#F5F5F5">
+    <local:MyScrollViewer x:Name="PanBack" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="22,18,22,12">
+            <local:MyCard Margin="0,0,0,14" Title="绑定本地文件夹">
+                <StackPanel Margin="20,40,20,15">
+                    <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="#666666"
+                               Text="将 Ayakaleaf 项目与本地文件夹建立双向同步：本地编辑器保存的修改会自动推送到工作台，工作台中的修改会自动拉回本地。同一文件双端都修改时双方版本均保留（本地生成 .conflict- 时间戳副本），绝不静默覆盖。" />
+                    <TextBlock x:Name="LabBindHint" Margin="0,10,0,0" FontSize="12" TextWrapping="Wrap" Foreground="#666666"
+                               Text="请先在工作台打开要绑定的项目，再点击下方按钮。" />
+                    <local:MyButton x:Name="BtnBind" Height="34" Width="200" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" Text="绑定当前项目到文件夹…"
+                                    Click="BtnBind_Click" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,14" Title="已绑定的项目">
+                <StackPanel x:Name="PanBindings" Margin="20,40,20,15" />
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</Window>

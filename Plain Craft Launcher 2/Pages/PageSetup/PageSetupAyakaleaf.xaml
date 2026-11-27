@@ -20,13 +20,17 @@
                 </StackPanel>
             </local:MyCard>
 
-            <!-- 沙箱编译 / Pandoc（WSL 容器环境暂不可用） -->
+            <!-- 沙箱编译（WSL 容器环境不支持同级容器，仍置灰）/ Pandoc 文档导入（镜像内置，状态随镜像与容器运行状态显示） -->
             <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Sandbox.Title}">
                 <StackPanel Margin="25,40,25,15">
                     <local:MyCheckBox x:Name="CheckSandboxedCompiles" IsEnabled="False" Height="22"
                                       Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Compiles}" />
-                    <local:MyCheckBox x:Name="CheckPandoc" IsEnabled="False" Height="22"
-                                      Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Pandoc}" />
+                    <DockPanel Height="22">
+                        <TextBlock x:Name="LabPandocStatus" DockPanel.Dock="Right" VerticalAlignment="Center"
+                                   Opacity="0.6" Text="{DynamicResource Setup.Ayakaleaf.Pandoc.Checking}" />
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Pandoc}" />
+                    </DockPanel>
                     <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Sandbox.Description}" Opacity="0.6"
                                TextWrapping="Wrap" Margin="0,6,0,0" />
                 </StackPanel>
@@ -398,6 +402,36 @@
                     <StackPanel x:Name="PanLanguages" />
                     <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Languages.Hint}" Opacity="0.6"
                                TextWrapping="Wrap" Margin="0,10,0,0" />
+                </StackPanel>
+            </local:MyCard>
+
+            <!-- 资源限制（FR-002） -->
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Ayakaleaf.Resources.Title}">
+                <StackPanel Margin="25,40,25,15">
+                    <TextBlock Text="{DynamicResource Setup.Ayakaleaf.Resources.Description}" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Resources.Memory}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextMemoryLimit" Tag="AyakaleafMemoryLimitMb"
+                                         HintText="6144"
+                                         ToolTip="{DynamicResource Setup.Ayakaleaf.Resources.Memory.ToolTip}"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Text="{DynamicResource Setup.Ayakaleaf.Resources.Cpu}" />
+                        <local:MyTextBox Grid.Column="1" x:Name="TextCpuLimit" Tag="AyakaleafCpuLimitCores"
+                                         HintText="0"
+                                         ToolTip="{DynamicResource Setup.Ayakaleaf.Resources.Cpu.ToolTip}"
+                                         LostFocus="TextLostFocus" />
+                    </Grid>
                 </StackPanel>
             </local:MyCard>
 

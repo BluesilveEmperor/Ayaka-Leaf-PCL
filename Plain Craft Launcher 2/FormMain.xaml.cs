@@ -10,6 +10,7 @@ using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Core.App.IoC;
 using PCL.Core.App.Localization;
+using PCL.Core.Ayakaleaf;
 using PCL.Core.Ayakaleaf.Collab;
 using PCL.Core.Logging;
 using PCL.Core.UI;
@@ -53,6 +54,18 @@ public partial class FormMain
     // 窗口加载
     private bool isWindowLoadFinished;
     private readonly DragHelper _helper = new();
+
+    /// <summary>把本地同步通知（冲突 / 错误 / 信息）转为中文气泡提示（US11 / FR-017）。</summary>
+    private static void ShowSyncNotice(SyncNotice notice)
+    {
+        var type = notice.Kind switch
+        {
+            SyncNoticeKind.Conflict => HintType.Warning,
+            SyncNoticeKind.Error => HintType.Error,
+            _ => HintType.Info,
+        };
+        HintService.Hint($"[{notice.ProjectName}] {notice.Message}", type);
+    }
 
     public FormMain()
     {
@@ -209,6 +222,21 @@ public partial class FormMain
         // Timer 启动
         ModAnimation.AniStart();
         ModMain.TimerMainStart();
+        // 恢复本地文件夹同步（US11 / FR-016 / FR-017）：后台启动已保存绑定的监听与轮询，
+        // 同步通知（冲突 / 错误 / 信息）统一转为中文气泡提示，冲突绝不静默覆盖
+        ModBase.RunInNewThread(() =>
+        {
+            try
+            {
+                FolderSyncService.NoticeReceived += notice =>
+                    ModBase.RunInUi(() => ShowSyncNotice(notice));
+                FolderSyncService.StartAll();
+            }
+            catch (Exception ex)
+            {
+                ModBase.Log(ex, "[Ayakaleaf] 恢复本地文件夹同步失败", ModBase.LogLevel.Normal);
+            }
+        }, "AyakaleafFolderSyncStart");
         // 特殊版本提示
         ModBase.RunInNewThread(() =>
         {
@@ -249,6 +277,27 @@ public partial class FormMain
                     LocalUserUi.InitializeOnStartup();
                     LocalUserUi.EnsureLoggedInInteractive();
                 }, "LocalUser Init");
+                // 首启环境引导（US2）：检测 WSL / wslc / .NET，缺失时自动跳转环境自检页；
+                // 引导完成过一次（States.Ayakaleaf.FirstRunGuided）后不再打扰
+                ModBase.RunInNewThread(async () =>
+                {
+                    try
+                    {
+                        var (ready, _) = await EnvironmentCheckService.CheckForFirstRunAsync();
+                        if (!ready)
+                        {
+                            ModBase.RunInUi(() =>
+                            {
+                                HintService.Hint("检测到运行环境缺失，已跳转「环境自检」页，可一键修复", HintType.Info);
+                                PageChange(new PageStackData { page = PageType.Environment });
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ModBase.Log(ex, "[Ayakaleaf] 首启环境检测失败");
+                    }
+                }, "Ayakaleaf FirstRun", ThreadPriority.BelowNormal);
                 // 启动加载器池
                 try
                 {
@@ -1075,6 +1124,31 @@ public partial class FormMain
         ///     帮助详情。这是一个副页面。
         /// </summary>
         HelpDetail = 9,
+
+        /// <summary>
+        ///     服务状态（运维页）。这是一个副页面，从服务台进入。
+        /// </summary>
+        ServiceStatus = 10,
+
+        /// <summary>
+        ///     宏包管理（运维页）。这是一个副页面，从服务台进入。
+        /// </summary>
+        Packages = 11,
+
+        /// <summary>
+        ///     账号管理（运维页）。这是一个副页面，从服务台进入。
+        /// </summary>
+        Accounts = 12,
+
+        /// <summary>
+        ///     环境自检（引导页）。这是一个副页面，从服务台进入。
+        /// </summary>
+        Environment = 13,
+
+        /// <summary>
+        ///     中文模板库。这是一个副页面，从服务台进入。
+        /// </summary>
+        Templates = 14,
     }
 
     /// <summary>
@@ -1107,6 +1181,26 @@ public partial class FormMain
             case PageType.HelpDetail:
             {
                 return stack.helpPage?.Title ?? "";
+            }
+            case PageType.ServiceStatus:
+            {
+                return Lang.Text("Main.Title.ServiceStatus");
+            }
+            case PageType.Packages:
+            {
+                return Lang.Text("Main.Title.Packages");
+            }
+            case PageType.Accounts:
+            {
+                return Lang.Text("Main.Title.Accounts");
+            }
+            case PageType.Environment:
+            {
+                return Lang.Text("Main.Title.Environment");
+            }
+            case PageType.Templates:
+            {
+                return Lang.Text("Main.Title.Templates");
             }
 
             default:
@@ -1385,6 +1479,36 @@ public partial class FormMain
                     {
                         ModMain.frmCollab ??= new PageCollab();
                         PageChangeAnim(new MyPageLeft(), ModMain.frmCollab);
+                        break;
+                    }
+                case PageType.ServiceStatus: // 服务状态（副页面）
+                    {
+                        ModMain.frmServiceStatus ??= new PageServiceStatus();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmServiceStatus);
+                        break;
+                    }
+                case PageType.Packages: // 宏包管理（副页面）
+                    {
+                        ModMain.frmPackages ??= new PagePackages();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmPackages);
+                        break;
+                    }
+                case PageType.Accounts: // 账号管理（副页面）
+                    {
+                        ModMain.frmAccounts ??= new PageAccounts();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmAccounts);
+                        break;
+                    }
+                case PageType.Templates: // 中文模板库（副页面）
+                    {
+                        ModMain.frmTemplates ??= new PageTemplates();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmTemplates);
+                        break;
+                    }
+                case PageType.Environment: // 环境自检（副页面）
+                    {
+                        ModMain.frmEnvironment ??= new PageEnvironment();
+                        PageChangeAnim(new MyPageLeft(), ModMain.frmEnvironment);
                         break;
                     }
                 case PageType.Setup: // 设置

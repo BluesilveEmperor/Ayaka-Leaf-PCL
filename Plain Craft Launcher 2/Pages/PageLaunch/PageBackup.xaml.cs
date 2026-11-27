@@ -37,7 +37,17 @@ public partial class PageBackup
         }
         PanVolumes.Children.Clear();
         PanVolumes.Children.Add(new TextBlock { Text = "正在获取数据卷列表…", Opacity = 0.6, FontSize = 12.5 });
-        var volumes = await AyakaleafService.ListVolumesAsync();
+        List<string> volumes;
+        try
+        {
+            volumes = await AyakaleafService.ListVolumesAsync();
+        }
+        catch (Exception ex)
+        {
+            PanVolumes.Children.Clear();
+            PanVolumes.Children.Add(new TextBlock { Text = "获取数据卷列表失败：" + ex.Message, Opacity = 0.6, FontSize = 12.5 });
+            return;
+        }
         PanVolumes.Children.Clear();
         if (volumes.Count == 0)
         {

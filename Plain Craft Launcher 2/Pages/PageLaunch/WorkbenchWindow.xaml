@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:PCL"
     xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     mc:Ignorable="d"
     Title="Ayaka 工作台"
@@ -15,6 +16,19 @@
     Background="White">
     <Grid>
         <wv2:WebView2 x:Name="Web" DefaultBackgroundColor="White" />
+        <!--本地同步浮动入口（US11）：悬浮于页面顶栏中央，仅本地模式显示-->
+        <local:MyButton
+            x:Name="BtnFolderSync"
+            Height="24"
+            Width="96"
+            Margin="0,8,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Opacity="0.9"
+            Text="⟳ 本地同步"
+            ToolTip="管理项目与本地文件夹的双向同步"
+            Visibility="Collapsed"
+            Click="BtnFolderSync_Click" />
         <TextBlock
             x:Name="LabLoading"
             Margin="0,0,0,0"

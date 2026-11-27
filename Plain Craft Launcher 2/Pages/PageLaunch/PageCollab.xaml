@@ -23,7 +23,9 @@
             <local:MyCard Margin="0,0,0,15" Title="我是房主">
                 <StackPanel Margin="20,40,20,15">
                     <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
-                               Text="开启后，本机 Ayakaleaf 服务将通过虚拟网络对队友开放。把邀请码发给队友即可邀请其加入，无需公网 IP 或端口映射。队友的访问流量经公共节点中转，敏感信息（文档内容）不会在节点明文传输。" />
+                                Text="开启后，本机 Ayakaleaf 服务将通过虚拟网络对队友开放。把邀请码发给队友即可邀请其加入，无需公网 IP 或端口映射。队友的访问流量经公共节点中转，敏感信息（文档内容）不会在节点明文传输。" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                                Text="队友无需安装完整启动器：把邀请码与发布页的「协作轻量端」（AyakaCollabLite，约 15 MB）一起发给对方，对方解压后运行 CollabLite.bat 输入邀请码即可加入。" />
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -42,7 +44,9 @@
             <local:MyCard Margin="0,0,0,15" Title="我是队友">
                 <StackPanel Margin="20,40,20,15">
                     <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
-                               Text="输入房主分享的邀请码加入协作网络，即可访问房主的 Ayakaleaf 服务。首次访问需在房主的服务中注册或登录账号。" />
+                                Text="输入房主分享的邀请码加入协作网络，即可访问房主的 Ayakaleaf 服务。首次访问需在房主的服务中注册或登录账号。" />
+                    <local:MyHint Margin="0,10,0,0" Theme="Blue"
+                                  Text="没有安装 AyakaLauncher？下载「协作轻量端」即可：从发布页获取 AyakaCollabLite（约 15 MB，按系统选择 x64 / arm64），解压后双击 CollabLite.bat，粘贴房主的邀请码加入组网，再点击「打开协作页面」用浏览器协作，无需安装任何运行时。" />
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1*" />

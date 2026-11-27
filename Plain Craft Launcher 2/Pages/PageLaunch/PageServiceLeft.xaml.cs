@@ -17,6 +17,8 @@ public partial class PageServiceLeft
     public PageServiceLeft()
     {
         InitializeComponent();
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _timer.Tick += (_, _) => RefreshStatusAsync();
         Loaded += (_, _) =>
         {
             if (!_isLoaded)
@@ -26,8 +28,6 @@ public partial class PageServiceLeft
             }
             RefreshStatusAsync();
         };
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _timer.Tick += (_, _) => RefreshStatusAsync();
     }
 
     private void SetStatus(AyakaleafStatus status)
@@ -109,6 +109,16 @@ public partial class PageServiceLeft
                 ModBase.RunInUi(() =>
                     HintService.Hint(start ? "Ayakaleaf 已就绪：" + AyakaleafService.BaseUrl : "服务栈已停止",
                         start ? HintType.Success : HintType.Info));
+            }
+            catch (EnvironmentNotReadyException)
+            {
+                // 环境未就绪（US2）：引导至环境自检页一键修复，而非当作启动失败
+                ModBase.RunInUi(() =>
+                {
+                    HintService.Hint("运行环境未就绪，已跳转「环境自检」页，请修复后重试", HintType.Info);
+                    LabProgress.Text = "环境未就绪：请到环境自检页修复后重试";
+                    ModMain.frmMain?.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Environment });
+                });
             }
             catch (Exception ex)
             {

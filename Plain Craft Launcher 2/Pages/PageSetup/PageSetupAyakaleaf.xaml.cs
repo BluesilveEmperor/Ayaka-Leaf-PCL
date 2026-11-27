@@ -11,7 +11,7 @@ namespace PCL;
 
 public partial class PageSetupAyakaleaf
 {
-    private new bool isLoaded;
+    private bool isLoaded;
 
     public PageSetupAyakaleaf()
     {
@@ -44,7 +44,9 @@ public partial class PageSetupAyakaleaf
         // Git-Bridge / MCP
         CheckGitBridge.SetChecked(cfg.EnableGitBridge, false);
 
-        // 沙箱编译 / Pandoc：WSL 容器环境不支持同级容器，仅作置灰展示，无可保存状态
+        // 沙箱编译：WSL 容器环境不支持同级容器，保持置灰展示
+        // Pandoc 文档导入：镜像已内置，状态行异步刷新（见 RefreshPandocStatusAsync）
+        _ = RefreshPandocStatusAsync();
 
         // AI 助手
         CheckAi.SetChecked(cfg.EnableAi, false);
@@ -107,8 +109,49 @@ public partial class PageSetupAyakaleaf
         TextOverleafImage.Text = cfg.OverleafImage;
         TextAdvancedEnv.Text = cfg.AdvancedEnv;
 
+        // 资源限制（FR-002）：0 表示不限制
+        TextMemoryLimit.Text = cfg.MemoryLimitMb.ToString();
+        TextCpuLimit.Text = cfg.CpuLimitCores.ToString();
+
         // 界面语言（18 语言复选列表）
         BuildLanguageList();
+    }
+
+    /// <summary>
+    ///     异步刷新 Pandoc 导入状态行：
+    ///     服务未启动 → 提示启动后检测；已启动且尚未探测 → 执行探测；
+    ///     已有探测结果 → 直接展示（容器运行期间结果不会变化）。
+    /// </summary>
+    private bool _pandocRefreshing;
+
+    private async Task RefreshPandocStatusAsync()
+    {
+        if (_pandocRefreshing)
+            return;
+        _pandocRefreshing = true;
+        try
+        {
+            if (!await AyakaleafService.IsContainerRunningAsync(AyakaleafService.OverleafContainer))
+            {
+                LabPandocStatus.Text = Lang.Text("Setup.Ayakaleaf.Pandoc.ServiceOffline");
+                return;
+            }
+            LabPandocStatus.Text = Lang.Text("Setup.Ayakaleaf.Pandoc.Checking");
+            if (ImportPipelineConfig.PandocAvailable == null)
+                await ImportPipelineConfig.ProbeAsync();
+            LabPandocStatus.Text = ImportPipelineConfig.PandocAvailable == true
+                ? $"{Lang.Text("Setup.Ayakaleaf.Pandoc.Available")}（{ImportPipelineConfig.PandocVersion}）"
+                : Lang.Text("Setup.Ayakaleaf.Pandoc.Unavailable");
+        }
+        catch (Exception)
+        {
+            // 状态刷新失败不阻塞设置页
+            LabPandocStatus.Text = Lang.Text("Setup.Ayakaleaf.Pandoc.Unavailable");
+        }
+        finally
+        {
+            _pandocRefreshing = false;
+        }
     }
 
     /// <summary>
@@ -189,9 +232,10 @@ public partial class PageSetupAyakaleaf
         var tag = box.Tag?.ToString();
         if (string.IsNullOrEmpty(tag))
             return;
-        if (tag == "AyakaleafAiTokenQuota")
+        // 整数项：配额 / 内存上限（MB）/ CPU 核心上限，解析失败按 0 处理
+        if (tag is "AyakaleafAiTokenQuota" or "AyakaleafMemoryLimitMb" or "AyakaleafCpuLimitCores")
         {
-            ConfigService.TrySetValue(tag, int.TryParse(box.Text.Trim(), out var quota) ? quota : 0);
+            ConfigService.TrySetValue(tag, int.TryParse(box.Text.Trim(), out var value) ? value : 0);
             return;
         }
         ConfigService.TrySetValue(tag, box.Text);
