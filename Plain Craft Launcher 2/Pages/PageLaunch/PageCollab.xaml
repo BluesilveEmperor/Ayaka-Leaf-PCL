@@ -26,6 +26,8 @@
                                 Text="开启后，本机 Ayakaleaf 服务将通过虚拟网络对队友开放。把邀请码发给队友即可邀请其加入，无需公网 IP 或端口映射。队友的访问流量经公共节点中转，敏感信息（文档内容）不会在节点明文传输。" />
                     <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
                                 Text="队友无需安装完整启动器：把邀请码与发布页的「协作轻量端」（AyakaCollabLite，约 15 MB）一起发给对方，对方解压后运行 CollabLite.bat 输入邀请码即可加入。" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                                Text="队友加入后将自动创建协作账号（免注册、自动登录），无需你手动开号；协作账号会带「协作」标记出现在「账号中心」，可随时停用、重置密码或删除。" />
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -44,20 +46,28 @@
             <local:MyCard Margin="0,0,0,15" Title="我是队友">
                 <StackPanel Margin="20,40,20,15">
                     <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
-                                Text="输入房主分享的邀请码加入协作网络，即可访问房主的 Ayakaleaf 服务。首次访问需在房主的服务中注册或登录账号。" />
+                                Text="输入房主分享的邀请码加入协作网络，即可访问房主的 Ayakaleaf 服务。加入后启动器会自动创建协作账号并完成登录，全程无需注册。" />
                     <local:MyHint Margin="0,10,0,0" Theme="Blue"
                                   Text="没有安装 AyakaLauncher？下载「协作轻量端」即可：从发布页获取 AyakaCollabLite（约 15 MB，按系统选择 x64 / arm64），解压后双击 CollabLite.bat，粘贴房主的邀请码加入组网，再点击「打开协作页面」用浏览器协作，无需安装任何运行时。" />
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" />
                             <ColumnDefinition Width="1*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <local:MyTextBox x:Name="TextInvite" HintText="A/XXXX-XXXX-XXXX-XXXX" FontSize="14"
                                          VerticalAlignment="Center" />
-                        <local:MyButton Grid.Column="1" x:Name="BtnJoin" Height="34" Width="110" Margin="10,0,0,0"
+                        <local:MyTextBox x:Name="TextDisplayName" Grid.Column="1" FontSize="14" Margin="10,0,0,0"
+                                         HintText="显示名（默认本机用户名）" VerticalAlignment="Center" />
+                        <local:MyButton Grid.Column="2" x:Name="BtnJoin" Height="34" Width="110" Margin="10,0,0,0"
                                         Text="加入协作" ColorType="Highlight" Click="BtnJoin_Click" />
                     </Grid>
                     <StackPanel x:Name="PanForwards" Margin="0,10,0,0" />
+                    <TextBlock x:Name="LabPairing" Margin="0,8,0,0" FontSize="12" Opacity="0.85"
+                               TextWrapping="Wrap" Visibility="Collapsed" />
+                    <local:MyButton x:Name="BtnRetryPairing" Height="31" Width="96" Margin="0,8,0,0"
+                                    HorizontalAlignment="Left" Text="重试配对"
+                                    Visibility="Collapsed" Click="BtnRetryPairing_Click" />
                     <local:MyButton x:Name="BtnOpenWorkbench" Height="35" Width="130" Margin="0,12,0,0"
                                     HorizontalAlignment="Left" Text="打开工作台" ColorType="Highlight"
                                     Visibility="Collapsed" Click="BtnOpenWorkbench_Click" />

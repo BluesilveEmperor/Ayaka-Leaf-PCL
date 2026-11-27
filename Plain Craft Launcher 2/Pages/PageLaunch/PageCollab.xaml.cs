@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using PCL.Core.Ayakaleaf.Collab;
 using PCL.Core.UI;
+using PCL.Core.Users;
 
 namespace PCL;
 
@@ -24,6 +25,9 @@ public partial class PageCollab
         _session = CollabService.GetOrCreateSession();
         Loaded += PageCollab_Loaded;
         Unloaded += PageCollab_Unloaded;
+        // 显示名默认预填启动器本地用户名，可修改（FR-010；未登录本地用户则留空，清洗后回退 guest）
+        if (string.IsNullOrWhiteSpace(TextDisplayName.Text))
+            TextDisplayName.Text = LocalUserSession.Instance.Current?.UserName ?? "";
         Refresh();
     }
 
@@ -158,6 +162,23 @@ public partial class PageCollab
             guestReady && _session.GuestLanguages.Count > 0 && _session.MainLocalPort is not null
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+
+        // 队友：协作账号配对状态（独立于加入状态：配对失败不影响转发可用，可重试）
+        LabPairing.Text = _session.PairingState switch
+        {
+            CollabPairingState.Pairing => _session.PairingStatusText,
+            CollabPairingState.Paired =>
+                $"协作账号已自动配对：{_session.GuestAccount?.Email}（打开工作台即为已登录状态）",
+            CollabPairingState.Failed => "自动配对失败：" + _session.PairingStatusText,
+            _ => "",
+        };
+        LabPairing.Visibility = guestReady && _session.PairingState != CollabPairingState.NotPaired
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        BtnRetryPairing.Visibility =
+            guestReady && _session.PairingState == CollabPairingState.Failed
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void BtnStartHost_Click(object sender, MouseButtonEventArgs e)
@@ -183,7 +204,8 @@ public partial class PageCollab
         }
         try
         {
-            _ = _session.JoinAsync(code, CancellationToken.None);
+            // 显示名默认预填本地用户名、可修改；为空时由配对流程清洗后回退 guest
+            _ = _session.JoinAsync(code, TextDisplayName.Text, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -217,11 +239,34 @@ public partial class PageCollab
         }
     }
 
+    private void BtnRetryPairing_Click(object sender, MouseButtonEventArgs e)
+    {
+        try
+        {
+            _ = _session.RetryPairingAsync();
+        }
+        catch (Exception ex)
+        {
+            HintService.Hint(ex.Message, HintType.Error);
+        }
+        Refresh();
+    }
+
     private void BtnOpenWorkbench_Click(object sender, MouseButtonEventArgs e)
     {
         if (_session.MainLocalPort is null || _session.GuestLanguages.Count == 0)
         {
             BtnOpenWorkbench.Visibility = Visibility.Collapsed;
+            return;
+        }
+        // 配对成功：注入协作账号会话，打开即已登录（零网页输入）；
+        // 未配对/配对失败：打开普通访客工作台（转发可用，可经网页手工登录，转发不受配对影响）
+        if (_session.PairingState == CollabPairingState.Paired &&
+            _session.GuestAccount is not null &&
+            !string.IsNullOrEmpty(_session.GuestSessionId))
+        {
+            var pairedWindow = new WorkbenchWindow(_session.GuestLanguages, _session.GuestAccount, _session.GuestSessionId);
+            pairedWindow.Show();
             return;
         }
         var window = new WorkbenchWindow(_session.GuestLanguages);

@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using PCL.Core.Ayakaleaf;
+using PCL.Core.Ayakaleaf.Collab;
 
 namespace PCL;
 
@@ -46,7 +47,7 @@ public partial class PageAccounts
             Render();
             LabStatus.Text = _accounts.Count == 0
                 ? "没有匹配的账号。"
-                : $"共 {_accounts.Count} 个账号（停用 {_accounts.Count(a => a.Suspended)}，未登录过 {_accounts.Count(a => a.Inactive)}）。";
+                : $"共 {_accounts.Count} 个账号（停用 {_accounts.Count(a => a.Suspended)}，未登录过 {_accounts.Count(a => a.Inactive)}，协作 {_accounts.Count(a => CollabGuestAccountStore.IsCollabAccount(a.Email))}）。";
         }
         catch (AyakaleafAccountException ex)
         {
@@ -70,6 +71,12 @@ public partial class PageAccounts
 
     private FrameworkElement BuildRow(ManagedAccount account)
     {
+        // 协作账号（队友自动开户）：加「协作」标记，标题显示解码出的队友显示名
+        bool isCollab = CollabGuestAccountStore.IsCollabAccount(account.Email);
+        string titleText = isCollab
+            ? CollabGuestAccountStore.TryDecodeDisplayName(account.Email) ?? account.DisplayName
+            : account.DisplayName;
+
         var grid = new Grid { Margin = new Thickness(0, 6, 0, 6) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -78,17 +85,21 @@ public partial class PageAccounts
         var title = new StackPanel { Orientation = Orientation.Horizontal };
         title.Children.Add(new TextBlock
         {
-            Text = account.DisplayName,
+            Text = titleText,
             FontWeight = FontWeights.SemiBold,
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Center,
         });
+        if (isCollab) title.Children.Add(BuildTag("协作", 0.75));
         if (account.IsAdmin) title.Children.Add(BuildTag("管理员", 0.85));
         if (account.Suspended) title.Children.Add(BuildTag("已停用", 0.55));
         else if (account.Inactive) title.Children.Add(BuildTag("未登录过", 0.55));
         info.Children.Add(title);
 
-        var sub = account.DisplayName == account.Email ? "" : account.Email;
+        // 协作账号标题是解码显示名，邮箱固定展示在副行以便识别与管理
+        var sub = isCollab
+            ? account.Email
+            : (account.DisplayName == account.Email ? "" : account.Email);
         if (account.SignUpAt is { } at)
             sub = sub.Length == 0 ? $"注册于 {at:yyyy-MM-dd}" : $"{sub}　注册于 {at:yyyy-MM-dd}";
         if (sub.Length > 0)

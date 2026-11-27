@@ -107,6 +107,30 @@ public partial class WorkbenchWindow
         Loaded += WorkbenchWindow_Loaded;
     }
 
+    /// <summary>
+    /// 访客 + 会话构造（协作自动配对）：经协作端口转发访问房主服务，
+    /// 并注入已配对协作账号登录取得的 <c>overleaf.sid</c>（<see cref="InjectSession"/> 复用
+    /// CookieManager 注入路径，作用域 localhost 与转发端口同宿主共享），打开即处于已登录状态，
+    /// 全程无需接触任何注册/登录表单。会话失效时不自动续期：回到协作页重新打开工作台即可重新注入。
+    /// </summary>
+    /// <param name="languages">加入时探测到的界面语言（含本地转发端口）。</param>
+    /// <param name="account">已配对的协作账号（仅用于诊断，密码不落日志）。</param>
+    /// <param name="sessionId">协作账号登录取得的 overleaf.sid。</param>
+    /// <param name="initialPath">初始访问路径。</param>
+    public WorkbenchWindow(IReadOnlyList<CollabGuestLanguage> languages, AyakaleafAccount account,
+        string sessionId, string initialPath = "/project")
+    {
+        InitializeComponent();
+        _isGuestMode = true;
+        _guestLanguages = languages;
+        _guestBaseUrl = languages.Count > 0 ? $"http://localhost:{languages[0].LocalPort}" : "http://localhost";
+        _account = account;
+        _sid = sessionId;
+        var path = string.IsNullOrWhiteSpace(initialPath) ? "/project" : initialPath.Trim();
+        _initialPath = path.StartsWith('/') ? path : "/" + path;
+        Loaded += WorkbenchWindow_Loaded;
+    }
+
     private async void WorkbenchWindow_Loaded(object sender, System.Windows.RoutedEventArgs e)
     {
         try
