@@ -1,0 +1,199 @@
+%======================================================================
+% 学科竞赛报告模板（数学建模风格）（Ayaka Launcher 内置模板库）
+% 引擎：XeLaTeX；编译命令：latexmk -xelatex main.tex
+% 字体：Fandol（TeX Live 自带，无需安装系统字体）
+% 说明：适用于数学建模等学科竞赛的报告撰写。按竞赛通行结构组织：
+%       摘要（独立成页）→ 问题重述 → 模型假设 → 符号说明 →
+%       模型建立与求解 → 模型评价 → 参考文献 → 附录。
+%======================================================================
+\documentclass[zihao=-4,a4paper]{ctexart}
+
+\usepackage{amsmath,amssymb}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\begin{document}
+
+%======================================================================
+% 标题与摘要（独立成页）
+%======================================================================
+\thispagestyle{empty}
+
+\begin{center}
+  {\zihao{2}\heiti 基于优化模型的共享单车调度问题研究}\\[1.0em]
+  {\zihao{-4}（竞赛报告）}
+\end{center}
+
+\vspace{0.6em}
+\begin{center}
+  {\zihao{3}\heiti 摘\quad\quad 要}
+\end{center}
+
+\quad 共享单车调度是城市慢行交通管理中的重要问题。本文针对早高峰时段共享单车
+“潮汐现象”导致的车辆分布失衡问题，建立了需求预测与车辆调度的联合优化模型。
+
+首先，基于历史骑行数据提取各站点的需求时序特征，采用时间序列方法对早高峰时段
+各站点的借还车需求进行预测；其次，综合考虑调度车的运输能力、行驶距离与站点
+库存约束，以调度总成本最小为目标建立整数规划模型，并设计启发式算法进行求解；
+最后，通过仿真实验对模型与算法的有效性进行验证。
+
+实验结果表明：与经验调度方案相比，本文模型可将早高峰时段的站点缺车率降低约
+31\%，同时调度总里程减少约 12\%，验证了模型的实用价值。
+
+\vspace{0.6em}
+\noindent{\heiti 关键词：}共享单车调度；需求预测；整数规划；启发式算法
+
+\newpage
+
+%======================================================================
+\section{问题重述}
+
+\subsection{问题背景}
+
+\quad 近年来，共享单车作为解决城市出行“最后一公里”问题的重要工具得到了快速普及。
+然而，由于早晚高峰通勤需求的“潮汐现象”，部分区域车辆严重短缺，而另一些区域车辆
+大量积压，严重影响了用户体验与运营效率。
+
+\subsection{问题提出}
+
+\quad 本文需要解决以下问题：
+\begin{enumerate}
+  \item 根据历史骑行数据，预测早高峰时段各站点的借车与还车需求；
+  \item 在需求预测的基础上，制定调度车的车辆调配方案，使得调度总成本最小；
+  \item 对所建立模型的优缺点进行分析，并对调度方案的鲁棒性进行讨论。
+\end{enumerate}
+
+%======================================================================
+\section{模型假设与符号说明}
+
+\subsection{模型假设}
+
+\begin{enumerate}
+  \item 假设早高峰时段各站点的借还车需求相互独立；
+  \item 假设调度车在站点间沿最短路径行驶，行驶速度恒定；
+  \item 假设调度过程在早高峰开始前完成，调度期间不发生新的借还车行为；
+  \item 不考虑车辆故障、恶劣天气等不可抗力因素的影响。
+\end{enumerate}
+
+\subsection{符号说明}
+
+\begin{longtable}{clp{9.5cm}}
+  \toprule
+  符号 & 单位 & 含义 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  符号 & 单位 & 含义 \\
+  \midrule
+  \endhead
+  $N$      & —    & 站点总数 \\
+  $d_i$     & 辆   & 站点 $i$ 的净需求（借车数减还车数） \\
+  $s_i$     & 辆   & 调度前站点 $i$ 的可用车辆数 \\
+  $c_i$     & 辆   & 站点 $i$ 的容量上限 \\
+  $Q$       & 辆   & 调度车最大载车量 \\
+  $x_{ij}$  & —    & 0--1 变量，调度车是否从站点 $i$ 行驶至站点 $j$ \\
+  $y_{i}$   & 辆   & 调度车在站点 $i$ 的装卸车数量（装为正、卸为负） \\
+  \bottomrule
+\end{longtable}
+
+%======================================================================
+\section{模型建立与求解}
+
+\subsection{需求预测模型}
+
+\quad 设站点 $i$ 在第 $t$ 天早高峰的借车量为 $b_{it}$，采用滑动平均与同期加权的组合
+方法进行预测：
+\begin{equation}
+  \hat{b}_{i,T} = \lambda \cdot \frac{1}{7} \sum_{k=T-7}^{T-1} b_{ik}
+    + (1 - \lambda) \cdot b_{i,\,T-7},
+  \label{eq-forecast}
+\end{equation}
+其中 $\lambda \in [0, 1]$ 为平滑系数，通过历史数据交叉验证选取。还车需求采用
+同样的方法预测。
+
+\subsection{调度优化模型}
+
+\quad 以调度总成本（行驶成本与装卸成本之和）最小为目标，建立混合整数规划模型：
+\begin{equation}
+  \min \; Z = \sum_{i=1}^{N} \sum_{j=1}^{N} c_{ij}\, x_{ij}
+    + \beta \sum_{i=1}^{N} |y_i|,
+  \label{eq-objective}
+\end{equation}
+约束条件包括：
+\begin{align}
+  & \sum_{j=1}^{N} x_{ij} = 1, && i = 1, 2, \ldots, N, \label{eq-con1}\\
+  & \sum_{i=1}^{N} x_{ij} = 1, && j = 1, 2, \ldots, N, \label{eq-con2}\\
+  & 0 \leq s_i - y_i \leq c_i, && i = 1, 2, \ldots, N, \label{eq-con3}\\
+  & \sum_{i \in \mathcal{P}} y_i \leq Q, && \text{调度车容量约束}. \label{eq-con4}
+\end{align}
+式~\eqref{eq-con1}、\eqref{eq-con2} 保证调度车恰好访问每个站点一次；
+式~\eqref{eq-con3} 保证各站点调整后的库存满足容量上下限；式~\eqref{eq-con4}
+保证任意时刻调度车的载车量不超过上限。
+
+\subsection{求解算法}
+
+\quad 由于问题为 NP-难的车辆路径问题变体，本文设计“初始解构造 + 邻域搜索”的
+两阶段启发式算法：第一阶段依据缺车与积压程度对站点排序，构造初始调度回路；第二
+阶段采用 2-opt 与交换算子对回路进行局部改进，直至目标值不再下降。
+
+%======================================================================
+\section{模型的评价与推广}
+
+\subsection{模型的优点}
+
+\begin{enumerate}
+  \item 将需求预测与调度优化统一建模，避免了预测误差在两阶段间的传递放大；
+  \item 目标函数兼顾行驶成本与装卸成本，贴近实际运营场景；
+  \item 启发式算法求解速度快，可满足运营方的实时决策需求。
+\end{enumerate}
+
+\subsection{模型的缺点}
+
+\begin{enumerate}
+  \item 需求预测未考虑天气、节假日等外生变量的影响；
+  \item 模型假设调度在高峰前一次性完成，未考虑分批滚动调度。
+\end{enumerate}
+
+\subsection{模型推广}
+
+\quad 本文模型可推广至共享电动车换电调度、网约车空车引导等同类“时空供需失衡”
+问题的求解。
+
+%======================================================================
+\begin{thebibliography}{9}
+  \zihao{5}
+  \bibitem{ref-shares} 李明, 王华. 基于聚类分析的共享单车时空分布特征研究[J].
+    交通运输系统工程与信息, 2021, 21(3): 148--156.
+  \bibitem{ref-vrp} Toth P, Vigo D. Vehicle Routing: Problems, Methods, and
+    Applications[M]. 2nd ed. Philadelphia: SIAM, 2014.
+  \bibitem{ref-arima} Box G E P, Jenkins G M. Time Series Analysis: Forecasting
+    and Control[M]. 5th ed. Hoboken: Wiley, 2015.
+  \bibitem{ref-opt} 司守奎, 孙玺菁. 数学建模算法与应用[M]. 2版. 北京: 国防工业出版社, 2019.
+\end{thebibliography}
+
+%======================================================================
+\section*{附录：核心求解代码（节选）}
+\addcontentsline{toc}{section}{附录：核心求解代码（节选）}
+
+\quad 以下为邻域搜索算法的 Python 实现节选（完整代码见随附源文件）：
+
+\begin{verbatim}
+def two_opt_improve(route, cost_matrix):
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, len(route) - 2):
+            for j in range(i + 1, len(route) - 1):
+                delta = (cost_matrix[route[i-1]][route[j]]
+                         + cost_matrix[route[i]][route[j+1]]
+                         - cost_matrix[route[i-1]][route[i]]
+                         - cost_matrix[route[j]][route[j+1]])
+                if delta < -1e-9:
+                    route[i:j+1] = route[i:j+1][::-1]
+                    improved = True
+    return route
+\end{verbatim}
+
+\end{document}

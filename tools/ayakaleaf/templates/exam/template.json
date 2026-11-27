@@ -1,0 +1,10 @@
+{
+  "id": "exam",
+  "category": "exam",
+  "title": "中学试卷",
+  "description": "适用于中学各学科单元测验、期中期末试卷排版，内置选择、填空、解答三种题型版式与考生信息栏，替换题目即可使用。",
+  "version": "1.0.0",
+  "entry": "main.tex",
+  "engine": "xelatex",
+  "minImageVariant": "full"
+}

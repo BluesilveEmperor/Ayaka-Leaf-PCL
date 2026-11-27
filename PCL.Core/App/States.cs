@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using PCL.Core.App.Configuration;
 
 namespace PCL.Core.App;
@@ -102,6 +102,23 @@ public static partial class States
         /// 启动器公告。
         /// </summary>
         [ConfigItem<int>("SystemSystemActivity", 0, ConfigSource.Local)] public partial int AnnounceSolution { get; set; }
+
+    }
+
+    /// <summary>
+    /// Ayakaleaf 服务状态（US2 环境检测与引导）。
+    /// </summary>
+    [ConfigGroup("Ayakaleaf")] partial class AyakaleafStatesGroup
+    {
+        /// <summary>
+        /// 环境检测最近一次全部通过：就绪后的后续启动快速通过，不再阻塞部署。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafEnvironmentReady", false, ConfigSource.Local)] public partial bool EnvironmentReady { get; set; }
+
+        /// <summary>
+        /// 首启环境引导已完成过一次：此后启动不再自动跳转环境检测页。
+        /// </summary>
+        [ConfigItem<bool>("AyakaleafFirstRunGuided", false, ConfigSource.Local)] public partial bool FirstRunGuided { get; set; }
 
     }
 }

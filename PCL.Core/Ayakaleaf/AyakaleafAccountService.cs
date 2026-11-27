@@ -47,6 +47,9 @@ public enum AyakaleafAccountErrorKind
 
     /// <summary>删除 Ayakaleaf 服务端账号被拒绝（缺少管理员凭据 / 管理端点拒绝等）。</summary>
     AccountDeleteRejected,
+
+    /// <summary>账号管理操作被拒绝（停用/启用/重置密码/权限变更：缺少管理员权限或参数非法）。</summary>
+    AdminOperationRejected,
 }
 
 /// <summary>
@@ -91,7 +94,7 @@ public sealed class AyakaleafAccountException : Exception
 /// 凭据存放在**启动器所在目录**下（便携、可随目录整体拷贝），不同启动器目录互不串号；
 /// 为保证全局单实例的 Overleaf 服务中不同目录不撞同一账号，开户邮箱附带启动器目录标识。
 /// </summary>
-public static class AyakaleafAccountService
+public static partial class AyakaleafAccountService
 {
     /// <summary>等待互斥量的上限，超时视为同一启动器目录下另有实例正在写入凭据。</summary>
     private static readonly TimeSpan MutexTimeout = TimeSpan.FromSeconds(10);
@@ -745,7 +748,6 @@ public static class AyakaleafAccountService
                 throw _ServiceUnavailable(ex);
             }
 
-            string? csrf = null;
             int? statusCode = null;
             using (response)
             {

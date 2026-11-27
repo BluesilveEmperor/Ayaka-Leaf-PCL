@@ -72,6 +72,12 @@ RUN mkdir /install-tl-unx \
 &&  $(find /usr/local/texlive -name tlmgr) path add \
 # tlmgr shipped by install-tl may be older than the repository tlpdb, which
 # makes 'tlmgr install' abort; refresh the updater first.
+# NOTE: 'fandol' is no longer installable: since the 2026-11-23 fandol 0.4
+# CTAN update only the Braille fonts remain (as fandol-braille), the CJK OTFs
+# are marked obsolete and dropped from the TL repository, so listing 'fandol'
+# aborts this layer with "not present in repository". Images built earlier
+# still ship the fonts; a fresh build needs its own CJK font (e.g.
+# lxgw-fonts + ctex fontset=none, or system Noto fonts).
 &&  tlmgr update --self --repository ${TEXLIVE_MIRROR} \
 &&  ( \
       for attempt in 1 2 3; do \
@@ -83,7 +89,6 @@ RUN mkdir /install-tl-unx \
           xetex \
           ctex \
           xecjk \
-          fandol \
           collection-latexrecommended \
           collection-latexextra \
           collection-pictures \
@@ -93,6 +98,27 @@ RUN mkdir /install-tl-unx \
           collection-fontsrecommended \
           collection-binextra \
           systeme \
+# Subject packages (physics / chemistry / biology / geography / programming).
+# The collections above already carry most of them; listing them explicitly
+# guards against collection membership changes (TL2026 dropped
+# collection-science) and costs only parse time, since installed packages are
+# skipped. metapost+pstricks+fontawesome5 are the parts the collections miss.
+          metapost \
+          feynmf \
+          pstricks \
+          pst-geo \
+          fontawesome5 \
+          physics braket tensor hepunits axodraw2 simpler-wick youngtab isotope \
+          quantikz qcircuit tikz-feynman tikz-feynhand \
+          mhchem chemformula chemfig chemmacros chemgreek chemnum chemcompounds \
+          chemarrow chemplants chemsec chemstyle ghsystem modiagram bpchem \
+          xymtex bohr achemso biblatex-chem \
+          texshade dnaseq pgfmolbio biocon seqsplit forest \
+          biblatex-science biblatex-nature \
+          worldflags datatool csvsimple tikz-3dplot tikzscale pgf-pie \
+          marvosym wasysym \
+          minted fvextra lstaddons listingsutf8 cprotect \
+          algorithms algorithmicx matlab-prettifier pseudocode syntax \
         && exit 0; \
         echo "tlmgr install attempt $$attempt failed, retrying..." >&2; \
         sleep 10; \

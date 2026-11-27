@@ -1,0 +1,49 @@
+%---------- 第二章 相关理论与技术基础 ----------
+\section{相关理论与技术基础}
+
+\subsection{卷积神经网络}
+
+\quad 卷积神经网络通过卷积层、池化层与全连接层的堆叠实现对图像特征的逐层提取。
+设输入特征图为 $X \in \mathbb{R}^{H \times W \times C}$，卷积核为
+$K \in \mathbb{R}^{k \times k \times C}$，则卷积层的输出可表示为
+\begin{equation}
+  Y_{i,j} = \sigma\left( \sum_{m=1}^{k} \sum_{n=1}^{k} \sum_{c=1}^{C}
+    K_{m,n,c} \, X_{i+m-1,\,j+n-1,\,c} + b \right),
+  \label{eq-conv}
+\end{equation}
+其中 $b$ 为偏置项，$\sigma(\cdot)$ 为非线性激活函数。式~\eqref{eq-conv} 表明，
+卷积运算通过局部连接与权值共享有效降低了模型参数量。
+
+\subsection{注意力机制}
+
+\quad 注意力机制通过为特征图的不同空间位置分配不同权重，引导网络聚焦于对识别结果
+贡献更大的区域。给定查询向量 $\boldsymbol{q}$ 与键值对集合
+$\{(\boldsymbol{k}_i, \boldsymbol{v}_i)\}_{i=1}^{N}$，注意力权重定义为
+\begin{equation}
+  \alpha_i = \frac{\exp\left( \boldsymbol{q}^{\mathsf{T}} \boldsymbol{k}_i
+    \middle/ \sqrt{d} \right)}
+    {\sum_{j=1}^{N} \exp\left( \boldsymbol{q}^{\mathsf{T}} \boldsymbol{k}_j
+    \middle/ \sqrt{d} \right)},
+  \qquad
+  \mathrm{Attn}(\boldsymbol{q}) = \sum_{i=1}^{N} \alpha_i \boldsymbol{v}_i,
+\end{equation}
+其中 $d$ 为缩放因子。常用的评价指标包括准确率、召回率与平均精度均值（mAP）。
+
+\subsection{常用数据集}
+
+\quad 本文实验所用公开数据集的基本情况如表~\ref{tab-datasets} 所示。
+
+\begin{table}[htbp]
+  \centering
+  \caption{常用图像识别数据集概况}
+  \label{tab-datasets}
+  \begin{tabular}{cccc}
+    \toprule
+    数据集 & 图像数量 & 类别数 & 图像尺寸 \\
+    \midrule
+    MNIST     & 70\,000  & 10  & $28 \times 28$ \\
+    CIFAR-10  & 60\,000  & 10  & $32 \times 32$ \\
+    ImageNet  & $1.4 \times 10^{7}$ & 1\,000 & 不定 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

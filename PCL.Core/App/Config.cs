@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using PCL.Core.App.Configuration;
+using PCL.Core.Ayakaleaf;
 
 namespace PCL.Core.App;
 
@@ -411,6 +413,27 @@ public static partial class Config
         /// </summary>
         [ConfigItem<string>("AyakaleafOverleafImage", "", ConfigSource.Local)] public partial string OverleafImage { get; set; }
 
+        /// <summary>
+        /// Overleaf 镜像变体（US3）："full" = 完整版（下载约 3.5GB）；
+        /// "cn" = 中文常用版精简镜像（下载约 1.7GB，仅保留中文常用宏包集，
+        /// 缺失宏包可经宏包管理面板在线补装）。
+        /// 部署时决定加载哪个镜像包；修改后需重新部署/重启服务生效。
+        /// 显式 AyakaleafOverleafImage 覆盖优先生效时本项仅影响部署加载。
+        /// </summary>
+        [ConfigItem<string>("AyakaleafImageVariant", "full", ConfigSource.Local)] public partial string ImageVariant { get; set; }
+
+        /// <summary>
+        /// 服务容器内存上限（MB，0 = 不限制）。用于把单个异常编译限制在容器内，
+        /// 避免把整机内存吃满；超限时仅容器内进程被 OOM 终止（FR-002）。
+        /// 修改后重启服务生效（容器按新配置重建，数据卷保留）。
+        /// </summary>
+        [ConfigItem<int>("AyakaleafMemoryLimitMb", 6144, ConfigSource.Local)] public partial int MemoryLimitMb { get; set; }
+
+        /// <summary>
+        /// 服务容器 CPU 上限（核数，0 = 不限制）。修改后重启服务生效。
+        /// </summary>
+        [ConfigItem<int>("AyakaleafCpuLimitCores", 0, ConfigSource.Local)] public partial int CpuLimitCores { get; set; }
+
         // ---------------- Git-Bridge / MCP ----------------
 
         /// <summary>
@@ -539,6 +562,17 @@ public static partial class Config
 
         /// <summary>Mendeley OAuth Client Secret。</summary>
         [ConfigItem<string>("AyakaleafMendeleyClientSecret", "", ConfigSource.SharedEncrypt)] public partial string MendeleyClientSecret { get; set; }
+
+        // ---------------- 本地文件夹双向同步（US11） ----------------
+
+        /// <summary>
+        /// 本地文件夹同步绑定列表（US11 / FR-016 / FR-017）。
+        /// 每条绑定描述「一个本地目录 ↔ 一个 Overleaf 项目」的双向同步关系
+        /// （方向固定双向、冲突固定保留双方版本），含暂停状态与最近同步时间。
+        /// 由 <see cref="FolderSyncService"/> 读改写；更新时始终写入新列表实例以强制落盘。
+        /// </summary>
+        [AnyConfigItem<List<SyncBinding>>("AyakaleafSyncBindings", ConfigSource.Local)]
+        public partial List<SyncBinding> SyncBindings { get; set; }
 
         // ---------------- 注册 / 验证码 / 安全 ----------------
 

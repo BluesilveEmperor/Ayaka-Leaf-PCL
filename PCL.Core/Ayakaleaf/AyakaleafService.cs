@@ -80,13 +80,44 @@ public static class AyakaleafService
     public const string MongoImage = "mongo:8.0";
     public const string RedisImage = "redis:7";
     public const string OverleafImage = "sharelatex/sharelatex:server-pro";
+    public const string OverleafImageCn = "sharelatex/sharelatex:server-pro-cn";
     public const string GitBridgeImage = "ghcr.io/ayaka-notes/overleaf-pro/git-bridge:latest";
 
+    /// <summary>Overleaf 镜像变体定义（US3）。</summary>
+    /// <param name="Id">变体标识（存入 Config.Ayakaleaf.ImageVariant）。</param>
+    /// <param name="Label">UI 显示名。</param>
+    /// <param name="Tag">镜像 repo:tag。</param>
+    /// <param name="TarballName">runtime/images 下的镜像包文件名。</param>
+    /// <param name="SizeLabel">UI 显示的下载体积标注。</param>
+    public sealed record OverleafImageVariant(string Id, string Label, string Tag, string TarballName, string SizeLabel);
+
     /// <summary>
-    /// 实际使用的 Overleaf 镜像（repo:tag）：配置覆盖优先，留空回落内置默认值。
+    /// 可选的 Overleaf 镜像变体注册表。部署时按 ImageVariant 选择加载对应镜像包
+    /// （DeployAsync 只加载基础镜像包 + 选中变体包，未选中的变体包跳过）。
     /// </summary>
-    public static string EffectiveOverleafImage =>
-        string.IsNullOrWhiteSpace(Config.Ayakaleaf.OverleafImage) ? OverleafImage : Config.Ayakaleaf.OverleafImage.Trim();
+    public static readonly IReadOnlyList<OverleafImageVariant> OverleafVariants = new[]
+    {
+        new OverleafImageVariant("full", "完整版", OverleafImage, "sharelatex-server-pro.tar.gz", "约 3.5GB"),
+        new OverleafImageVariant("cn", "中文常用版（精简）", OverleafImageCn, "sharelatex-server-pro-cn.tar.gz", "约 1.7GB"),
+    };
+
+    /// <summary>当前选中的镜像变体（配置值未识别时回落完整版）。</summary>
+    public static OverleafImageVariant SelectedOverleafVariant =>
+        OverleafVariants.FirstOrDefault(v => v.Id == Config.Ayakaleaf.ImageVariant) ?? OverleafVariants[0];
+
+    /// <summary>
+    /// 实际使用的 Overleaf 镜像（repo:tag）：显式镜像覆盖优先，
+    /// 其次按镜像变体（US3），均未设置时回落内置默认值。
+    /// </summary>
+    public static string EffectiveOverleafImage
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Config.Ayakaleaf.OverleafImage))
+                return Config.Ayakaleaf.OverleafImage.Trim();
+            return SelectedOverleafVariant.Tag;
+        }
+    }
 
     /// <summary>简体中文界面使用的端口（启用 zh-CN 时为主端口 +1；未启用时回落主端口，该端口不再映射）。</summary>
     public static int ChinesePort => PortForLanguage("zh-CN");
@@ -360,6 +391,71 @@ public static class AyakaleafService
     }
 
     /// <summary>
+    /// 判断本地镜像库中是否已有指定 repo:tag 的镜像。
+    /// </summary>
+    public static async Task<bool> ImageExistsAsync(string tag)
+    {
+        foreach (var image in await ListImagesAsync())
+        {
+            if ($"{image.Repository}:{image.Tag}" == tag)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 校验镜像包与同名 SHA256 边车文件（US3）：
+    /// 边车文件名 = 镜像包文件名将 ".tar.gz" 替换为 ".sha256"
+    ///（刻意不含 ".tar"，避免被 DeployAsync 的 *.tar* 通配误加载）。
+    /// 边车格式与 shasum 兼容："&lt;hex&gt;  &lt;filename&gt;"，取首个 token 比对。
+    /// 边车不存在时跳过校验（兼容旧分发包与自定义导入包）。
+    /// </summary>
+    public static void VerifyTarballChecksum(string tarPath)
+    {
+        var name = Path.GetFileName(tarPath);
+        var dir = Path.GetDirectoryName(tarPath) ?? ".";
+        var sidecarName = name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)
+            ? name.Substring(0, name.Length - ".tar.gz".Length) + ".sha256"
+            : name + ".sha256";
+        var sidecar = Path.Combine(dir, sidecarName);
+        if (!File.Exists(sidecar)) return;
+
+        string expected;
+        try
+        {
+            expected = File.ReadAllText(sidecar).Trim();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"读取镜像校验文件 {sidecarName} 失败：{ex.Message}");
+        }
+        var spaceIdx = expected.IndexOf(' ');
+        if (spaceIdx > 0) expected = expected.Substring(0, spaceIdx);
+        if (expected.Length != 64 || expected.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') && !(c >= 'A' && c <= 'F')))
+        {
+            LogWrapper.Warn($"[Ayakaleaf] 校验文件 {sidecarName} 格式异常（非 64 位十六进制），跳过校验");
+            return;
+        }
+
+        string actual;
+        try
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            using var stream = File.OpenRead(tarPath);
+            actual = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"计算镜像包 {name} 的 SHA256 失败：{ex.Message}");
+        }
+        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            throw new Exception(
+                $"镜像包 {name} 校验失败：SHA256 不匹配（期望 {expected[..12]}…，实际 {actual[..12]}…）。" +
+                "文件可能下载不完整或被篡改，请重新获取镜像包。");
+        LogWrapper.Info($"[Ayakaleaf] 镜像包 {name} SHA256 校验通过");
+    }
+
+    /// <summary>
     /// 获取容器日志尾部。
     /// </summary>
     public static async Task<string> GetLogsAsync(int tail = 120, string container = OverleafContainer)
@@ -420,19 +516,47 @@ public static class AyakaleafService
     /// </summary>
     public static async Task DeployAsync(Action<string> progress, CancellationToken ct = default)
     {
+        // 环境门禁（US2）：WSL / wslc 缺失时引导至环境检测页，而不是在这里报模糊错误
+        await EnvironmentCheckService.EnsureReadyForDeployAsync(progress, ct);
+
         if (!WslcInterop.IsAvailable)
             throw new Exception("未找到 wslc.exe（WSL 容器工具），请将 WSL 升级到 3.0 或更高版本后重试");
 
         var imagesDir = Path.Combine(RuntimeDirectory, "images");
         if (!Directory.Exists(imagesDir))
             throw new DirectoryNotFoundException($"未找到镜像目录 {imagesDir}");
-        var tars = Directory.GetFiles(imagesDir, "*.tar*").OrderBy(f => f).ToArray();
-        if (tars.Length == 0)
+
+        // 变体感知的镜像加载（US3）：未选中的 Overleaf 变体包跳过
+        //（wslc load 幂等，但白加载一个 3.5GB 的未选包纯属浪费时间）。
+        var overleafTarballNames = new HashSet<string>(
+            OverleafVariants.Select(v => v.TarballName), StringComparer.OrdinalIgnoreCase);
+        var selectedTarball = SelectedOverleafVariant.TarballName;
+
+        var tars = Directory.GetFiles(imagesDir, "*.tar*")
+            .Where(f => !overleafTarballNames.Contains(Path.GetFileName(f)) ||
+                        string.Equals(Path.GetFileName(f), selectedTarball, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f)
+            .ToList();
+        if (tars.Count == 0)
             throw new FileNotFoundException($"镜像目录 {imagesDir} 中没有镜像包（*.tar / *.tar.gz）");
+
+        // 选中变体的镜像包缺失且本地镜像库也没有对应镜像 → 明确报错（而不是后面启动才失败）
+        var hasSelectedTar = tars.Any(f => string.Equals(Path.GetFileName(f), selectedTarball, StringComparison.OrdinalIgnoreCase));
+        if (!hasSelectedTar && !await ImageExistsAsync(SelectedOverleafVariant.Tag))
+        {
+            var other = OverleafVariants.FirstOrDefault(v => v.Id != SelectedOverleafVariant.Id);
+            throw new FileNotFoundException(
+                $"未找到选中镜像变体「{SelectedOverleafVariant.Label}」的镜像包 {selectedTarball}。" +
+                (other == null
+                    ? $"请将镜像包放入 {imagesDir} 后重试。"
+                    : $"请将镜像包放入 {imagesDir}，或在部署设置中改选「{other.Label}」。"));
+        }
 
         foreach (var tar in tars)
         {
             ct.ThrowIfCancellationRequested();
+            progress($"校验镜像 {Path.GetFileName(tar)}…");
+            VerifyTarballChecksum(tar);
             progress($"加载镜像 {Path.GetFileName(tar)}…");
             var r = await WslcInterop.RunAsync($"load -i \"{tar}\"", 1800000);
             if (!r.IsSuccess)
@@ -951,11 +1075,30 @@ public static class AyakaleafService
     // ---------------- 启停 ----------------
 
     /// <summary>
+    /// 服务容器资源限制参数（FR-002）。没有独立沙箱容器时，用 cgroup 上限兜住
+    /// 「单个异常编译拖垮整机」的风险：超限只会在容器内 OOM/限流，宿主与其他用户不受影响。
+    /// </summary>
+    private static string BuildResourceArgs()
+    {
+        var sb = new StringBuilder();
+        var memoryMb = Config.Ayakaleaf.MemoryLimitMb;
+        if (memoryMb > 0)
+            sb.Append($"--memory {memoryMb}m --memory-swap {memoryMb}m ");
+        var cpuCores = Config.Ayakaleaf.CpuLimitCores;
+        if (cpuCores > 0)
+            sb.Append($"--cpus {cpuCores} ");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// 启动服务栈：MongoDB（含副本集初始化）→ Redis → Overleaf → 轮询探活。
     /// 容器不存在则创建，存在但停止则重新启动（数据卷内容保留）。
     /// </summary>
     public static async Task StartAsync(Action<string> progress, CancellationToken ct = default)
     {
+        // 环境门禁（US2）：与部署同一套快速通道（就绪过后不再重复检测）
+        await EnvironmentCheckService.EnsureReadyForDeployAsync(progress, ct);
+
         if (!WslcInterop.IsAvailable)
             throw new Exception("未找到 wslc.exe（WSL 容器工具），请将 WSL 升级到 3.0 或更高版本后重试");
 
@@ -1019,7 +1162,9 @@ public static class AyakaleafService
         var langMapping = BuildLangMapping(lanIp);
         // 多语言端口分配：en=主端口，其后每语言 +1（默认 en,zh-CN → 主端口,主端口+1，与历史一致）
         var languagePorts = GetEnabledLanguages().Select((_, i) => Config.Ayakaleaf.Port + i).ToList();
-        var profile = $"{bindHost}:{string.Join(",", languagePorts)}|{siteUrl}|{secret}|{langMapping}|{fingerprint}";
+        // 资源限制一并进签名：改上限同样需要重建容器
+        var resourceArgs = BuildResourceArgs();
+        var profile = $"{bindHost}:{string.Join(",", languagePorts)}|{siteUrl}|{secret}|{langMapping}|{fingerprint}|{Config.Ayakaleaf.MemoryLimitMb}|{Config.Ayakaleaf.CpuLimitCores}";
 
         // 配置漂移（端口、局域网开关、本机 IP、邀请密钥、功能配置变化）→ 删除重建容器；数据卷不受影响
         if (Config.Ayakaleaf.ContainerProfile != profile && await ContainerExistsAsync(OverleafContainer))
@@ -1056,6 +1201,7 @@ public static class AyakaleafService
             // en=主端口，其余语言依次 +1，页脚语言选择器可互相切换。
             // JSON 含引号，经 --env-file 传递以避开命令行转义问题。
             $"--env-file \"{WriteOverleafLanguageEnvFile(lanIp)}\" " +
+            $"{resourceArgs}" +
             EffectiveOverleafImage,
             progress);
         if (created) Config.Ayakaleaf.ContainerProfile = profile;
@@ -1070,6 +1216,8 @@ public static class AyakaleafService
             {
                 // 探活只证明主端口可访问，语言切换另需确认 nginx 补丁真的落地
                 await VerifyLanguageSwitchAsync();
+                // 导入管道（pandoc）可用性探测：失败只影响 Word/Markdown 导入，不阻断启动
+                await ImportPipelineConfig.ProbeAsync(ct);
                 return;
             }
             await Task.Delay(2000, ct);

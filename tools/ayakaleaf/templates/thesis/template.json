@@ -1,0 +1,10 @@
+{
+  "id": "thesis",
+  "category": "thesis",
+  "title": "本科毕设",
+  "description": "面向本科毕业设计（论文）撰写：封面、摘要、目录、分章正文、GB/T 7714 参考文献与致谢一应俱全，章节文件独立存放便于多人协作。",
+  "version": "1.0.0",
+  "entry": "main.tex",
+  "engine": "xelatex",
+  "minImageVariant": "full"
+}

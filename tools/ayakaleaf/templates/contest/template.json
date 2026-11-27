@@ -1,0 +1,10 @@
+{
+  "id": "contest",
+  "category": "contest",
+  "title": "竞赛报告",
+  "description": "数学建模等学科竞赛报告模板：独立摘要页、问题重述、模型假设、符号说明、模型建立与求解、模型评价与附录代码，符合通行评审版式。",
+  "version": "1.0.0",
+  "entry": "main.tex",
+  "engine": "xelatex",
+  "minImageVariant": "full"
+}

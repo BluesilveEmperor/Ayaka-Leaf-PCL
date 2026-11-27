@@ -1,0 +1,111 @@
+%======================================================================
+% 本科毕业设计（论文）模板（Ayaka Launcher 内置模板库）
+% 引擎：XeLaTeX；编译命令：latexmk -xelatex main.tex
+% 字体：Fandol（TeX Live 自带，无需安装系统字体）
+% 结构：封面 → 摘要 → 目录 → 正文（章节文件在 sections/ 目录）→ 参考文献 → 致谢
+% 说明：请将标注「TODO」的内容替换为实际信息；正文章节在 sections/ 下增删，
+%       并同步修改 main.tex 中的 \input 行。
+%======================================================================
+\documentclass[zihao=-4,a4paper]{ctexart}
+
+\usepackage{amsmath,amssymb}
+\usepackage[a4paper,left=2.8cm,right=2.6cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{setspace}
+\usepackage{hyperref}
+
+\hypersetup{hidelinks, unicode, bookmarksnumbered}
+
+%---------- 章节标题格式：第一章 / 1.1 ----------
+\ctexset{
+  section = {
+    name        = {第,章},
+    number      = \chinese{section},
+    format      = \centering\zihao{3}\heiti,
+    beforeskip  = 1.2ex plus 0.3ex,
+    afterskip   = 1.2ex plus 0.3ex,
+  },
+  subsection = {
+    format      = \zihao{4}\heiti,
+    beforeskip  = 1.0ex plus 0.2ex,
+    afterskip   = 0.8ex plus 0.2ex,
+  },
+}
+
+%---------- 论文信息（TODO：按实际填写） ----------
+\newcommand{\PaperTitle}{基于深度学习的图像识别方法研究}   % 论文题目
+\newcommand{\SchoolName}{XX 大学}                          % 学校名称
+\newcommand{\MajorName}{计算机科学与技术}                  % 专业名称
+\newcommand{\StudentName}{张\quad 三}                      % 学生姓名
+\newcommand{\StudentId}{2022010001}                        % 学号
+\newcommand{\AdvisorName}{李四\quad 教授}                  % 指导教师
+\newcommand{\FinishDate}{二〇二六年六月}                   % 完成日期
+
+\begin{document}
+
+%======================================================================
+% 封面
+%======================================================================
+\begin{titlepage}
+  \centering
+  \vspace*{1.0cm}
+  {\zihao{1}\heiti \SchoolName}\\[2.8cm]
+  {\zihao{2}\heiti 本科毕业设计（论文）}\\[3.0cm]
+  {\zihao{2}\heiti \PaperTitle}\\[3.5cm]
+  {
+    \zihao{3}
+    \renewcommand{\arraystretch}{1.9}
+    \begin{tabular}{r@{\quad}l}
+      专\quad\quad 业： & \underline{\makebox[7.2cm][c]{\MajorName}} \\
+      学\quad\quad 号： & \underline{\makebox[7.2cm][c]{\StudentId}} \\
+      学生姓名：       & \underline{\makebox[7.2cm][c]{\StudentName}} \\
+      指导教师：       & \underline{\makebox[7.2cm][c]{\AdvisorName}} \\
+    \end{tabular}
+  }
+  \vspace{2.8cm}
+
+  {\zihao{3}\FinishDate}
+\end{titlepage}
+
+%======================================================================
+% 前置部分（摘要、目录）
+%======================================================================
+\pagenumbering{Roman}
+\input{sections/abstract}
+
+\tableofcontents
+\clearpage
+
+%======================================================================
+% 正文部分
+%======================================================================
+\pagenumbering{arabic}
+\input{sections/chapter1}
+\input{sections/chapter2}
+\input{sections/chapter3}
+\input{sections/conclusion}
+
+%======================================================================
+% 参考文献
+%======================================================================
+\begin{thebibliography}{9}
+  \zihao{5}
+  \bibitem{ref-lecun2015} LeCun Y, Bengio Y, Hinton G. Deep learning[J]. Nature, 2015, 521(7553): 436--444.
+  \bibitem{ref-he2016} 何恺明, 张翔宇, 任少卿, 等. 深度残差学习中的图像识别[C]// 计算机视觉与模式识别会议. 拉斯维加斯: IEEE, 2016: 770--778.
+  \bibitem{ref-wang2020} 王五, 赵六. 基于卷积神经网络的中文文本分类研究[J]. 计算机应用, 2020, 40(5): 1281--1287.
+  \bibitem{ref-gb7714} 中华人民共和国国家标准化管理委员会. 信息与文献\ 参考文献著录规则: GB/T 7714—2015[S]. 北京: 中国标准出版社, 2015.
+  \bibitem{ref-zhou2019} 周志华. 机器学习[M]. 北京: 清华大学出版社, 2019.
+\end{thebibliography}
+
+%======================================================================
+% 致谢
+%======================================================================
+\section*{致\quad 谢}
+\phantomsection
+\addcontentsline{toc}{section}{致谢}
+本论文的完成离不开许多人的帮助。首先感谢指导教师 \AdvisorName{} 老师在选题、
+研究与写作过程中给予的悉心指导；感谢实验室同学在实验环境搭建与数据处理方面
+提供的帮助；感谢家人和朋友一直以来的支持与鼓励。在此一并致以诚挚的谢意。
+
+\end{document}

@@ -1,0 +1,10 @@
+{
+  "id": "journal",
+  "category": "journal",
+  "title": "国内期刊投稿",
+  "description": "国内科技期刊通用双栏版式：通栏标题作者摘要、关键词与中图分类号齐备，正文五号双栏，参考文献按 GB/T 7714 著录，投稿前按目标期刊简则微调即可。",
+  "version": "1.0.0",
+  "entry": "main.tex",
+  "engine": "xelatex",
+  "minImageVariant": "full"
+}
