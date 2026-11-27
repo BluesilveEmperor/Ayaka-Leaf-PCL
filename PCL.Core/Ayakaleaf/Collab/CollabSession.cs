@@ -43,6 +43,26 @@ public enum CollabStage
     Failed,
 }
 
+/// <summary>
+/// 队友视角的协作账号配对子状态（独立于 <see cref="CollabStage"/>）：
+/// 配对（自动开户 + 登录）在转发就绪（Ready）之后执行，配对失败不影响转发可用（D4），
+/// 可经 <see cref="CollabSession.RetryPairingAsync"/> 重试。
+/// </summary>
+public enum CollabPairingState
+{
+    /// <summary>未配对（未加入或已停止）。</summary>
+    NotPaired,
+
+    /// <summary>正在配对（PairingStatusText 描述当前步骤）。</summary>
+    Pairing,
+
+    /// <summary>配对成功（GuestAccount / GuestSessionId 可用）。</summary>
+    Paired,
+
+    /// <summary>配对失败（PairingStatusText 为中文原因）。</summary>
+    Failed,
+}
+
 /// <summary>协作相关的用户可见错误。</summary>
 public sealed class CollabException(string message) : Exception(message);
 
@@ -80,6 +100,8 @@ public sealed partial class CollabSession : IDisposable
     private EasyTierInstance? _instance;
     private CancellationTokenSource? _operationCts;
     private CancellationTokenSource? _monitorCts;
+    private CancellationTokenSource? _pairCts;
+    private string? _pairDisplayName;
     private int _disposed;
 
     /// <summary>会话状态变化（回调已封送到创建会话的 UI 线程）。</summary>
@@ -119,6 +141,18 @@ public sealed partial class CollabSession : IDisposable
 
     /// <summary>队友视角：访客工作台入口地址。</summary>
     public string? GuestBaseUrl => MainLocalPort is int port ? $"http://localhost:{port}" : null;
+
+    /// <summary>队友视角：协作账号配对状态（独立于 Stage，配对失败不影响转发可用）。</summary>
+    public CollabPairingState PairingState { get; private set; } = CollabPairingState.NotPaired;
+
+    /// <summary>队友视角：配对进度或失败原因（中文，不含任何密码信息）。</summary>
+    public string PairingStatusText { get; private set; } = "";
+
+    /// <summary>队友视角：配对成功的协作账号（密码仅存在于内存，绝不写日志）。</summary>
+    public AyakaleafAccount? GuestAccount { get; private set; }
+
+    /// <summary>队友视角：协作账号登录取得的 overleaf.sid。</summary>
+    public string? GuestSessionId { get; private set; }
 
     /// <summary>
     /// 房主：开启协作（校验服务运行 → 下载组件 → 生成邀请码 → 启动虚拟网络）。
@@ -207,10 +241,12 @@ public sealed partial class CollabSession : IDisposable
     }
 
     /// <summary>
-    /// 队友：加入协作（解析邀请码 → 下载组件 → 启动虚拟网络 → 寻找房主 → 逐端口转发）。
+    /// 队友：加入协作（解析邀请码 → 下载组件 → 启动虚拟网络 → 寻找房主 → 逐端口转发 →
+    /// Ready 后自动配对协作账号：查凭据 → 无则开户 → 登录；配对失败不影响转发可用）。
     /// </summary>
     /// <param name="inviteCode">邀请码（任意包含邀请码的文本均可）。</param>
-    public async Task JoinAsync(string inviteCode, CancellationToken cancellation)
+    /// <param name="displayName">队友显示名（用于生成协作账号，自动清洗）。</param>
+    public async Task JoinAsync(string inviteCode, string displayName, CancellationToken cancellation)
     {
         EnsureStartable();
         var operationCts = new CancellationTokenSource();
@@ -297,6 +333,7 @@ public sealed partial class CollabSession : IDisposable
 
             Stage = CollabStage.Ready;
             SetStatus("已加入协作");
+            StartPairing(displayName); // 自动配对协作账号（失败不改变 Ready，可重试）
             StartMonitorLoop();
             RaiseChanged();
         }
@@ -321,6 +358,7 @@ public sealed partial class CollabSession : IDisposable
         _operationCts?.Cancel();
         Stage = CollabStage.Idle;
         Role = CollabRole.None;
+        ResetPairingState();
         StopInternal();
         InviteCode = null;
         SetStatus("");
@@ -328,13 +366,125 @@ public sealed partial class CollabSession : IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 队友视角：重试协作账号配对（配对失败后调用；转发保持可用，不重新加入网络）。
+    /// </summary>
+    /// <exception cref="InvalidOperationException">当前不在「已加入且配对失败」的状态。</exception>
+    public Task RetryPairingAsync()
+    {
+        if (Role != CollabRole.Guest || Stage != CollabStage.Ready)
+            throw new InvalidOperationException("当前没有可重试配对的协作会话");
+        if (PairingState == CollabPairingState.Pairing)
+            throw new InvalidOperationException("正在配对中，请稍候");
+
+        StartPairing(_pairDisplayName ?? "");
+        return Task.CompletedTask;
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _operationCts?.Cancel();
+        ResetPairingState();
         StopInternal();
         _operationCts?.Dispose();
         _operationCts = null;
+    }
+
+    // ---------------- 协作账号配对（Ready 之后的独立子状态，失败不影响转发） ----------------
+
+    /// <summary>启动（或重启）配对：独立取消源驱动，网络加入流程的令牌不影响配对生命周期。</summary>
+    private void StartPairing(string displayName)
+    {
+        _pairDisplayName = displayName;
+        _pairCts?.Cancel();
+        _pairCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _pairCts = cts;
+        _ = RunPairingAsync(displayName, cts.Token);
+    }
+
+    /// <summary>
+    /// 配对核心：查本机该邀请码的既有凭据 → 有则直接登录（不开户）；无则按
+    /// 「协作邮箱 + 随机密码」注册 → 登录 → 保存凭据（DPAPI 加密，按邀请码隔离）。
+    /// 任一步失败：PairingState=Failed + 中文原因，会话保持 Ready（转发可用，可重试）。
+    /// </summary>
+    private async Task RunPairingAsync(string displayName, CancellationToken ct)
+    {
+        var baseUrl = GuestBaseUrl;
+        var code = InviteCode;
+        if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(code))
+            return; // 转发未就绪（极小概率竞态）：保持 NotPaired，由界面按未配对展示
+
+        PairingState = CollabPairingState.Pairing;
+
+        // 1) 查既有凭据：同一实例对同一邀请码重复加入直接登录，绝不重复开户（FR-006）
+        var credential = CollabGuestAccountStore.TryLoadCredential(code);
+        bool register = credential is null;
+        PairingStatusText = register ? "正在自动创建协作账号…" : "正在登录协作账号…";
+        RaiseChanged();
+
+        try
+        {
+            AyakaleafAccount account;
+            if (register)
+            {
+                // 2) 无既有凭据：按显示名生成协作邮箱 + 随机密码开户（凭据文件损坏也走此路径）
+                account = new AyakaleafAccount(
+                    CollabGuestAccountStore.BuildCollabEmail(displayName),
+                    CollabGuestAccountStore.GenerateCollabPassword());
+            }
+            else
+            {
+                account = credential!;
+            }
+
+            using var client = new CollabAccountClient(baseUrl);
+            if (register)
+            {
+                // 3) 注册：命中「已存在」（凭据丢失重装场景）抛 AccountConflict，
+                //    Message 含「联系房主重置密码 / 改显示名重新开户」的可操作建议
+                await client.RegisterAsync(account, ct).ConfigureAwait(false);
+
+                // 注册成功立即落盘凭据（DPAPI 加密，按邀请码隔离）：
+                // 即使随后登录失败（网络抖动），重试配对也只登录不开户，绝不产生重复账号
+                CollabGuestAccountStore.SaveCredential(code, account);
+            }
+
+            // 4) 登录：失败按「已被房主停用 / 密码不符」区分中文文案
+            var sid = await client.LoginAsync(account, ct).ConfigureAwait(false);
+
+            GuestAccount = account;
+            GuestSessionId = sid;
+            PairingState = CollabPairingState.Paired;
+            PairingStatusText = "协作账号已就绪";
+            LogWrapper.Info($"[Collab] 协作账号配对完成：{account.Email}");
+        }
+        catch (OperationCanceledException)
+        {
+            // 配对被主动取消（停止协作 / 重新配对）：状态由后续流程重置，不视为失败
+        }
+        catch (Exception ex)
+        {
+            PairingState = CollabPairingState.Failed;
+            PairingStatusText = ex is AyakaleafAccountException ? ex.Message : "自动配对出错：" + ex.Message;
+            LogWrapper.Warn(ex, "Collab", "协作账号配对失败（转发保持可用）");
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>复位配对子状态（停止会话 / 重新加入时调用）。</summary>
+    private void ResetPairingState()
+    {
+        _pairCts?.Cancel();
+        _pairCts?.Dispose();
+        _pairCts = null;
+        _pairDisplayName = null;
+        PairingState = CollabPairingState.NotPaired;
+        PairingStatusText = "";
+        GuestAccount = null;
+        GuestSessionId = null;
     }
 
     // ---------------- 内部实现 ----------------
@@ -357,6 +507,7 @@ public sealed partial class CollabSession : IDisposable
         Role = CollabRole.None;
         Stage = CollabStage.Idle;
         InviteCode = null;
+        ResetPairingState();
         SetStatus("");
         RaiseChanged();
     }
