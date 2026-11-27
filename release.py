@@ -13,6 +13,16 @@ Release 不再附带运行时包；对外分发统一使用网盘提供的 runti
 可选产出（--with-bundle）：
   release/AyakaLauncher_<版本>_<配置>_<平台>.zip —— exe + runtime 的整合包（约 4.2GB）
 
+镜像变体校验（0.3 前置检查）：
+  runtime/images/images-manifest.json 在时，逐一校验清单声明的镜像包
+  （双变体主镜像：完整版 sharelatex-server-pro / 中文常用版 sharelatex-server-pro-cn）
+  与 .sha256 伴生文件一致，防止产出残缺或被篡改的运行时包。
+
+轻量协作客户端安装包（US9）：
+  release/AyakaCollabLite_<版本>_<平台>.zip（≤ 50MB）+ .sha256。
+  已存在则校验哈希后纳入产物清单；--with-collab-lite 时先经
+  tools/collab-lite/build-collab-lite.ps1 构建（首次需联网下载 EasyTier 组件）。
+
 本机运行目录：dist\ 存在时（本机日常运行布局），发布后自动同步新 exe 到 dist\AyakaLauncher.exe；
 exe 被占用（启动器正在运行）时只告警不失败。
 
@@ -24,6 +34,7 @@ ARM64/AArch64 → arm64），显式指定 --platform x64/arm64 可覆盖；
 runtime.zip 与 CPU 架构无关，任意目标平台均会产出（通用运行时包）。
 
 用法：python release.py [--configuration Release] [--platform auto] [--with-bundle]
+                        [--with-collab-lite]
       python release.py --bump [--version X.Y.Z] [--code N]     # 版本号同步升级
       python release.py --upload [--platform x64[,arm64]] [--tag vX.Y.Z]
                                [--release-title 标题] [--notes-file 文件] [--prerelease]
@@ -50,6 +61,8 @@ ARTIFACT = ROOT / "artifact"
 RELEASE_DIR = ROOT / "release"
 RUNTIME_DIR = ROOT / "runtime"
 RUNTIME_IMAGES = RUNTIME_DIR / "images"
+IMAGES_MANIFEST = RUNTIME_IMAGES / "images-manifest.json"
+COLLAB_LITE_BUILD = ROOT / "tools" / "collab-lite" / "build-collab-lite.ps1"
 # git-bridge.tar.gz 为 Git-Bridge / MCP / 三方同步的必选镜像（启用对应功能时容器必需）
 REQUIRED_IMAGES = ["sharelatex-server-pro.tar.gz", "git-bridge.tar.gz", "mongo-8.0.tar.gz", "redis-7.tar.gz"]
 # tar.gz 等已压缩数据用最低压缩级（对已 gzip 内容再压缩几乎无收益，可大幅提速），
@@ -226,6 +239,91 @@ def runtime_entries() -> list[tuple[Path, str]]:
     return entries
 
 
+def sha256_of(path: Path) -> str:
+    """计算文件 SHA256（分块流式，轻量端安装包等小产物用）。"""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(4 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_images_manifest() -> None:
+    """0.3 镜像变体清单校验（双变体主镜像产物：完整版 server-pro / 中文常用版 server-pro-cn）。
+
+    清单存在 → 清单声明的每个镜像包必须存在，且 .sha256 伴生文件与清单一致
+    （防残缺/防篡改）；清单缺失 → 旧版 runtime 布局，仅告警不阻断。
+    """
+    if not IMAGES_MANIFEST.exists():
+        print("警告：未找到 runtime\\images\\images-manifest.json（旧版 runtime 布局），跳过镜像清单校验。")
+        return
+    manifest = json.loads(IMAGES_MANIFEST.read_text(encoding="utf-8"))
+    for name, entry in manifest.items():
+        tar_path = RUNTIME_IMAGES / name
+        if not tar_path.exists():
+            fail(f"镜像清单声明了 {name}，但文件缺失：{tar_path}。请先补齐双变体镜像包（tools/runtime/build-images.py）。")
+        # 边车命名与 AyakaleafService.VerifyTarballChecksum 一致：".tar.gz" → ".sha256"
+        # （刻意不含 ".tar"，避免被部署流程的 *.tar* 通配误加载）
+        sidecar_name = name[:-len(".tar.gz")] + ".sha256" if name.lower().endswith(".tar.gz") else name + ".sha256"
+        sidecar = RUNTIME_IMAGES / sidecar_name
+        if not sidecar.exists():
+            fail(f"缺少镜像哈希伴生文件：{sidecar}。请经 tools/runtime/build-images.py 重新导出镜像。")
+        sidecar_hash = sidecar.read_text(encoding="utf-8").strip().split(" ")[0]
+        if sidecar_hash != entry["sha256"]:
+            fail(f"{name} 的 .sha256 伴生文件与 images-manifest.json 不一致（{sidecar_hash} ≠ {entry['sha256']}）。请重新导出镜像。")
+    print(f"镜像清单校验通过：{len(manifest)} 个镜像包（含双变体主镜像）")
+
+
+def find_collab_lite() -> Path | None:
+    """定位 release 下最新的轻量端安装包（AyakaCollabLite_<版本>_<平台>.zip）。"""
+    candidates = [p for p in RELEASE_DIR.glob("AyakaCollabLite_*_*.zip") if p.is_file()]
+    return max(candidates, key=lambda p: p.stat().st_mtime) if candidates else None
+
+
+def build_collab_lite(platform: str) -> None:
+    """经 tools/collab-lite/build-collab-lite.ps1 构建轻量端安装包（优先 pwsh，缺失退回 powershell）。"""
+    print("构建协作轻量端安装包（tools/collab-lite）…")
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if shell is None:
+        fail("未找到 pwsh / powershell，无法构建轻量端安装包；请手动运行 tools/collab-lite/build-collab-lite.ps1。")
+    result = subprocess.run(
+        [shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(COLLAB_LITE_BUILD),
+         "-Platform", platform],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.returncode != 0:
+        if result.stderr:
+            print(result.stderr, end="")
+        fail(f"构建轻量端安装包失败（{result.returncode}）")
+
+
+def provision_collab_lite(platform: str, with_build: bool) -> Path | None:
+    """3.5 轻量协作客户端安装包（US9）：按需构建，校验伴生 .sha256（缺失则补生成）。
+
+    返回安装包路径（不存在且未构建时返回 None）。
+    """
+    if with_build:
+        build_collab_lite(platform)
+    lite = find_collab_lite()
+    if lite is None:
+        print("警告：未找到轻量端安装包（release\\AyakaCollabLite_*.zip）。"
+              "可运行 tools/collab-lite/build-collab-lite.ps1 生成，或加 --with-collab-lite 随发布一并构建。")
+        return None
+    digest = sha256_of(lite)
+    sidecar = lite.with_name(lite.name + ".sha256")
+    if sidecar.exists():
+        sidecar_hash = sidecar.read_text(encoding="utf-8").strip().split(" ")[0]
+        if sidecar_hash != digest:
+            fail(f"轻量端安装包哈希与伴生 .sha256 不一致（{digest} ≠ {sidecar_hash}），产物疑似损坏：{lite}")
+    else:
+        sidecar.write_text(f"{digest}  {lite.name}\n", encoding="ascii")
+        print(f"已补生成轻量端哈希伴生文件：{sidecar}")
+    print(f"轻量端安装包就绪：{lite.name}")
+    return lite
+
+
 def compress_entries(zip_path: Path, activity: str, entries: list[tuple[Path, str]]) -> None:
     """流式压缩到 zip，带字节级进度条（条目内按 4MB 块推进）。"""
     zip_path = Path(zip_path)
@@ -329,6 +427,18 @@ def upload(platform_list: list[str], tag: str | None, title: str | None,
         files.extend([asset, sha_file])
         print(f"产物就绪：{asset.name}（{human_size(asset)}）sha256={digest}")
 
+    # ---- 1.5 轻量协作客户端安装包（US9）纳入 Release 附件清单（≤ 50MB，C5 分发契约）----
+    lite = find_collab_lite()
+    if lite is not None:
+        sidecar = lite.with_name(lite.name + ".sha256")
+        files.append(lite)
+        if sidecar.exists():
+            files.append(sidecar)
+        print(f"附件纳入轻量端安装包：{lite.name}（{human_size(lite)}）")
+    else:
+        print("警告：未找到轻量端安装包（release\\AyakaCollabLite_*.zip），本次 Release 不附带；"
+              "可运行 tools/collab-lite/build-collab-lite.ps1 生成。")
+
     # ---- 2. 上传（gh CLI）----
     if shutil.which("gh") is None:
         print()
@@ -365,6 +475,8 @@ def main() -> None:
     parser.add_argument("--configuration", default="Release", help="构建配置（默认 Release）")
     parser.add_argument("--platform", default="auto", help="目标平台（默认 auto：自动探测本机架构 x86_64→x64 / ARM64→arm64；--upload 模式支持逗号分隔多平台）")
     parser.add_argument("--with-bundle", action="store_true", help="额外打包 exe + runtime 整合包")
+    parser.add_argument("--with-collab-lite", action="store_true",
+                        help="先经 tools/collab-lite/build-collab-lite.ps1 构建轻量端安装包（缺失时自动补建）")
     parser.add_argument("--bump", action="store_true", help="同步升级版本号（metadata.json + csproj）")
     parser.add_argument("--version", default=None, help="--bump 指定版本号 X.Y.Z（缺省 minor+1、patch 归零）")
     parser.add_argument("--code", type=int, default=None, help="--bump 指定版本 code（缺省 +1）")
@@ -405,6 +517,9 @@ def main() -> None:
         if not image_path.exists():
             fail(f"缺少运行时镜像：{image_path}。请先补齐镜像包（可从网盘 runtime.7z 解压到 runtime\\ 目录）后重试。")
 
+    # 0.3 镜像变体清单校验（双变体主镜像产物，与 PS 版一致）
+    validate_images_manifest()
+
     # ---- 1. Release 发布 ----
     publish(configuration, platform)
 
@@ -438,6 +553,9 @@ def main() -> None:
     entries = runtime_entries()
     compress_entries(zip_runtime, "打包 runtime.zip", entries)
 
+    # ---- 3.5 轻量协作客户端安装包（US9）：构建（--with-collab-lite）或校验已有产物 ----
+    collab_lite = provision_collab_lite(platform, args.with_collab_lite)
+
     # ---- 4. 可选：整合包（exe + runtime）----
     bundle = None
     if args.with_bundle:
@@ -452,6 +570,8 @@ def main() -> None:
     print(f"  {zip_runtime}（{human_size(zip_runtime)}）")
     if bundle is not None:
         print(f"  {bundle}（{human_size(bundle)}）")
+    if collab_lite is not None:
+        print(f"  {collab_lite}（{human_size(collab_lite)}）+ .sha256")
     print()
     print("发布完成。release/runtime.zip 仅供本机整合包与离线分发，不再随 Release 发布；运行时包统一由网盘 runtime.7z 分发。")
 

@@ -359,6 +359,8 @@ release/
 runtime.7z
 # 项目目录内的 runtime junction（指向仓库根 runtime，防 git 穿透入库）
 Plain Craft Launcher 2/runtime/
+# pandoc 静态包（约 30MB，由 tools/runtime/pandoc/fetch-pandoc.py 下载，不入库）
+tools/runtime/pandoc/vendor/
 
 # claude-code 本地推送配置（不入库）
 .claude/
